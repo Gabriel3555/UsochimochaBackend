@@ -5,6 +5,7 @@ import com.app.usochicamochabackend.catalog.infrastructure.repository.TipoVehicu
 import com.app.usochicamochabackend.catalog.infrastructure.repository.UbicacionRepository;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.moto.application.dto.DocumentoExistenteResponse;
+import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleProjection;
 import com.app.usochicamochabackend.moto.application.dto.MotoPlacaResponse;
 import com.app.usochicamochabackend.moto.application.dto.UbicacionResponse;
 import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
@@ -63,14 +64,19 @@ class MotoServiceTest {
 
     @Test
     void getMotocicletas_ShouldReturnList() {
-        when(vehicleRepository.findAllByTipoName("MOTOCICLETA"))
-                .thenReturn(List.of(mockVehiculo));
+        VehicleProjection proj = mock(VehicleProjection.class);
+        when(proj.getId()).thenReturn(1);
+        when(proj.getPlaca()).thenReturn("MOTO123");
+        when(proj.getIdUbicacionBase()).thenReturn(null);
+        when(proj.getUbicacionBase()).thenReturn(null);
+
+        when(vehicleRepository.findAllActiveVehiclesByTipoName("MOTOCICLETA"))
+                .thenReturn(List.of(proj));
 
         List<MotoPlacaResponse> result = motoService.getMotocicletas();
 
         assertEquals(1, result.size());
         assertEquals("MOTO123", result.get(0).placa());
-        verify(vehicleRepository).findAllByTipoName("MOTOCICLETA");
     }
 
     @Test

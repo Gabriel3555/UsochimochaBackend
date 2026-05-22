@@ -2,6 +2,7 @@ package com.app.usochicamochabackend.moto.web;
 
 import com.app.usochicamochabackend.auth.utils.JwtUtils;
 import com.app.usochicamochabackend.moto.application.dto.*;
+import com.app.usochicamochabackend.update.application.service.ExcelGenerationService;
 import com.app.usochicamochabackend.moto.application.port.MotoMonitoringUseCase;
 import com.app.usochicamochabackend.moto.application.service.MotoService;
 import com.app.usochicamochabackend.vehicleinspection.application.port.GetVehicleInspectionsUseCase;
@@ -43,6 +44,9 @@ class MotoControllerTest {
 
     @MockBean
     private JwtUtils jwtUtils;
+
+    @MockBean
+    private ExcelGenerationService excelGenerationService;
 
     @Autowired
     private ObjectMapper objectMapper;

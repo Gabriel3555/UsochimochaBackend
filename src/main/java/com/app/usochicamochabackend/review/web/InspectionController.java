@@ -39,6 +39,7 @@ public class InspectionController {
     private final GetInspectionImagesUseCase  getInspectionImagesUseCase;
     private final SaveInspectionImageUseCase  saveInspectionImageUseCase;
     private final GetAllInspectionsForExportUseCase getAllInspectionsForExportUseCase;
+    private final UpdateInspectionHourMeterUseCase updateInspectionHourMeterUseCase;
     private final ExcelGenerationService excelGenerationService;
 
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -116,6 +117,19 @@ public class InspectionController {
         Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
         Page<InspectionFormResponse> inspections = getAllInspectionsWithoutImagesUseCase.getAllInspectionsWithoutImages(pageable);
         return ResponseEntity.ok(inspections);
+    }
+
+    @PatchMapping("/machine/{machineId}/hour-meter")
+    @Operation(
+            summary = "Correct the hourmeter of the latest inspection for a machine",
+            description = "Updates the hourMeter field of the most recent inspection for the given machine."
+    )
+    public ResponseEntity<Void> updateHourMeter(
+            @PathVariable Long machineId,
+            @RequestBody Double newHourMeter
+    ) {
+        updateInspectionHourMeterUseCase.updateHourMeter(machineId, newHourMeter);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/export")

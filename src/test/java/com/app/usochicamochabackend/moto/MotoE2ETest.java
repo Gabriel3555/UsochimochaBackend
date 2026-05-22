@@ -1,6 +1,7 @@
 package com.app.usochicamochabackend.moto;
 
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
+import org.junit.jupiter.api.Tag;
 import com.app.usochicamochabackend.catalog.infrastructure.entity.TipoVehiculoEntity;
 import com.app.usochicamochabackend.catalog.infrastructure.entity.UbicacionEntity;
 import com.app.usochicamochabackend.catalog.infrastructure.repository.TipoVehiculoRepository;
@@ -12,7 +13,9 @@ import com.app.usochicamochabackend.vehicle.infrastructure.repository.MarcaModel
 import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleRepository;
 import com.app.usochicamochabackend.vehicleinspection.infrastructure.repository.InspPreOperativaRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -23,7 +26,6 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Set;
 
@@ -33,10 +35,10 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+@Tag("e2e")
 @SpringBootTest
 @AutoConfigureMockMvc(addFilters = false)
 @ActiveProfiles("test")
-@Transactional
 class MotoE2ETest {
 
     @Autowired
@@ -60,8 +62,22 @@ class MotoE2ETest {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     private Integer testVehiculoId;
     private Integer testUbicacionId;
+
+    @AfterEach
+    void tearDown() {
+        jdbcTemplate.execute("SET REFERENTIAL_INTEGRITY FALSE");
+        inspeccionRepository.deleteAll();
+        vehicleRepository.deleteAll();
+        tipoVehiculoRepository.deleteAll();
+        ubicacionRepository.deleteAll();
+        marcaModeloRepository.deleteAll();
+        jdbcTemplate.execute("SET REFERENTIAL_INTEGRITY TRUE");
+    }
 
     @BeforeEach
     void setUp() {
@@ -133,6 +149,11 @@ class MotoE2ETest {
         assertThat(lastInspection).isPresent();
         assertThat(lastInspection.get().getKilometrajeReportado()).isEqualTo(150);
         assertThat(lastInspection.get().getObservacionesFinales()).isEqualTo("Prueba E2E terminada");
+
+        // Paso 4: verificar que la inspección es visible en el panel web administrativo
+        mockMvc.perform(get("/api/v1/moto/inspections/reports"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[?(@.placa=='E2E-123')]").exists());
 
         SecurityContextHolder.clearContext();
     }

@@ -39,7 +39,7 @@ import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
-public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveInspectionImageUseCase, GetInspectionByIdUseCase, GetInspectionImagesUseCase, GetAllInspectionsWithoutImagesUseCase, GetAllInspectionsForExportUseCase {
+public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveInspectionImageUseCase, GetInspectionByIdUseCase, GetInspectionImagesUseCase, GetAllInspectionsWithoutImagesUseCase, GetAllInspectionsForExportUseCase, UpdateInspectionHourMeterUseCase {
 
     private final NotificationService notificationService;
     private final InspectionRepository inspectionRepository;
@@ -265,5 +265,16 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
     @Override
     public List<InspectionEntity> getAllInspectionsForExport() {
         return inspectionRepository.findAllWithMachineAndUser();
+    }
+
+    @Override
+    public void updateHourMeter(Long machineId, Double newHourMeter) {
+        InspectionEntity last = inspectionRepository.getLastInspection(machineId);
+        if (last == null) throw new ResourceNotFoundException("No inspection found for machine " + machineId);
+        last.setHourMeter(newHourMeter);
+        inspectionRepository.save(last);
+
+        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        saveActionUseCase.save("El usuario " + userPrincipal.username() + " corrigió el horómetro de la máquina " + last.getMachine().getName() + " a " + newHourMeter);
     }
 }
