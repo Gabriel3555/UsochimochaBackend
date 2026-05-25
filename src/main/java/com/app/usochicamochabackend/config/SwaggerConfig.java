@@ -21,7 +21,7 @@ import org.springframework.context.annotation.Bean;
             ),
             @Server(
                     description = "PROD SERVER",
-                    url = "https://usochimochabackend.onrender.com"
+                    url = "https://usochimochabackend.co"
             )
         },
         security = {
