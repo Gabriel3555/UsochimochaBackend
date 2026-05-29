@@ -307,7 +307,8 @@ public class MotoService implements MotoCRUDUseCase {
         VehicleEntity entity = vehicleRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Moto no encontrada"));
         assertMotoTipo(entity);
-        vehicleRepository.deleteById(id);
+        entity.setActivo(false);
+        vehicleRepository.save(entity);
     }
 
     private void assertMotoTipo(VehicleEntity entity) {
