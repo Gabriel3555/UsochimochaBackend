@@ -55,53 +55,63 @@ public class SecurityConfig {
                             "/api/v1/moto/documento/imagen/**",
                             "/ws/**").permitAll();
 
-                    // 2. Consulta de Catálogos (Mecánico + Admin)
-                    http.requestMatchers(HttpMethod.GET, "/api/v1/vehicle/**").hasAnyRole("MECANIC", "ADMIN");
-                    http.requestMatchers(HttpMethod.GET, "/api/v1/moto/**").hasAnyRole("MECANIC", "ADMIN");
-                    http.requestMatchers(HttpMethod.GET, "/api/v1/machine/**").hasAnyRole("MECANIC", "ADMIN");
-                    /** Catálogos y marcas usados en inventario (listas, selects); lectura para mecánico. */
-                    http.requestMatchers(HttpMethod.GET, "/api/v1/catalog/**").hasAnyRole("MECANIC", "ADMIN");
-                    http.requestMatchers(HttpMethod.GET, "/api/v1/brand/**").hasAnyRole("MECANIC", "ADMIN");
+                    // 2. Consulta de Catálogos (Operario + Admin)
+                    /** Catálogos y marcas usados en inventario (listas, selects); lectura para operario. */
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/catalog/**").hasAnyRole("OPERARIO", "ADMIN", "ACEITE");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/brand/**").hasAnyRole("OPERARIO", "ADMIN", "ACEITE");
 
-                    // 3. Registro de Inspecciones (Mecánico + Admin)
-                    http.requestMatchers(HttpMethod.POST, "/api/v1/vehicle-inspection/**").hasAnyRole("MECANIC", "ADMIN");
-                    http.requestMatchers(HttpMethod.POST, "/api/v1/moto/inspeccion").hasAnyRole("MECANIC", "ADMIN");
-                    http.requestMatchers(HttpMethod.POST, "/api/v1/inspection/**").hasAnyRole("MECANIC", "ADMIN");
+                    // ACEITE role: can only access oil change endpoints and catalogs
+                    http.requestMatchers(HttpMethod.POST, "/api/oil-changes/motor").hasAnyRole("OPERARIO", "ADMIN", "ACEITE");
+                    http.requestMatchers(HttpMethod.POST, "/api/oil-changes/hydraulic").hasAnyRole("OPERARIO", "ADMIN", "ACEITE");
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/vehicle/oil-change").hasAnyRole("OPERARIO", "ADMIN", "ACEITE");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/machine/**").hasAnyRole("OPERARIO", "ADMIN", "ACEITE");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/vehicle/**").hasAnyRole("OPERARIO", "ADMIN", "ACEITE");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/moto/**").hasAnyRole("OPERARIO", "ADMIN", "ACEITE");
+
+                    // 3. Registro de Inspecciones (Operario + Admin)
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/vehicle-inspection/**").hasAnyRole("OPERARIO", "ADMIN");
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/moto/inspeccion").hasAnyRole("OPERARIO", "ADMIN");
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/inspection/**").hasAnyRole("OPERARIO", "ADMIN");
 
                     // Lecturas de inspección vehículo (móvil + admin)
-                    http.requestMatchers(HttpMethod.GET, "/api/v1/vehicle-inspection/documentos/**").hasAnyRole("MECANIC", "ADMIN");
-                    http.requestMatchers(HttpMethod.GET, "/api/v1/vehicle-inspection/validar-kilometraje").hasAnyRole("MECANIC", "ADMIN");
-                    http.requestMatchers(HttpMethod.GET, "/api/v1/vehicle-inspection/reports/**").hasAnyRole("MECANIC", "ADMIN");
-                    
-                    // 4. Cambios de Aceite (Mecánico + Admin)
-                    http.requestMatchers(HttpMethod.POST, "/api/oil-changes/motor").hasAnyRole("MECANIC", "ADMIN");
-                    http.requestMatchers(HttpMethod.POST, "/api/oil-changes/hydraulic").hasAnyRole("MECANIC", "ADMIN");
-                    http.requestMatchers(HttpMethod.POST, "/api/oil-changes/**").hasAnyRole("MECANIC", "ADMIN");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/vehicle-inspection/documentos/**").hasAnyRole("OPERARIO", "ADMIN");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/vehicle-inspection/validar-kilometraje").hasAnyRole("OPERARIO", "ADMIN");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/vehicle-inspection/reports/**").hasAnyRole("OPERARIO", "ADMIN");
 
-                    // 5. Gestión Administrativa (Solo ADMIN)
+                    // 4. Combustibles (Operario + Admin para registro; Admin para dashboard/export)
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/fuel").hasAnyRole("OPERARIO", "ADMIN");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/asset/**").hasAnyRole("OPERARIO", "ADMIN", "ACEITE");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/config/**").hasAnyRole("OPERARIO", "ADMIN");
+                    http.requestMatchers(HttpMethod.PUT, "/api/v1/fuel/config/**").hasRole("ADMIN");
+                    http.requestMatchers(HttpMethod.PATCH, "/api/v1/fuel/**").hasRole("ADMIN");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/dashboard/**").hasRole("ADMIN");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/**").hasRole("ADMIN");
+
+                    // 5. Cambios de Aceite (Operario + Admin)
+                    http.requestMatchers(HttpMethod.POST, "/api/oil-changes/**").hasAnyRole("OPERARIO", "ADMIN", "ACEITE");
+
+                    // 6. Gestión Administrativa (Solo ADMIN)
                     // Peticiones POST/PUT/DELETE que no sean inspecciones
                     http.requestMatchers(HttpMethod.POST, "/api/v1/machine").hasRole("ADMIN");
                     http.requestMatchers(HttpMethod.PUT, "/api/v1/machine/**").hasRole("ADMIN");
                     http.requestMatchers(HttpMethod.DELETE, "/api/v1/machine/**").hasRole("ADMIN");
-                    
+
                     http.requestMatchers(HttpMethod.POST, "/api/v1/vehicle").hasRole("ADMIN");
                     http.requestMatchers(HttpMethod.PUT, "/api/v1/vehicle/**").hasRole("ADMIN");
-                    
+
                     http.requestMatchers("/api/v1/user/**").hasRole("ADMIN");
                     http.requestMatchers("/api/v1/order/**").hasRole("ADMIN");
                     http.requestMatchers("/api/v1/curriculum/**").hasRole("ADMIN");
                     http.requestMatchers("/api/v1/results/**").hasRole("ADMIN");
                     http.requestMatchers("/api/actions/**").hasRole("ADMIN");
                     http.requestMatchers("/new-data/notifications/**").hasRole("ADMIN");
-                    
+
                     // Gestión administrativa de documentos de vehículos
                     http.requestMatchers(HttpMethod.POST, "/api/v1/admin/documents/**").hasRole("ADMIN");
-                    // Cambio de aceite vehicular
-                    http.requestMatchers(HttpMethod.POST, "/api/v1/vehicle/oil-change").hasAnyRole("MECANIC", "ADMIN");
-                    
+
                     // Asegurar el resto de configuraciones previas
                     http.requestMatchers(HttpMethod.GET, "/api/oil-changes/**").hasRole("ADMIN");
-                    http.requestMatchers("/api/v1/oil/brand/**").hasAnyRole("MECANIC", "ADMIN"); // GET público interno
+                    http.requestMatchers("/api/v1/oil/brand/**").hasAnyRole("OPERARIO", "ADMIN"); // GET público interno
                     http.requestMatchers(HttpMethod.POST, "/api/v1/oil/brand/**").hasRole("ADMIN");
 
                     // Cualquier otra petición requiere ser ADMIN

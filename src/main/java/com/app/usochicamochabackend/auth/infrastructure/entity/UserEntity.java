@@ -29,4 +29,10 @@ public class UserEntity {
     private String email;
     private String role;
     private String password;
+
+    @Column(name = "license_number", length = 50)
+    private String licenseNumber;
+
+    @Column(name = "license_expiry")
+    private java.time.LocalDate licenseExpiry;
 }
