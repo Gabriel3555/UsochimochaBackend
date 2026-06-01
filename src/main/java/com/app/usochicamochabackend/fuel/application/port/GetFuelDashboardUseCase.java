@@ -14,5 +14,6 @@ public interface GetFuelDashboardUseCase {
     List<FuelLogResponse> getAnomalies();
     List<FuelLogResponse> getRanking(LocalDateTime from, LocalDateTime to);
     List<FuelMonthlyStatsResponse> getMonthlyStats(LocalDateTime from, LocalDateTime to);
+    List<FuelMonthlyStatsResponse> getHistoricalStats(LocalDateTime from, LocalDateTime to);
     byte[] exportToExcel(LocalDateTime from, LocalDateTime to) throws IOException;
 }

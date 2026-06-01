@@ -119,6 +119,15 @@ public class FuelLogController {
         return ResponseEntity.ok(getFuelDashboardUseCase.getMonthlyStats(from, to));
     }
 
+    @GetMapping("/stats/historical")
+    @Operation(summary = "Estadísticas históricas (usa tabla materializada para períodos > 90 días)")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<FuelMonthlyStatsResponse>> getHistoricalStats(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to) {
+        return ResponseEntity.ok(getFuelDashboardUseCase.getHistoricalStats(from, to));
+    }
+
     @PostMapping(value = "/{id}/invoice/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Subir foto o PDF de factura para un registro de combustible")
     @PreAuthorize("hasAnyRole('OPERARIO','ADMIN')")

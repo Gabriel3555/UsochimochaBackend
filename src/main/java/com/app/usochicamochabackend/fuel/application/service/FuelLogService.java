@@ -13,6 +13,7 @@ import com.app.usochicamochabackend.fuel.application.port.GetFuelDashboardUseCas
 import com.app.usochicamochabackend.fuel.application.port.GetFuelHistoryUseCase;
 import com.app.usochicamochabackend.fuel.infrastructure.entity.*;
 import com.app.usochicamochabackend.fuel.infrastructure.repository.FuelLogRepository;
+import com.app.usochicamochabackend.fuel.infrastructure.repository.FuelStatsMonthlyRepository;
 import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
 import com.app.usochicamochabackend.notifications.application.NotificationService;
 import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleRepository;
@@ -36,13 +37,17 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -50,7 +55,11 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class FuelLogService implements CreateFuelLogUseCase, GetFuelHistoryUseCase, GetFuelDashboardUseCase {
 
+    private static final String[] MONTH_NAMES = {"", "Ene", "Feb", "Mar", "Abr", "May", "Jun",
+                                                  "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"};
+
     private final FuelLogRepository fuelLogRepository;
+    private final FuelStatsMonthlyRepository statsMonthlyRepository;
     private final MachineRepository machineRepository;
     private final VehicleRepository vehicleRepository;
     private final SaveActionUseCase saveActionUseCase;
@@ -611,6 +620,78 @@ public class FuelLogService implements CreateFuelLogUseCase, GetFuelHistoryUseCa
                     );
                 })
                 .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<FuelMonthlyStatsResponse> getHistoricalStats(LocalDateTime from, LocalDateTime to) {
+        LocalDateTime effectiveFrom = from != null ? from : LocalDateTime.now().minusYears(2);
+        LocalDateTime effectiveTo   = to   != null ? to   : LocalDateTime.now();
+
+        long days = ChronoUnit.DAYS.between(effectiveFrom.toLocalDate(), effectiveTo.toLocalDate());
+        if (days <= 90) {
+            return getMonthlyStats(effectiveFrom, effectiveTo);
+        }
+
+        YearMonth ymFrom = YearMonth.from(effectiveFrom);
+        YearMonth ymTo   = YearMonth.from(effectiveTo);
+        List<String> allYms = buildYearMonthRange(ymFrom, ymTo);
+
+        Map<String, List<FuelStatsMonthlyEntity>> byYm = statsMonthlyRepository.findByYearMonthIn(allYms)
+                .stream().collect(Collectors.groupingBy(FuelStatsMonthlyEntity::getYearMonth));
+
+        String currentYm = YearMonth.now().toString();
+        List<FuelMonthlyStatsResponse> results = new ArrayList<>();
+        for (String ym : allYms) {
+            if (ym.equals(currentYm)) {
+                results.addAll(getMonthlyStats(
+                        YearMonth.now().atDay(1).atStartOfDay(), LocalDateTime.now()));
+            } else if (byYm.containsKey(ym)) {
+                results.add(buildResponseFromMaterialized(ym, byYm.get(ym)));
+            }
+        }
+        return results;
+    }
+
+    private FuelMonthlyStatsResponse buildResponseFromMaterialized(String ym,
+                                                                    List<FuelStatsMonthlyEntity> rows) {
+        int year  = Integer.parseInt(ym.substring(0, 4));
+        int month = Integer.parseInt(ym.substring(5, 7));
+        return new FuelMonthlyStatsResponse(
+                year, month, MONTH_NAMES[month] + " " + year,
+                sumStatField(rows, null,            FuelStatsMonthlyEntity::getTotalGallons),
+                sumStatField(rows, null,            FuelStatsMonthlyEntity::getTotalCost),
+                sumStatField(rows, AssetType.MACHINE, FuelStatsMonthlyEntity::getTotalGallons),
+                sumStatField(rows, AssetType.MACHINE, FuelStatsMonthlyEntity::getTotalCost),
+                countStatLoads(rows, AssetType.MACHINE),
+                sumStatField(rows, AssetType.VEHICLE, FuelStatsMonthlyEntity::getTotalGallons),
+                sumStatField(rows, AssetType.VEHICLE, FuelStatsMonthlyEntity::getTotalCost),
+                countStatLoads(rows, AssetType.VEHICLE),
+                sumStatField(rows, AssetType.MOTO,    FuelStatsMonthlyEntity::getTotalGallons),
+                sumStatField(rows, AssetType.MOTO,    FuelStatsMonthlyEntity::getTotalCost),
+                countStatLoads(rows, AssetType.MOTO),
+                rows.stream().mapToLong(r -> r.getTotalLoads()   != null ? r.getTotalLoads()   : 0).sum(),
+                rows.stream().mapToLong(r -> r.getAnomalyCount() != null ? r.getAnomalyCount() : 0).sum()
+        );
+    }
+
+    private BigDecimal sumStatField(List<FuelStatsMonthlyEntity> rows, AssetType filter,
+                                    Function<FuelStatsMonthlyEntity, BigDecimal> getter) {
+        return rows.stream()
+                .filter(r -> filter == null || r.getAssetType() == filter)
+                .map(getter).filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private long countStatLoads(List<FuelStatsMonthlyEntity> rows, AssetType type) {
+        return rows.stream().filter(r -> r.getAssetType() == type)
+                .mapToLong(r -> r.getTotalLoads() != null ? r.getTotalLoads() : 0).sum();
+    }
+
+    private List<String> buildYearMonthRange(YearMonth from, YearMonth to) {
+        List<String> result = new ArrayList<>();
+        YearMonth cursor = from;
+        while (!cursor.isAfter(to)) { result.add(cursor.toString()); cursor = cursor.plusMonths(1); }
+        return result;
     }
 
     // ──────────────────────────────────────────────────────────────────────────
