@@ -14,7 +14,10 @@ import com.app.usochicamochabackend.mapper.OrderMapper;
 import com.app.usochicamochabackend.notifications.application.NotificationService;
 import com.app.usochicamochabackend.order.application.dto.*;
 import com.app.usochicamochabackend.order.application.port.*;
+import com.app.usochicamochabackend.order.infrastructure.entity.MaintenanceType;
+import com.app.usochicamochabackend.order.infrastructure.entity.OrderCounterEntity;
 import com.app.usochicamochabackend.order.infrastructure.entity.OrderEntity;
+import com.app.usochicamochabackend.order.infrastructure.repository.OrderCounterRepository;
 import com.app.usochicamochabackend.order.infrastructure.repository.OrderRepository;
 import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
 import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
@@ -37,6 +40,7 @@ public class OrderService implements AssignOrderUseCase, GetAllOrdersByInspectio
         AssignVehicleOrderUseCase, GetAllOrdersByVehicleInspectionIdUseCase, GetAllVehicleOrdersUseCase {
 
     private final OrderRepository orderRepository;
+    private final OrderCounterRepository orderCounterRepository;
     private final MachineRepository machineRepository;
     private final InspectionRepository inspectionRepository;
     private final InspPreOperativaRepository inspPreOperativaRepository;
@@ -44,6 +48,7 @@ public class OrderService implements AssignOrderUseCase, GetAllOrdersByInspectio
     private final SaveActionUseCase saveActionUseCase;
     private final NotificationService notificationService;
 
+    @Transactional
     @Override
     public OrderResponse assignOrder(AssignOrderRequest assignOrderRequest) {
         InspectionEntity inspectionEntity = inspectionRepository.findById(assignOrderRequest.inspectionId())
@@ -55,12 +60,21 @@ public class OrderService implements AssignOrderUseCase, GetAllOrdersByInspectio
         UserEntity assignerUser = userRepository.findById(assignerUserId)
                 .orElseThrow(() -> new ResourceNotFoundException("Assigner user not found with ID: " + assignerUserId));
 
+        String consecutive = generateConsecutive("MQ");
+
+        MaintenanceType maintenanceType = assignOrderRequest.maintenanceType() != null
+                ? MaintenanceType.valueOf(assignOrderRequest.maintenanceType())
+                : null;
+
         OrderEntity orderEntity = orderRepository.save(
                 OrderEntity.builder()
                         .status("Pending")
                         .description(assignOrderRequest.description())
                         .assignerUser(assignerUser)
                         .inspection(inspectionEntity)
+                        .orderType(assignOrderRequest.orderType())
+                        .maintenanceType(maintenanceType)
+                        .consecutive(consecutive)
                         .build()
         );
 
@@ -122,12 +136,21 @@ public class OrderService implements AssignOrderUseCase, GetAllOrdersByInspectio
         UserEntity assignerUser = userRepository.findById(userPrincipal.id())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + userPrincipal.id()));
 
+        String consecutive = generateConsecutive("VH");
+
+        MaintenanceType maintenanceType = request.maintenanceType() != null
+                ? MaintenanceType.valueOf(request.maintenanceType())
+                : null;
+
         OrderEntity order = orderRepository.save(
                 OrderEntity.builder()
                         .status("Pending")
                         .description(request.description())
                         .assignerUser(assignerUser)
                         .vehicleInspection(vehicleInspection)
+                        .orderType(request.orderType())
+                        .maintenanceType(maintenanceType)
+                        .consecutive(consecutive)
                         .build()
         );
 
@@ -192,5 +215,15 @@ public class OrderService implements AssignOrderUseCase, GetAllOrdersByInspectio
 
 
         return new GetAllOrdersByMachineId(MachineMapper.toResponse(machineEntity), OrderMapper.toDtoListWithoutInspection(orders));
+    }
+
+    @Transactional
+    private String generateConsecutive(String moduleCode) {
+        OrderCounterEntity counter = orderCounterRepository.findByModuleCodeForUpdate(moduleCode)
+                .orElse(new OrderCounterEntity(moduleCode, 0));
+        int newValue = counter.getLastValue() + 1;
+        counter.setLastValue(newValue);
+        orderCounterRepository.save(counter);
+        return "OT-" + moduleCode + "-" + String.format("%05d", newValue);
     }
 }

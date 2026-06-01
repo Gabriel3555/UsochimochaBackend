@@ -27,7 +27,8 @@ public class ResultMapper {
 
         ResultEntity result = new ResultEntity();
         result.setDate(LocalDateTime.now());
-        result.setTimeSpent(request.timeSpent());
+        result.setHoursSpent(request.hoursSpent());
+        result.setMinutesSpent(request.minutesSpent());
         result.setDescription(request.description());
         result.setOrder(order);
 

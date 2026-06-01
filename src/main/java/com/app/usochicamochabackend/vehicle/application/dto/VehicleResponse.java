@@ -1,6 +1,7 @@
 package com.app.usochicamochabackend.vehicle.application.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import java.math.BigDecimal;
 
 @Schema(
         name = "VehicleResponse",
@@ -25,6 +26,18 @@ public record VehicleResponse(
         @Schema(description = "Id de ubicación base (`cat_ubicaciones`)", example = "2")
         Integer idUbicacionBase,
         @Schema(description = "Nombre legible de la ubicación base", example = "Campo Málaga")
-        String ubicacionBase
+        String ubicacionBase,
+
+        @Schema(description = "Si el vehículo está activo en inventario", example = "true")
+        Boolean activo,
+
+        @Schema(description = "Capacidad del tanque en galones (null si no está configurada)", example = "18.5")
+        BigDecimal fuelTankCapacityGallons,
+
+        @Schema(description = "Eficiencia de fábrica — valor numérico (null si no se ingresó)", example = "42.5")
+        BigDecimal factoryEfficiencyKmPerGallon,
+
+        @Schema(description = "Unidad: KM_PER_GALLON | KM_PER_CUBIC_METER", example = "KM_PER_GALLON")
+        String factoryEfficiencyUnit
 ) {
 }

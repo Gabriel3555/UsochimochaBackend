@@ -84,6 +84,11 @@ public class SecurityConfig {
                     http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/config/**").hasAnyRole("OPERARIO", "ADMIN");
                     http.requestMatchers(HttpMethod.PUT, "/api/v1/fuel/config/**").hasRole("ADMIN");
                     http.requestMatchers(HttpMethod.PATCH, "/api/v1/fuel/**").hasRole("ADMIN");
+                    // Estaciones: GET abierto a operarios para sincronizar catálogo; POST/PUT/DELETE solo ADMIN
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/stations").hasAnyRole("OPERARIO", "ADMIN", "ACEITE");
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/fuel/stations").hasRole("ADMIN");
+                    http.requestMatchers(HttpMethod.PUT, "/api/v1/fuel/stations/**").hasRole("ADMIN");
+                    http.requestMatchers(HttpMethod.DELETE, "/api/v1/fuel/stations/**").hasRole("ADMIN");
                     http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/dashboard/**").hasRole("ADMIN");
                     http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/**").hasRole("ADMIN");
 

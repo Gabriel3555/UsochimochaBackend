@@ -20,7 +20,11 @@ public class VehicleMapper {
                 entity.getKilometrajeActual(),
                 entity.getBelongsTo(),
                 ubiId,
-                ubiNombre
+                ubiNombre,
+                entity.getActivo(),
+                entity.getFuelTankCapacityGallons(),
+                entity.getFactoryEfficiencyKmPerGallon(),
+                entity.getFactoryEfficiencyUnit()
         );
     }
 
@@ -36,7 +40,11 @@ public class VehicleMapper {
                 projection.getKilometrajeActual(),
                 projection.getBelongsTo(),
                 projection.getIdUbicacionBase(),
-                projection.getUbicacionBase()
+                projection.getUbicacionBase(),
+                null, // VehicleProjection no incluye activo
+                null, // VehicleProjection no incluye fuelTankCapacityGallons
+                null, // VehicleProjection no incluye factoryEfficiencyKmPerGallon
+                null  // VehicleProjection no incluye factoryEfficiencyUnit
         );
     }
 }

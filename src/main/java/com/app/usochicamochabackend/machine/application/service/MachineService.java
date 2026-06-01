@@ -30,7 +30,14 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
     @Override
     public MachineResponse createMachine(MachineRequest machineRequest) {
         MachineRequest req = machineRequest.normalized();
-        MachineEntity savedMachine = machineRepository.save(new MachineEntity(null, req.name(), req.model(), req.belongsTo(), req.soat(), req.brand(), req.runt(), true, req.numEngine(), req.numInterIdentification()));
+        MachineEntity savedMachine = machineRepository.save(MachineEntity.builder()
+                .name(req.name()).model(req.model()).belongsTo(req.belongsTo())
+                .soat(req.soat()).brand(req.brand()).runt(req.runt()).status(true)
+                .numEngine(req.numEngine()).numInterIdentification(req.numInterIdentification())
+                .fuelTankCapacityGallons(req.fuelTankCapacityGallons())
+                .factoryEfficiencyGalPerHour(req.factoryEfficiencyGalPerHour())
+                .factoryEfficiencyUnit(req.factoryEfficiencyUnit())
+                .build());
 
         try {
             Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -98,7 +105,20 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
             throw new ResourceNotFoundException("Machine not found with ID: " + id);
         }
 
-        MachineEntity savedMachine = machineRepository.save(new MachineEntity(id, req.name(), req.model(), req.belongsTo(), req.soat(), req.brand(), req.runt(), true, req.numEngine(), req.numInterIdentification()));
+        MachineEntity savedMachine = machineRepository.save(MachineEntity.builder()
+                .id(id).name(req.name()).model(req.model()).belongsTo(req.belongsTo())
+                .soat(req.soat()).brand(req.brand()).runt(req.runt()).status(true)
+                .numEngine(req.numEngine()).numInterIdentification(req.numInterIdentification())
+                .fuelTankCapacityGallons(req.fuelTankCapacityGallons() != null
+                        ? req.fuelTankCapacityGallons()
+                        : currentMachine.getFuelTankCapacityGallons())
+                .factoryEfficiencyGalPerHour(req.factoryEfficiencyGalPerHour() != null
+                        ? req.factoryEfficiencyGalPerHour()
+                        : currentMachine.getFactoryEfficiencyGalPerHour())
+                .factoryEfficiencyUnit(req.factoryEfficiencyUnit() != null
+                        ? req.factoryEfficiencyUnit()
+                        : currentMachine.getFactoryEfficiencyUnit())
+                .build());
 
         List<String> cambios = new ArrayList<>();
 

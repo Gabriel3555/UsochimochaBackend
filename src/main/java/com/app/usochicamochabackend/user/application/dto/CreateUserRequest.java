@@ -1,4 +1,7 @@
 package com.app.usochicamochabackend.user.application.dto;
 
-public record CreateUserRequest(String username, String fullName, String role, String email, String password) {
+import java.time.LocalDate;
+
+public record CreateUserRequest(String username, String fullName, String role, String email, String password,
+                                String licenseNumber, LocalDate licenseExpiry) {
 }

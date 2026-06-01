@@ -114,6 +114,14 @@ public class NotificationService {
         }
     }
 
+    public void notifyFuelAnomaly(String anomalyData) {
+        if (anomalyData != null) {
+            log.debug("Sending fuel anomaly WebSocket notification: {}", anomalyData);
+            webSocketHandler.broadcastFuelAnomaly(anomalyData);
+            recordNotificationStats("fuel-anomaly");
+        }
+    }
+
     /**
      * Send SOAT/RUNT notification to specific user via WebSocket
      */
@@ -122,6 +130,17 @@ public class NotificationService {
             log.debug("Sending SOAT/RUNT WebSocket notification to user {}: {}", username, soatRuntData);
             webSocketHandler.sendSoatRuntToUser(username, soatRuntData);
             recordNotificationStats("soat-runt-user");
+        }
+    }
+
+    /**
+     * Send document expiry alert notification via WebSocket (used by scheduled checks)
+     */
+    public void notifyDocumentExpiry(String message) {
+        if (message != null) {
+            log.info("Sending document expiry alert WebSocket notification: {}", message);
+            webSocketHandler.broadcastDataUpdate(message);
+            recordNotificationStats("document-expiry");
         }
     }
 }

@@ -46,6 +46,16 @@ public class OrderEntity {
     @JoinColumn(name = "assigner_user_id")
     private UserEntity assignerUser;
 
+    @Column(name = "order_type", length = 50)
+    private String orderType;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "maintenance_type", length = 30)
+    private MaintenanceType maintenanceType;
+
+    @Column(unique = true, length = 20)
+    private String consecutive;
+
     @PrePersist
     protected void onCreate() {
         this.date = LocalDateTime.now();

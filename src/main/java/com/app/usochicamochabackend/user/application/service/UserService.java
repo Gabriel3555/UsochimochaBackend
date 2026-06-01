@@ -43,6 +43,8 @@ public class UserService implements
                 .email(request.email())
                 .role(request.role())
                 .password(passwordEncoder.encode(request.password()))
+                .licenseNumber(request.licenseNumber())
+                .licenseExpiry(request.licenseExpiry())
                 .build();
 
         UserEntity userSaved = userRepository.save(user);
@@ -115,6 +117,16 @@ public class UserService implements
         Optional.ofNullable(request.role()).ifPresent(role -> {
             currentUser.setRole(role);
             changes.add("role");
+        });
+
+        Optional.ofNullable(request.licenseNumber()).ifPresent(licenseNumber -> {
+            currentUser.setLicenseNumber(licenseNumber);
+            changes.add("licenseNumber");
+        });
+
+        Optional.ofNullable(request.licenseExpiry()).ifPresent(licenseExpiry -> {
+            currentUser.setLicenseExpiry(licenseExpiry);
+            changes.add("licenseExpiry");
         });
 
         UserEntity userUpdated = userRepository.save(currentUser);

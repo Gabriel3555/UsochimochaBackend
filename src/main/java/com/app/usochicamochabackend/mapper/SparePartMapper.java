@@ -16,6 +16,7 @@ public class SparePartMapper {
         entity.setName(request.name());
         entity.setQuantity(request.quantity());
         entity.setPrice(request.price());
+        entity.setSupplier(request.supplier());
 
         return entity;
     }
@@ -28,7 +29,8 @@ public class SparePartMapper {
                 entity.getRef(),
                 entity.getName(),
                 entity.getQuantity(),
-                entity.getPrice()
+                entity.getPrice(),
+                entity.getSupplier()
         );
     }
 }

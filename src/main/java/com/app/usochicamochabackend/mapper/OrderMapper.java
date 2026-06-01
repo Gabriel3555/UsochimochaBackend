@@ -29,7 +29,10 @@ public class OrderMapper {
                 entity.getDate(),
                 entity.getDescription(),
                 inspectionDto,
-                UserMapper.toResponse(entity.getAssignerUser())
+                UserMapper.toResponse(entity.getAssignerUser()),
+                entity.getOrderType(),
+                entity.getMaintenanceType() != null ? entity.getMaintenanceType().name() : null,
+                entity.getConsecutive()
         );
     }
 
@@ -43,7 +46,10 @@ public class OrderMapper {
                 entity.getStatus(),
                 entity.getDate(),
                 entity.getDescription(),
-                UserMapper.toResponse(entity.getAssignerUser())
+                UserMapper.toResponse(entity.getAssignerUser()),
+                entity.getOrderType(),
+                entity.getMaintenanceType() != null ? entity.getMaintenanceType().name() : null,
+                entity.getConsecutive()
         );
     }
 

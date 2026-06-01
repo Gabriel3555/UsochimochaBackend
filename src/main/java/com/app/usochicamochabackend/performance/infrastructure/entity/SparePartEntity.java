@@ -23,4 +23,7 @@ public class SparePartEntity {
     private String name;
     private String quantity;
     private BigDecimal price;
+
+    @Column(length = 200)
+    private String supplier;
 }

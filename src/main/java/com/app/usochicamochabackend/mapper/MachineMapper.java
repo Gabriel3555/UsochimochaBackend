@@ -29,7 +29,10 @@ public class MachineMapper {
                 entity.getBrand(),
                 entity.getRunt(),
                 entity.getNumEngine(),
-                entity.getNumInterIdentification()
+                entity.getNumInterIdentification(),
+                entity.getFuelTankCapacityGallons(),
+                entity.getFactoryEfficiencyGalPerHour(),
+                entity.getFactoryEfficiencyUnit()
         );
     }
 }

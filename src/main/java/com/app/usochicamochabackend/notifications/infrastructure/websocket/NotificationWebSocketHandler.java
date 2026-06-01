@@ -101,6 +101,11 @@ public class NotificationWebSocketHandler {
         messagingTemplate.convertAndSend("/user/" + username + "/notifications/soat-runt", soatRuntData);
     }
 
+    public void broadcastFuelAnomaly(String anomalyData) {
+        log.debug("Broadcasting fuel anomaly: {}", anomalyData);
+        messagingTemplate.convertAndSend("/topic/alerts/fuel-anomaly", anomalyData);
+    }
+
     /**
      * Broadcast a data-update event to all connected clients (e.g. "vehicle-inspections-updated")
      */
