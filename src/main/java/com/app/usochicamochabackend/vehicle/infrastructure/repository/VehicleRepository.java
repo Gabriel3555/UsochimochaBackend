@@ -12,6 +12,9 @@ import java.util.List;
 @Repository
 public interface VehicleRepository extends JpaRepository<VehicleEntity, Integer> {
 
+    @Query("SELECT v FROM VehicleEntity v WHERE v.activo = true ORDER BY v.placa")
+    List<VehicleEntity> findAllActiveVehiclesWithDocuments();
+
     @Query(nativeQuery = true, value = """
             SELECT
                 v.id_vehiculo        AS "id",

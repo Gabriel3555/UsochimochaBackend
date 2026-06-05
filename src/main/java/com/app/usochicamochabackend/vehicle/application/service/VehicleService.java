@@ -24,7 +24,7 @@ public class VehicleService implements VehicleUseCase {
 
     @Override
     public List<VehicleResponse> findAllVehicles() {
-        return vehicleRepository.findAllActiveVehicles().stream()
+        return vehicleRepository.findAllActiveVehiclesWithDocuments().stream()
                 .map(VehicleMapper::toResponse)
                 .toList();
     }
