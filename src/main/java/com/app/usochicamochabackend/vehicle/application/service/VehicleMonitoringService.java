@@ -42,17 +42,25 @@ public class VehicleMonitoringService implements VehicleMonitoringUseCase {
 
     private VehicleMonitoringDTO buildMonitoringDTO(VehicleEntity vehicle) {
         Optional<InspPreOperativaEntity> lastInsp = inspectionRepository.findLatestByVehicleId(vehicle.getIdVehiculo());
-        
+
         Long daysSinceReport = null;
-        if (vehicle.getFechaUltimoReporte() != null) {
-            daysSinceReport = ChronoUnit.DAYS.between(vehicle.getFechaUltimoReporte().toLocalDate(), LocalDate.now());
+        java.time.LocalDateTime lastReportDate = vehicle.getFechaUltimoReporte();
+
+        // Si no está en el campo de la entidad, obtenerlo de la última inspección
+        if (lastReportDate == null && lastInsp.isPresent()) {
+            lastReportDate = lastInsp.get().getFechaRegistro();
+        }
+
+        // Calcular días desde reporte si hay fecha disponible
+        if (lastReportDate != null) {
+            daysSinceReport = ChronoUnit.DAYS.between(lastReportDate.toLocalDate(), LocalDate.now());
         }
 
         return new VehicleMonitoringDTO(
             vehicle.getPlaca(),
             vehicle.getBelongsTo(),
             vehicle.getKilometrajeActual(),
-            vehicle.getFechaUltimoReporte(),
+            lastReportDate,
             daysSinceReport,
             getDocumentStatus(vehicle.getIdVehiculo(), "SOAT"),
             getDocumentStatus(vehicle.getIdVehiculo(), "TECNOMECANICA"),

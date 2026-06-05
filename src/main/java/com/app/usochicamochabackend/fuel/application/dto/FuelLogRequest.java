@@ -17,9 +17,10 @@ public record FuelLogRequest(
         BigDecimal totalCostActual,
         String fuelType,
         String serviceStation,
-        Boolean isFullTank,
         BigDecimal discountAmount,
         String invoicePhotoUrl,
+        String invoicePhotoBase64,
+        String invoiceFileName,
         String voucherNumber,
         String notes
 ) {}

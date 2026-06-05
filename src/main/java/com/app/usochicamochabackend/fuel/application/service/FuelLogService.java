@@ -123,6 +123,12 @@ public class FuelLogService implements CreateFuelLogUseCase, GetFuelHistoryUseCa
         String username = resolveUsername();
         LocalDateTime fuelDateTime = request.fuelDateTime() != null ? request.fuelDateTime() : LocalDateTime.now();
 
+        // Process Base64 invoice if present
+        String invoiceUrl = request.invoicePhotoUrl();
+        if (request.invoicePhotoBase64() != null && !request.invoicePhotoBase64().isBlank()) {
+            invoiceUrl = saveInvoicePhotoFromBase64(request.invoicePhotoBase64(), request.invoiceFileName());
+        }
+
         FuelLogEntity entity = FuelLogEntity.builder()
                 .syncId(request.syncId())
                 .assetType(assetType)
@@ -144,15 +150,21 @@ public class FuelLogService implements CreateFuelLogUseCase, GetFuelHistoryUseCa
                 .totalCostMismatch(mismatch)
                 .fuelType(parseFuelType(request.fuelType()))
                 .serviceStation(request.serviceStation())
-                .isFullTank(request.isFullTank() != null ? request.isFullTank() : true)
                 .discountAmount(request.discountAmount())
-                .invoicePhotoUrl(request.invoicePhotoUrl())
+                .invoicePhotoUrl(invoiceUrl)
                 .invoiceStatus(InvoiceStatus.PENDING_REVIEW)
                 .voucherNumber(request.voucherNumber())
                 .notes(request.notes())
                 .isAnomaly(mismatch) // discrepancia de costo ya es una anomalía
                 .registeredBy(username)
                 .build();
+
+        // Detectar anomalía de capacidad de tanque
+        if (detectTankCapacityAnomaly(assetType, request.assetId(), quantityLiters)) {
+            entity.setIsAnomaly(true);
+            log.warn("Tank capacity anomaly detected for {} id={}: quantity={} liters exceeds tank capacity",
+                    assetType, request.assetId(), quantityLiters);
+        }
 
         FuelLogEntity saved = fuelLogRepository.save(entity);
 
@@ -166,10 +178,8 @@ public class FuelLogService implements CreateFuelLogUseCase, GetFuelHistoryUseCa
                     assetType, request.assetId(), totalCostCalculated, request.totalCostActual());
         }
 
-        // Calculate efficiency and anomaly only for full-tank fills (OR con el mismatch ya marcado)
-        if (Boolean.TRUE.equals(saved.getIsFullTank())) {
-            saved = calculateAndPersistEfficiency(saved);
-        }
+        // Calculate efficiency for every fuel log (no longer depends on isFullTank)
+        saved = calculateAndPersistEfficiency(saved);
 
         saveActionUseCase.save("El usuario " + username + " registró carga de combustible para " +
                 assetType.name() + " ID " + request.assetId() +
@@ -251,6 +261,28 @@ public class FuelLogService implements CreateFuelLogUseCase, GetFuelHistoryUseCa
         }
     }
 
+    @Override
+    public FuelLogResponse uploadInvoiceFileTemporal(MultipartFile file) {
+        try {
+            String ext = Optional.ofNullable(file.getOriginalFilename())
+                    .filter(n -> n.contains("."))
+                    .map(n -> n.substring(n.lastIndexOf('.')))
+                    .orElse(".jpg");
+            Path dir = Paths.get("uploads", "fuel", "invoices");
+            Files.createDirectories(dir);
+            String filename = "temp_" + UUID.randomUUID().toString().substring(0, 12) + ext;
+            Path target = dir.resolve(filename);
+            Files.copy(file.getInputStream(), target);
+
+            // Devolver una respuesta temporal sin guardar en BD
+            FuelLogEntity tempEntity = new FuelLogEntity();
+            tempEntity.setInvoicePhotoUrl("uploads/fuel/invoices/" + filename);
+            return toResponse(tempEntity);
+        } catch (IOException e) {
+            throw new RuntimeException("Error al guardar la factura temporal: " + e.getMessage(), e);
+        }
+    }
+
     // ──────────────────────────────────────────────────────────────────────────
     // GetFuelDashboardUseCase
     // ──────────────────────────────────────────────────────────────────────────
@@ -316,9 +348,8 @@ public class FuelLogService implements CreateFuelLogUseCase, GetFuelHistoryUseCa
                             .orElseThrow();
                     return toRankingResponse(rep, totalGallons, totalCost, group.size());
                 })
-                // Menor eficiencia primero (km/gal ascendente; nulls al final)
-                .sorted(Comparator.comparing(
-                        (FuelLogResponse r) -> r.efficiencyValue() != null ? r.efficiencyValue() : BigDecimal.valueOf(Double.MAX_VALUE)))
+                // Peor desviación respecto a fábrica primero; sin datos de fábrica al final
+                .sorted(Comparator.comparingDouble(FuelLogService::rankingScore).reversed())
                 .collect(Collectors.toList());
     }
 
@@ -327,59 +358,79 @@ public class FuelLogService implements CreateFuelLogUseCase, GetFuelHistoryUseCa
     // ──────────────────────────────────────────────────────────────────────────
 
     private FuelLogEntity calculateAndPersistEfficiency(FuelLogEntity saved) {
+        // Busca los 2 últimos registros (sin importar si isFullTank)
         List<FuelLogEntity> topTwo = fuelLogRepository
-                .findTop2ByAssetTypeAndAssetIdAndIsFullTankTrueOrderByFuelDateTimeDesc(
+                .findTop2ByAssetTypeAndAssetIdOrderByFuelDateTimeDesc(
                         saved.getAssetType(), saved.getAssetId());
 
+        // Necesita al menos 2 registros para calcular eficiencia
         if (topTwo.size() < 2) {
+            log.debug("❌ Eficiencia no calculada para {} id={}: solo {} registros disponibles",
+                    saved.getAssetType(), saved.getAssetId(), topTwo.size());
             return saved;
         }
 
         FuelLogEntity current = topTwo.get(0);
-        FuelLogEntity prevFull = topTwo.get(1);
+        FuelLogEntity previous = topTwo.get(1);
 
+        // Valida que el registro actual sea el que se acaba de guardar
         if (!current.getId().equals(saved.getId())) {
+            log.debug("❌ Eficiencia no calculada: el registro actual no coincide");
             return saved;
         }
 
-        BigDecimal accumulatedLiters = fuelLogRepository.sumQuantityLitersBetween(
-                saved.getAssetType(), saved.getAssetId(),
-                prevFull.getFuelDateTime(), current.getFuelDateTime());
-
-        if (accumulatedLiters == null || accumulatedLiters.compareTo(BigDecimal.ZERO) == 0) {
+        // La cantidad de combustible consumido es la cantidad del registro actual
+        BigDecimal consumedLiters = saved.getQuantityLiters();
+        if (consumedLiters == null || consumedLiters.compareTo(BigDecimal.ZERO) <= 0) {
+            log.debug("❌ Eficiencia no calculada: cantidad <= 0");
             return saved;
         }
 
-        BigDecimal accumulatedGallons = accumulatedLiters.divide(
+        // Convierte a galones (1 galón = 3.785411784 litros)
+        BigDecimal consumedGallons = consumedLiters.divide(
                 BigDecimal.valueOf(3.785411784), 4, RoundingMode.HALF_UP);
+        log.debug("📊 Consumo: {} litros = {} galones", consumedLiters, consumedGallons);
 
         BigDecimal efficiencyValue = null;
         String efficiencyUnit = null;
 
+        // Para vehículos y motos: km/galón
         if (saved.getAssetType() == AssetType.VEHICLE || saved.getAssetType() == AssetType.MOTO) {
-            if (current.getOdometerKm() != null && prevFull.getOdometerKm() != null) {
-                BigDecimal delta = current.getOdometerKm().subtract(prevFull.getOdometerKm());
-                if (delta.compareTo(BigDecimal.ZERO) > 0) {
-                    efficiencyValue = delta.divide(accumulatedGallons, 4, RoundingMode.HALF_UP);
+            if (current.getOdometerKm() != null && previous.getOdometerKm() != null) {
+                BigDecimal kmDelta = current.getOdometerKm().subtract(previous.getOdometerKm());
+                log.debug("📍 KM: {} - {} = {} km", current.getOdometerKm(), previous.getOdometerKm(), kmDelta);
+                if (kmDelta.compareTo(BigDecimal.ZERO) > 0) {
+                    efficiencyValue = kmDelta.divide(consumedGallons, 4, RoundingMode.HALF_UP);
                     efficiencyUnit = "KM_PER_GALLON";
+                    log.debug("✅ Eficiencia (VEHÍCULO): {} km / {} gal = {} km/gal",
+                            kmDelta, consumedGallons, efficiencyValue);
                 }
+            } else {
+                log.debug("❌ Eficiencia no calculada: falta odómetro en registros");
             }
-        } else {
-            if (current.getHourMeter() != null && prevFull.getHourMeter() != null) {
-                BigDecimal delta = current.getHourMeter().subtract(prevFull.getHourMeter());
-                if (delta.compareTo(BigDecimal.ZERO) > 0) {
-                    efficiencyValue = accumulatedGallons.divide(delta, 4, RoundingMode.HALF_UP);
+        }
+        // Para máquinas: galones/hora
+        else {
+            if (current.getHourMeter() != null && previous.getHourMeter() != null) {
+                BigDecimal hourDelta = current.getHourMeter().subtract(previous.getHourMeter());
+                log.debug("⏱️  HORAS: {} - {} = {} horas", current.getHourMeter(), previous.getHourMeter(), hourDelta);
+                if (hourDelta.compareTo(BigDecimal.ZERO) > 0) {
+                    efficiencyValue = consumedGallons.divide(hourDelta, 4, RoundingMode.HALF_UP);
                     efficiencyUnit = "GALLON_PER_HOUR";
+                    log.debug("✅ Eficiencia (MÁQUINA): {} gal / {} h = {} gal/h",
+                            consumedGallons, hourDelta, efficiencyValue);
                 }
+            } else {
+                log.debug("❌ Eficiencia no calculada: falta horómetro en registros");
             }
         }
 
         if (efficiencyValue == null) {
+            log.debug("❌ Eficiencia no calculada: valor nulo");
             return saved;
         }
 
         boolean efficiencyAnomaly = isAnomalous(saved, efficiencyValue);
-        // OR: conservar anomalía previa (ej. mismatch de costo) y sumar la de eficiencia
         boolean isAnomaly = Boolean.TRUE.equals(saved.getIsAnomaly()) || efficiencyAnomaly;
 
         saved.setEfficiencyValue(efficiencyValue);
@@ -445,33 +496,8 @@ public class FuelLogService implements CreateFuelLogUseCase, GetFuelHistoryUseCa
     }
 
     private void validateMaxQuantity(AssetType assetType, Long assetId, BigDecimal quantityLiters) {
-        double inputGal = quantityLiters.doubleValue() / 3.785411784;
-
-        // Primero intentar usar la capacidad específica del activo
-        java.math.BigDecimal specificCapacity = resolveAssetTankCapacity(assetType, assetId);
-        if (specificCapacity != null) {
-            if (inputGal > specificCapacity.doubleValue()) {
-                throw new BadRequestException(String.format(
-                        "Cantidad (%.3f Gal) supera la capacidad del tanque configurada para este activo (%.3f Gal). " +
-                        "Un ADMIN puede actualizar la capacidad del tanque en la ficha del activo.",
-                        inputGal, specificCapacity.doubleValue()));
-            }
-            return;
-        }
-
-        // Fallback: límites globales por defecto (en litros)
-        double maxLiters = switch (assetType) {
-            case MACHINE -> maxQuantityMachine;
-            case VEHICLE -> maxQuantityVehicle;
-            case MOTO    -> maxQuantityMoto;
-        };
-        if (quantityLiters.doubleValue() > maxLiters) {
-            double maxGal = maxLiters / 3.785411784;
-            throw new BadRequestException(String.format(
-                    "Cantidad de combustible (%.3f Gal) supera el máximo global para %s (%.3f Gal). " +
-                    "Un ADMIN puede definir la capacidad exacta del tanque en la ficha del activo.",
-                    inputGal, assetType.name(), maxGal));
-        }
+        // Removed: No lanzamos excepción si supera capacidad. En su lugar, se detecta como anomalía.
+        // Esto permite registrar incluso cantidades que excedan el tanque, pero se reporta como anomalía.
     }
 
     private java.math.BigDecimal resolveAssetTankCapacity(AssetType assetType, Long assetId) {
@@ -501,6 +527,20 @@ public class FuelLogService implements CreateFuelLogUseCase, GetFuelHistoryUseCa
         BigDecimal deviation = calculated.subtract(actual).abs()
                 .divide(calculated, 4, RoundingMode.HALF_UP);
         return deviation.compareTo(new BigDecimal("0.01")) > 0;
+    }
+
+    private boolean detectTankCapacityAnomaly(AssetType assetType, Long assetId, BigDecimal quantityLiters) {
+        if (quantityLiters == null || quantityLiters.compareTo(BigDecimal.ZERO) <= 0) {
+            return false;
+        }
+
+        BigDecimal capacityGallons = resolveAssetTankCapacity(assetType, assetId);
+        if (capacityGallons == null) {
+            return false;
+        }
+
+        double quantityGallons = quantityLiters.doubleValue() / 3.785411784;
+        return quantityGallons > capacityGallons.doubleValue();
     }
 
     private BigDecimal computeDeltaKm(BigDecimal current, BigDecimal previous) {
@@ -556,7 +596,6 @@ public class FuelLogService implements CreateFuelLogUseCase, GetFuelHistoryUseCa
                 e.getTotalCostMismatch(),
                 e.getFuelType() != null ? e.getFuelType().name() : null,
                 e.getServiceStation(),
-                e.getIsFullTank(),
                 e.getDiscountAmount(),
                 e.getInvoicePhotoUrl(),
                 e.getInvoiceStatus() != null ? e.getInvoiceStatus().name() : null,
@@ -747,7 +786,6 @@ public class FuelLogService implements CreateFuelLogUseCase, GetFuelHistoryUseCa
                 setCell(row, col++, e.getDiscountAmount(), dataStyle);
                 setCell(row, col++, e.getFuelType() != null ? e.getFuelType().name() : "", dataStyle);
                 setCell(row, col++, e.getServiceStation(), dataStyle);
-                setCell(row, col++, Boolean.TRUE.equals(e.getIsFullTank()) ? "Sí" : "No", dataStyle);
                 setCell(row, col++, e.getEfficiencyValue(), dataStyle);
                 setCell(row, col++, e.getEfficiencyUnit(), dataStyle);
                 setCell(row, col++, Boolean.TRUE.equals(e.getIsAnomaly()) ? "Sí" : "No", dataStyle);
@@ -839,26 +877,97 @@ public class FuelLogService implements CreateFuelLogUseCase, GetFuelHistoryUseCa
         } catch (Exception ignored) {}
 
         return new FuelLogResponse(
-                rep.getId(),
-                rep.getAssetType() != null ? rep.getAssetType().name() : null,
-                rep.getAssetId(),
-                rep.getAssetPlate(),
-                rep.getFuelDateTime(),
-                null, null, null, null, null, null,
-                null,
-                rep.getQuantityUnit() != null ? rep.getQuantityUnit().name() : null,
-                totalGallons,
-                null,
-                totalCost,
-                null, null,
-                rep.getFuelType() != null ? rep.getFuelType().name() : null,
-                null, null, null, null, null, null, null,
-                rep.getEfficiencyValue(),
-                rep.getEfficiencyUnit(),
-                null, null, null,
-                null, null, null,  // dismissal fields
-                factoryEff, factoryEffUnit
+                rep.getId(),                                                           // id
+                rep.getAssetType() != null ? rep.getAssetType().name() : null,        // assetType
+                rep.getAssetId(),                                                      // assetId
+                rep.getAssetPlate(),                                                   // assetPlate
+                rep.getFuelDateTime(),                                                 // fuelDateTime
+                null, null, null, null, null, null,                                   // 6 nulls (odometer, hourMeter, prevOdometer, prevHourMeter, deltaKm, deltaHours)
+                null,                                                                  // quantity
+                rep.getQuantityUnit() != null ? rep.getQuantityUnit().name() : null,  // quantityUnit
+                totalGallons,                                                          // quantityGallons
+                null,                                                                  // pricePerUnit
+                totalCost,                                                             // totalCostCalculated
+                null,                                                                  // totalCostActual
+                null,                                                                  // totalCostMismatch
+                rep.getFuelType() != null ? rep.getFuelType().name() : null,          // fuelType
+                null,                                                                  // serviceStation
+                null,                                                                  // discountAmount
+                null,                                                                  // invoicePhotoUrl
+                null,                                                                  // invoiceStatus
+                null,                                                                  // voucherNumber
+                null,                                                                  // notes
+                rep.getEfficiencyValue(),                                              // efficiencyValue
+                rep.getEfficiencyUnit(),                                               // efficiencyUnit
+                null,                                                                  // isAnomaly
+                null,                                                                  // registeredBy
+                null,                                                                  // createdAt
+                null,                                                                  // anomalyDismissedBy
+                null,                                                                  // anomalyDismissedAt
+                null,                                                                  // anomalyDismissReason
+                factoryEff,                                                            // factoryEfficiency
+                factoryEffUnit                                                         // factoryEfficiencyUnit
         );
+    }
+
+    /**
+     * Score para ordenar el ranking: mayor score = mayor desviación respecto a fábrica = aparece primero.
+     * - Activos con eficiencia de fábrica: score = % de desviación negativa respecto al spec.
+     *   km/Gal → penaliza por estar POR DEBAJO de fábrica (factory - actual) / factory
+     *   Gal/h  → penaliza por estar POR ENCIMA de fábrica (actual - factory) / factory  (consume más)
+     * - Activos sin eficiencia de fábrica: score negativo grande → van al final; dentro de ese grupo,
+     *   km/Gal ascendente y Gal/h descendente para mantener el orden intuitivo.
+     */
+    private static double rankingScore(FuelLogResponse r) {
+        BigDecimal actual  = r.efficiencyValue();
+        BigDecimal factory = r.factoryEfficiency();
+        String     unit    = r.efficiencyUnit();
+
+        if (actual == null) return Double.MAX_VALUE; // sin datos → último
+
+        boolean isConsumption = "GALLON_PER_HOUR".equals(unit) || "GAL_PER_HOUR".equals(unit)
+                || "M3_PER_HOUR".equals(unit) || "L_PER_HOUR".equals(unit);
+
+        if (factory != null && factory.compareTo(BigDecimal.ZERO) != 0) {
+            double dev;
+            if (isConsumption) {
+                // mayor consumo por hora que fábrica = peor → score positivo
+                dev = actual.subtract(factory)
+                        .divide(factory, 6, RoundingMode.HALF_UP)
+                        .doubleValue();
+            } else {
+                // menor km/Gal que fábrica = peor → score positivo
+                dev = factory.subtract(actual)
+                        .divide(factory, 6, RoundingMode.HALF_UP)
+                        .doubleValue();
+            }
+            return dev; // más alto = más problemático = va primero
+        }
+
+        // Sin eficiencia de fábrica: ordenar al final con signo negativo muy grande
+        // pero internamente coherente (km/Gal ascendente; Gal/h descendente)
+        double raw = actual.doubleValue();
+        return isConsumption ? -1e9 + raw : -1e9 - raw;
+    }
+
+    private String saveInvoicePhotoFromBase64(String base64Data, String fileName) {
+        try {
+            byte[] decodedBytes = java.util.Base64.getDecoder().decode(base64Data);
+            Path dir = java.nio.file.Paths.get("uploads", "fuel", "invoices");
+            java.nio.file.Files.createDirectories(dir);
+
+            String extension = fileName != null && fileName.contains(".")
+                ? fileName.substring(fileName.lastIndexOf('.'))
+                : ".jpg";
+            String filename = "fuel_" + System.currentTimeMillis() + "_" + UUID.randomUUID().toString().substring(0, 8) + extension;
+            Path target = dir.resolve(filename);
+            java.nio.file.Files.write(target, decodedBytes);
+
+            return "uploads/fuel/invoices/" + filename;
+        } catch (Exception e) {
+            log.warn("Failed to save invoice photo from Base64: {}", e.getMessage());
+            return null;
+        }
     }
 
     private String resolveUsername() {

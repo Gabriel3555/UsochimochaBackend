@@ -41,8 +41,8 @@ public class DocumentacionYElementosEntity {
     @Column(name = "tipo_documento", length = 50)
     private String tipoDocumento;
 
-    /** NOT NULL en BD — siempre debe tener un valor */
-    @Column(name = "fecha_vencimiento", nullable = false)
+    /** Nulo para TARJETA_PROPIEDAD (sin vencimiento); obligatorio para demás tipos */
+    @Column(name = "fecha_vencimiento")
     private LocalDate fechaVencimiento;
 
     /** Ruta/URL del archivo (imagen o PDF) asociado al documento. */

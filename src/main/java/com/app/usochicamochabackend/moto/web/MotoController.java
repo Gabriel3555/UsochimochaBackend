@@ -54,6 +54,16 @@ public class MotoController {
         return ResponseEntity.ok(motoService.getUbicaciones());
     }
 
+    @GetMapping("/{placa}")
+    @Operation(summary = "Obtener moto por placa", description = "Detalle completo de la moto por placa (404 si no existe o no está activa)")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Moto encontrada"),
+            @ApiResponse(responseCode = "404", description = "Moto no encontrada")
+    })
+    public ResponseEntity<VehicleResponse> getMotoByPlaca(@PathVariable String placa) {
+        return ResponseEntity.ok(motoService.findMotoByPlaca(placa));
+    }
+
     @GetMapping("/{placa}/documentos")
     @Operation(summary = "Documentos existentes de una moto", description = "Devuelve documentos + estado de última inspección para el pre-llenado")
     public ResponseEntity<List<DocumentoExistenteResponse>> getDocumentos(@PathVariable String placa) {

@@ -51,11 +51,11 @@ public class MotoService implements MotoCRUDUseCase {
     private final DocumentacionYElementosRepository documentacionRepository;
     private final NotificationService notificationService;
 
-        /** Retorna las motocicletas activas (tipo = MOTOCICLETA) con su ubicación base */
+        /** Retorna las motocicletas activas (tipo = MOTOCICLETA) con su ubicación base y marca */
         public List<MotoPlacaResponse> getMotocicletas() {
                 return vehicleRepository.findAllActiveVehiclesByTipoName(TIPO_MOTO)
                                 .stream()
-                                .map(v -> new MotoPlacaResponse(v.getId(), v.getPlaca(), v.getIdUbicacionBase(), v.getUbicacionBase()))
+                                .map(v -> new MotoPlacaResponse(v.getId(), v.getPlaca(), v.getMarca(), v.getIdUbicacionBase(), v.getUbicacionBase()))
                                 .toList();
         }
 
@@ -152,8 +152,13 @@ public class MotoService implements MotoCRUDUseCase {
                                 .orElseThrow(() -> new ResourceNotFoundException(
                                                 "Vehículo no encontrado: " + req.idVehiculo()));
 
+                // Actualizar fecha del último reporte (siempre) y kilometraje (si aplica)
                 if (req.kilometrajeReportado() != null && req.kilometrajeReportado() > 0) {
                         vehicleRepository.updateKilometrajeWithDate(vehiculo.getIdVehiculo(), req.kilometrajeReportado(), LocalDateTime.now());
+                } else {
+                        // Si no hay kilometraje, actualizar solo la fecha
+                        vehiculo.setFechaUltimoReporte(LocalDateTime.now());
+                        vehicleRepository.save(vehiculo);
                 }
 
                 InspPreOperativaEntity inspeccion = InspPreOperativaEntity.builder()
@@ -228,6 +233,15 @@ public class MotoService implements MotoCRUDUseCase {
                 .toList();
     }
 
+    public VehicleResponse findMotoByPlaca(String placa) {
+        VehicleEntity moto = vehicleRepository.findByPlacaAndActivoTrue(placa)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Moto no encontrada"));
+        if (!TIPO_MOTO.equalsIgnoreCase(moto.getTipoVehiculo().getNombreTipo())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "El vehículo no es una motocicleta");
+        }
+        return VehicleMapper.toResponse(moto);
+    }
+
     @Override
     @Transactional
     public VehicleResponse createMoto(VehicleRequest request) {
@@ -240,8 +254,14 @@ public class MotoService implements MotoCRUDUseCase {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ya existe un vehículo con esta placa");
         }
         TipoVehiculoEntity tipoMoto = tipoVehiculoRepository.findByNombreTipoIgnoreCase(TIPO_MOTO)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
-                        "Tipo MOTOCICLETA no configurado en catálogo"));
+                .orElseGet(() -> {
+                    log.warn("Tipo MOTOCICLETA no encontrado. Creando automáticamente...");
+                    TipoVehiculoEntity newTipo = TipoVehiculoEntity.builder()
+                            .nombreTipo(TIPO_MOTO)
+                            .activo(true)
+                            .build();
+                    return tipoVehiculoRepository.save(newTipo);
+                });
 
         if (req.idUbicacionBase() != null && !ubicacionRepository.existsById(req.idUbicacionBase())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ubicación no válida");
@@ -281,8 +301,14 @@ public class MotoService implements MotoCRUDUseCase {
         }
 
         TipoVehiculoEntity tipoMoto = tipoVehiculoRepository.findByNombreTipoIgnoreCase(TIPO_MOTO)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
-                        "Tipo MOTOCICLETA no configurado en catálogo"));
+                .orElseGet(() -> {
+                    log.warn("Tipo MOTOCICLETA no encontrado. Creando automáticamente...");
+                    TipoVehiculoEntity newTipo = TipoVehiculoEntity.builder()
+                            .nombreTipo(TIPO_MOTO)
+                            .activo(true)
+                            .build();
+                    return tipoVehiculoRepository.save(newTipo);
+                });
 
         entity.setPlaca(placa);
         entity.setIdMarca(req.idMarca());

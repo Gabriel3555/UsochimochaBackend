@@ -30,7 +30,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Configuration
-@Profile("prod")
+@Profile("dev3")
 public class DataSeeder {
 
     @Bean

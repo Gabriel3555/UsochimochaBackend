@@ -85,10 +85,6 @@ public class FuelLogEntity {
     @Column(name = "service_station", length = 150)
     private String serviceStation;
 
-    @Column(name = "is_full_tank", nullable = false)
-    @Builder.Default
-    private Boolean isFullTank = true;
-
     @Column(name = "discount_amount", precision = 10, scale = 2)
     private BigDecimal discountAmount;
 

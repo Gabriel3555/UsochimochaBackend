@@ -37,7 +37,7 @@ public interface FuelLogRepository extends JpaRepository<FuelLogEntity, Long> {
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to);
 
-    List<FuelLogEntity> findTop2ByAssetTypeAndAssetIdAndIsFullTankTrueOrderByFuelDateTimeDesc(
+    List<FuelLogEntity> findTop2ByAssetTypeAndAssetIdOrderByFuelDateTimeDesc(
             AssetType assetType, Long assetId);
 
     @Query("SELECT COALESCE(SUM(f.quantityLiters), 0) FROM FuelLogEntity f WHERE f.assetType = :at AND f.assetId = :id AND f.fuelDateTime > :after AND f.fuelDateTime <= :before")
@@ -47,7 +47,7 @@ public interface FuelLogRepository extends JpaRepository<FuelLogEntity, Long> {
             @Param("after") LocalDateTime after,
             @Param("before") LocalDateTime before);
 
-    @Query("SELECT f.efficiencyValue FROM FuelLogEntity f WHERE f.assetType = :at AND f.assetId = :id AND f.isFullTank = true AND f.efficiencyValue IS NOT NULL AND f.id != :excludeId ORDER BY f.fuelDateTime DESC")
+    @Query("SELECT f.efficiencyValue FROM FuelLogEntity f WHERE f.assetType = :at AND f.assetId = :id AND f.efficiencyValue IS NOT NULL AND f.id != :excludeId ORDER BY f.fuelDateTime DESC")
     List<BigDecimal> findRecentEfficiencies(
             @Param("at") AssetType at,
             @Param("id") Long id,

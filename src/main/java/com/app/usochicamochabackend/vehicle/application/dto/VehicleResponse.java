@@ -2,6 +2,7 @@ package com.app.usochicamochabackend.vehicle.application.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 @Schema(
         name = "VehicleResponse",
@@ -38,6 +39,29 @@ public record VehicleResponse(
         BigDecimal factoryEfficiencyKmPerGallon,
 
         @Schema(description = "Unidad: KM_PER_GALLON | KM_PER_CUBIC_METER", example = "KM_PER_GALLON")
-        String factoryEfficiencyUnit
+        String factoryEfficiencyUnit,
+
+        @Schema(description = "Información de SOAT (responsabilidad civil)", example = "{}")
+        SoatInfo soat,
+
+        @Schema(description = "Información de Tecnicomecánica", example = "{}")
+        TecnoInfo tecno
 ) {
+        public record SoatInfo(
+                @Schema(description = "Fecha de vencimiento del SOAT", example = "2025-12-31")
+                LocalDate fechaVencimiento,
+                @Schema(description = "Días restantes hasta vencimiento", example = "120")
+                Long diasRestantes,
+                @Schema(description = "Estado: Vigente | Próximo a Vencer | Vencido", example = "Vigente")
+                String estado
+        ) {}
+
+        public record TecnoInfo(
+                @Schema(description = "Fecha de vencimiento de Tecnicomecánica", example = "2025-11-30")
+                LocalDate fechaVencimiento,
+                @Schema(description = "Días restantes hasta vencimiento", example = "95")
+                Long diasRestantes,
+                @Schema(description = "Estado: Vigente | Próximo a Vencer | Vencido", example = "Vigente")
+                String estado
+        ) {}
 }

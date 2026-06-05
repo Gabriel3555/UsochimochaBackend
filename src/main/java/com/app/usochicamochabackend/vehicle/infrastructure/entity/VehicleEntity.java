@@ -2,6 +2,7 @@ package com.app.usochicamochabackend.vehicle.infrastructure.entity;
 
 import com.app.usochicamochabackend.catalog.infrastructure.entity.TipoVehiculoEntity;
 import com.app.usochicamochabackend.catalog.infrastructure.entity.UbicacionEntity;
+import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.DocumentacionYElementosEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -10,6 +11,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @Entity
@@ -67,4 +69,7 @@ public class VehicleEntity {
     /** Unidad de la eficiencia de fábrica: KM_PER_GALLON | KM_PER_CUBIC_METER. Default: KM_PER_GALLON. */
     @Column(name = "factory_efficiency_unit", length = 30)
     private String factoryEfficiencyUnit;
+
+    @OneToMany(fetch = FetchType.LAZY, mappedBy = "vehiculo")
+    private List<DocumentacionYElementosEntity> documentos;
 }

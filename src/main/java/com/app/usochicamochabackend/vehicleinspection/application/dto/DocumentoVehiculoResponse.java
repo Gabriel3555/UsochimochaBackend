@@ -24,10 +24,8 @@ public record DocumentoVehiculoResponse(
         @Schema(description = "Estado tecnomecánica") String estadoTecno,
         @Schema(description = "Imagen tecno") String urlImagenTecno,
 
-        // Licencia de conducción
-        @Schema(description = "Fecha fin licencia") String fechaVencLicencia,
-        @Schema(description = "Estado licencia") String estadoLicencia,
-        @Schema(description = "Imagen licencia") String urlImagenLicencia,
+        // Tarjeta de propiedad (sin fecha de vencimiento)
+        @Schema(description = "Imagen tarjeta de propiedad") String urlImagenTarjetaPropiedad,
 
         // Extintor
         @Schema(description = "Fecha fin vigencia extintor (según almacenamiento)") String fechaVencExtintor,

@@ -55,7 +55,7 @@ class MotoControllerTest {
     @WithMockUser
     void getMotocicletas_ShouldReturnOk() throws Exception {
         when(motoService.getMotocicletas()).thenReturn(
-                List.of(new MotoPlacaResponse(1, "XYZ789", 2, "Unidad Pantano")));
+                List.of(new MotoPlacaResponse(1, "XYZ789", "Yamaha YZF", 2, "Unidad Pantano")));
 
         mockMvc.perform(get("/api/v1/moto/placas"))
                 .andExpect(status().isOk())

@@ -1,6 +1,7 @@
 package com.app.usochicamochabackend.web;
 
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
+import com.app.usochicamochabackend.exception.UserSoftDeletedConflictException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -13,6 +14,8 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.stream.Collectors;
 
 import java.util.Locale;
+import java.util.HashMap;
+import java.util.Map;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -20,6 +23,14 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<String> handleResourceNotFound(ResourceNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ex.getMessage());
+    }
+
+    @ExceptionHandler(UserSoftDeletedConflictException.class)
+    public ResponseEntity<Map<String, Object>> handleUserSoftDeletedConflict(UserSoftDeletedConflictException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("error", ex.getMessage());
+        response.put("softDeletedUser", ex.getSoftDeletedUser());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
     }
 
     @ExceptionHandler(org.springframework.security.core.AuthenticationException.class)

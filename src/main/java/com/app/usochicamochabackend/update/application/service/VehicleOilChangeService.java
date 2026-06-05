@@ -51,10 +51,20 @@ public class VehicleOilChangeService {
 
         vehicleOilChangeRepository.save(entity);
 
-        // Opcional: alinear km del vehículo si el cambio se registró a un km mayor
+        // Actualizar kilometraje si es necesario y fecha del último reporte
         Integer kmChange = request.kmAtChange();
+        boolean needsUpdate = false;
+
         if (kmChange != null && kmChange > (vehicle.getKilometrajeActual() != null ? vehicle.getKilometrajeActual() : 0)) {
             vehicle.setKilometrajeActual(kmChange);
+            needsUpdate = true;
+        }
+
+        // Actualizar fecha del último reporte (cambio de aceite es una actividad reportada)
+        vehicle.setFechaUltimoReporte(java.time.LocalDateTime.now());
+        needsUpdate = true;
+
+        if (needsUpdate) {
             vehicleRepository.save(vehicle);
         }
     }

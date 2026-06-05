@@ -37,16 +37,18 @@ public class VehicleDocumentAdminController {
     @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(
             summary = "Subir archivo de documento",
-            description = "Partes: `file` (PDF o imagen), `idVehiculo` (texto), `tipoDocumento`, `fechaVencimiento` (yyyy-MM-dd). "
+            description = "Partes: `file` (PDF o imagen), `idVehiculo` (texto), `tipoDocumento`, `fechaVencimiento` (yyyy-MM-dd, opcional para TARJETA_DE_PROPIEDAD). "
                     + "El archivo anterior `current` pasa a la subcarpeta `archive/`.")
     public ResponseEntity<Void> uploadDocument(
             @RequestPart("file") MultipartFile file,
             @RequestPart("idVehiculo") String idVehiculoStr,
             @RequestPart("tipoDocumento") String tipoDocumento,
-            @RequestPart("fechaVencimiento") String fechaVencimientoStr,
+            @RequestPart(value = "fechaVencimiento", required = false) String fechaVencimientoStr,
             Authentication authentication) throws IOException {
         int idVehiculo = Integer.parseInt(idVehiculoStr.trim());
-        LocalDate fecha = LocalDate.parse(fechaVencimientoStr.trim());
+        LocalDate fecha = (fechaVencimientoStr != null && !fechaVencimientoStr.isBlank())
+                ? LocalDate.parse(fechaVencimientoStr.trim())
+                : null;
         vehiculoInspectionService.saveDocumentFromUpload(
                 idVehiculo,
                 tipoDocumento,

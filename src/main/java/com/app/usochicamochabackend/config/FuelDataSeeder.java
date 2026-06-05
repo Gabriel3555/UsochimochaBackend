@@ -20,7 +20,7 @@ import java.util.List;
 
 @Slf4j
 @Configuration
-@Profile("dev")
+@Profile("#")
 @RequiredArgsConstructor
 public class FuelDataSeeder {
 
@@ -99,7 +99,7 @@ public class FuelDataSeeder {
                         null, round(machHour[mi] - 130 - mi * 20),
                         gallons1, price1, cost1, null,
                         FuelType.ACPM, estaciones[mi % estaciones.length],
-                        true, false, operarios[mi % operarios.length]
+                        false, operarios[mi % operarios.length]
                     ));
 
                     // 2.ª carga: fin de mes
@@ -117,7 +117,7 @@ public class FuelDataSeeder {
                         null, round(prevHour),
                         gallons2, price2, cost2, null,
                         FuelType.ACPM, estaciones[(mi + 2) % estaciones.length],
-                        false, false, operarios[(mi + 1) % operarios.length]
+                        false, operarios[(mi + 1) % operarios.length]
                     ));
                 }
 
@@ -142,7 +142,7 @@ public class FuelDataSeeder {
                         round(prevOdo), null,
                         gallons, price, cost, costActual,
                         ft, estaciones[(vi + month) % estaciones.length],
-                        true, false, operarios[vi % operarios.length]
+                        false, operarios[vi % operarios.length]
                     ));
                 }
 
@@ -163,7 +163,7 @@ public class FuelDataSeeder {
                         gallons, price, cost, null,
                         FuelType.GASOLINA_CORRIENTE,
                         estaciones[oi % estaciones.length],
-                        true, false, operarios[(oi + 2) % operarios.length]
+                        false, operarios[(oi + 2) % operarios.length]
                     ));
                 }
             }
@@ -182,14 +182,12 @@ public class FuelDataSeeder {
             // Registros normales de eficiencia
             long effCount = 0;
             for (FuelLogEntity e : logs) {
-                if (!Boolean.TRUE.equals(e.getIsAnomaly()) && e.getIsFullTank()
-                        && e.getAssetType() == AssetType.VEHICLE && effCount < 6) {
+                if (!Boolean.TRUE.equals(e.getIsAnomaly()) && e.getAssetType() == AssetType.VEHICLE && effCount < 6) {
                     e.setEfficiencyValue(new BigDecimal("12.50").add(BigDecimal.valueOf(effCount)));
                     e.setEfficiencyUnit("KM_PER_GALLON");
                     effCount++;
                 }
-                if (!Boolean.TRUE.equals(e.getIsAnomaly()) && e.getIsFullTank()
-                        && e.getAssetType() == AssetType.MACHINE) {
+                if (!Boolean.TRUE.equals(e.getIsAnomaly()) && e.getAssetType() == AssetType.MACHINE) {
                     e.setEfficiencyValue(new BigDecimal("3.80"));
                     e.setEfficiencyUnit("GALLON_PER_HOUR");
                 }
@@ -232,7 +230,7 @@ public class FuelDataSeeder {
             BigDecimal prevOdo, BigDecimal prevHour,
             double gallons, double pricePerGallon, double calculatedCost, Double actualCost,
             FuelType fuelType, String station,
-            boolean fullTank, boolean anomaly, String registeredBy) {
+            boolean anomaly, String registeredBy) {
 
         BigDecimal qty        = bd(gallons, 3);
         BigDecimal liters     = bd(gallons * LITERS_PER_GALLON, 3);
@@ -272,7 +270,6 @@ public class FuelDataSeeder {
             .totalCostMismatch(mismatch)
             .fuelType(fuelType)
             .serviceStation(station)
-            .isFullTank(fullTank)
             .isAnomaly(anomaly)
             .invoiceStatus(InvoiceStatus.PENDING_REVIEW)
             .registeredBy(registeredBy)

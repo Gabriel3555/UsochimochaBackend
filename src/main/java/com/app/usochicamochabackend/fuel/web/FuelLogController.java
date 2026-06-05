@@ -128,8 +128,16 @@ public class FuelLogController {
         return ResponseEntity.ok(getFuelDashboardUseCase.getHistoricalStats(from, to));
     }
 
+    @PostMapping(value = "/invoice/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Subir foto o PDF de factura temporal (para móvil antes de sincronizar)")
+    @PreAuthorize("hasAnyRole('OPERARIO','SUPERVISOR_OPERATIVO','ADMIN')")
+    public ResponseEntity<FuelLogResponse> uploadInvoiceTemp(
+            @RequestPart("file") MultipartFile file) {
+        return ResponseEntity.ok(getFuelHistoryUseCase.uploadInvoiceFileTemporal(file));
+    }
+
     @PostMapping(value = "/{id}/invoice/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @Operation(summary = "Subir foto o PDF de factura para un registro de combustible")
+    @Operation(summary = "Subir foto o PDF de factura para un registro de combustible existente")
     @PreAuthorize("hasAnyRole('OPERARIO','ADMIN')")
     public ResponseEntity<FuelLogResponse> uploadInvoice(
             @PathVariable Long id,

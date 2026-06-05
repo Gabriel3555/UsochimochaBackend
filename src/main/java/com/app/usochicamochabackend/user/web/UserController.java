@@ -10,10 +10,17 @@ import io.swagger.v3.oas.annotations.parameters.RequestBody;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import com.app.usochicamochabackend.user.application.service.UserService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
+import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+
+import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 
@@ -29,6 +36,13 @@ public class UserController {
     private final UpdateUserUseCase updateUserUseCase;
     private final FindUserByIdUseCase findUserByIdUseCase;
     private final ChangePasswordUseCase changePasswordUseCase;
+    private final UserService userService;
+
+    @GetMapping("/me")
+    @Operation(summary = "Get current authenticated user (own profile, license info)")
+    public ResponseEntity<UserResponse> getMe(@AuthenticationPrincipal UserPrincipal principal) {
+        return ResponseEntity.ok(findUserByIdUseCase.findUserById(principal.id()));
+    }
 
     @GetMapping("/{id}")
     @Operation(summary = "Get user by ID")
@@ -136,5 +150,25 @@ public class UserController {
     ) {
         ChangePasswordResponse response = changePasswordUseCase.changePassword(request);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping(value = "/{id}/license-document", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @Operation(summary = "Subir documento de licencia de tránsito del usuario")
+    public ResponseEntity<UserResponse> uploadLicenseDocument(
+            @PathVariable Long id,
+            @RequestPart("file") MultipartFile file) throws IOException {
+        return ResponseEntity.ok(userService.uploadLicenseDocument(id, file));
+    }
+
+    @PostMapping("/{id}/restore")
+    @Operation(summary = "Restore a deleted (soft-deleted) user")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "User restored",
+                    content = @Content(schema = @Schema(implementation = UserResponse.class))),
+            @ApiResponse(responseCode = "404", description = "User not found")
+    })
+    public ResponseEntity<UserResponse> restoreUser(@PathVariable Long id) {
+        UserResponse restored = userService.restoreUser(id);
+        return ResponseEntity.ok(restored);
     }
 }

@@ -24,7 +24,6 @@ public record FuelLogResponse(
         Boolean totalCostMismatch,
         String fuelType,
         String serviceStation,
-        Boolean isFullTank,
         BigDecimal discountAmount,
         String invoicePhotoUrl,
         String invoiceStatus,

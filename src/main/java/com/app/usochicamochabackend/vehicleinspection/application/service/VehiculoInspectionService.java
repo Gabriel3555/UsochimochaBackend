@@ -139,6 +139,10 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
                     idVehiculo,
                     req.kilometrajeReportado(),
                     LocalDateTime.now());
+        } else {
+            // Si no hay kilometraje, actualizar solo la fecha del último reporte
+            vehicle.setFechaUltimoReporte(LocalDateTime.now());
+            vehicleRepository.save(vehicle);
         }
 
         String tipoNombre = (vehicle.getTipoVehiculo() != null && vehicle.getTipoVehiculo().getNombreTipo() != null)
@@ -165,7 +169,6 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
         String u = inspector.username();
         upsertDocumentIfPresent(idVehiculo, "SOAT", req.fechaVencSoat(), null, u);
         upsertDocumentIfPresent(idVehiculo, "TECNOMECANICA", req.fechaVencTecno(), null, u);
-        upsertDocumentIfPresent(idVehiculo, "LICENCIA DE CONDUCCION", req.fechaVencLicencia(), null, u);
 
         LocalDate extintorFecha = parseExtintorMonth(req.vigenciaExtintor());
         if (extintorFecha != null) {
@@ -451,33 +454,31 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
 
         String fechaSoat = null, estadoSoat = null, urlSoat = null;
         String fechaTecno = null, estadoTecno = null, urlTecno = null;
-        String fechaLicencia = null, estadoLicencia = null, urlLicencia = null;
+        String urlTarjetaPropiedad = null;
         String fechaExtintor = null, estadoExtintor = null, urlExtintor = null;
 
         var soat = documentacionRepository.findLatestByVehiculoAndTipo(idVehiculo, "SOAT");
         if (soat.isPresent()) {
-            fechaSoat = soat.get().getFechaVencimiento().toString();
+            fechaSoat = soat.get().getFechaVencimiento() != null ? soat.get().getFechaVencimiento().toString() : null;
             estadoSoat = calcularEstado(soat.get().getFechaVencimiento());
             urlSoat = resolveUrl(soat.get().getImagenUrl());
         }
 
         var tecno = documentacionRepository.findLatestByVehiculoAndTipo(idVehiculo, "TECNOMECANICA");
         if (tecno.isPresent()) {
-            fechaTecno = tecno.get().getFechaVencimiento().toString();
+            fechaTecno = tecno.get().getFechaVencimiento() != null ? tecno.get().getFechaVencimiento().toString() : null;
             estadoTecno = calcularEstado(tecno.get().getFechaVencimiento());
             urlTecno = resolveUrl(tecno.get().getImagenUrl());
         }
 
-        var licencia = documentacionRepository.findLatestByVehiculoAndTipo(idVehiculo, "LICENCIA DE CONDUCCION");
-        if (licencia.isPresent()) {
-            fechaLicencia = licencia.get().getFechaVencimiento().toString();
-            estadoLicencia = calcularEstado(licencia.get().getFechaVencimiento());
-            urlLicencia = resolveUrl(licencia.get().getImagenUrl());
+        var tarjeta = documentacionRepository.findLatestByVehiculoAndTipo(idVehiculo, "TARJETA DE PROPIEDAD");
+        if (tarjeta.isPresent()) {
+            urlTarjetaPropiedad = resolveUrl(tarjeta.get().getImagenUrl());
         }
 
         var extintor = documentacionRepository.findLatestByVehiculoAndTipo(idVehiculo, "EXTINTOR");
         if (extintor.isPresent()) {
-            fechaExtintor = extintor.get().getFechaVencimiento().toString();
+            fechaExtintor = extintor.get().getFechaVencimiento() != null ? extintor.get().getFechaVencimiento().toString() : null;
             estadoExtintor = calcularEstado(extintor.get().getFechaVencimiento());
             urlExtintor = resolveUrl(extintor.get().getImagenUrl());
         }
@@ -486,7 +487,7 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
                 idVehiculo,
                 fechaSoat, estadoSoat, urlSoat,
                 fechaTecno, estadoTecno, urlTecno,
-                fechaLicencia, estadoLicencia, urlLicencia,
+                urlTarjetaPropiedad,
                 fechaExtintor, estadoExtintor, urlExtintor);
     }
 
@@ -500,13 +501,18 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
 
     @Transactional
     public void saveDocument(VehicleDocumentRequest req, String registradoPor) {
-        if (req.idVehiculo() == null || req.fechaVencimiento() == null) {
-            throw new IllegalArgumentException("idVehiculo y fechaVencimiento son obligatorios.");
+        if (req.idVehiculo() == null) {
+            throw new IllegalArgumentException("idVehiculo es obligatorio.");
+        }
+        String tipoCheck = normalizeTipoForPersistence(req.tipoDocumento());
+        if (req.fechaVencimiento() == null && !"TARJETA DE PROPIEDAD".equals(tipoCheck)) {
+            throw new IllegalArgumentException("fechaVencimiento es obligatorio para este tipo de documento.");
         }
         if (!vehicleRepository.existsById(req.idVehiculo())) {
             throw new IllegalArgumentException("Vehículo no encontrado: id=" + req.idVehiculo());
         }
-        String tipo = normalizeTipoForPersistence(req.tipoDocumento());
+        String tipo = tipoCheck;
+        LocalDate fechaEfectiva = req.fechaVencimiento();
         Optional<DocumentacionYElementosEntity> activeOpt =
                 documentacionRepository.findLatestByVehiculoAndTipo(req.idVehiculo(), tipo);
 
@@ -521,7 +527,7 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
 
         if (activeOpt.isPresent()) {
             DocumentacionYElementosEntity a = activeOpt.get();
-            if (a.getFechaVencimiento().equals(req.fechaVencimiento())
+            if (Objects.equals(a.getFechaVencimiento(), fechaEfectiva)
                     && Objects.equals(blankToNull(a.getImagenUrl()), imagenUrl)) {
                 return;
             }
@@ -532,10 +538,10 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
         DocumentacionYElementosEntity doc = DocumentacionYElementosEntity.builder()
                 .idVehiculo(req.idVehiculo())
                 .tipoDocumento(tipo)
-                .fechaVencimiento(req.fechaVencimiento())
+                .fechaVencimiento(fechaEfectiva)
                 .imagenUrl(imagenUrl)
                 .contentType(contentType)
-                .estadoDatos(calcularEstado(req.fechaVencimiento()))
+                .estadoDatos(calcularEstado(fechaEfectiva))
                 .activo(true)
                 .registradoPor(normalizeRegistradoPor(registradoPor))
                 .build();
@@ -619,7 +625,8 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
         }
         String t = raw.trim().toUpperCase(Locale.ROOT).replace('_', ' ');
         return switch (t) {
-            case "LICENCIA", "LICENCIA CONDUCCION" -> "LICENCIA DE CONDUCCION";
+            case "LICENCIA", "LICENCIA CONDUCCION", "LICENCIA DE CONDUCCION" -> "LICENCIA DE CONDUCCION";
+            case "TARJETA PROPIEDAD", "TARJETA DE PROPIEDAD" -> "TARJETA DE PROPIEDAD";
             default -> t;
         };
     }

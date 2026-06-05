@@ -47,9 +47,9 @@ public class MotoMonitoringService implements MotoMonitoringUseCase {
 
     private MotoMonitoringDTO buildMonitoringDTO(VehicleEntity moto) {
         Optional<InspPreOperativaEntity> lastInsp = inspectionRepository.findLatestByVehicleId(moto.getIdVehiculo());
-        
+
         Long daysSinceReport = null;
-        LocalDateTime lastReportDate = null;
+        LocalDateTime lastReportDate = moto.getFechaUltimoReporte();
         String estadoMoto = "Óptimo";
         String novedad = "Ninguna";
         /** Excel «Responsable / unidad»: nombre de estación donde se reportó la última inspección (app móvil envía idUbicacion). */
@@ -60,7 +60,7 @@ public class MotoMonitoringService implements MotoMonitoringUseCase {
             lastReportDate = insp.getFechaRegistro();
             daysSinceReport = ChronoUnit.DAYS.between(lastReportDate.toLocalDate(), LocalDate.now());
             estadoMoto = insp.getEstadoVehiculo() != null ? insp.getEstadoVehiculo() : "Regular";
-            novedad = (insp.getObservacionesFinales() != null && !insp.getObservacionesFinales().isBlank()) 
+            novedad = (insp.getObservacionesFinales() != null && !insp.getObservacionesFinales().isBlank())
                       ? insp.getObservacionesFinales() : "Ninguna";
             Integer idUb = insp.getIdUbicacion();
             if (idUb != null) {
@@ -68,6 +68,9 @@ public class MotoMonitoringService implements MotoMonitoringUseCase {
                         .map(UbicacionEntity::getNombreUbicacion)
                         .orElse(null);
             }
+        } else if (lastReportDate != null) {
+            // Si no hay inspección pero sí hay fecha en la entidad, calcular días
+            daysSinceReport = ChronoUnit.DAYS.between(lastReportDate.toLocalDate(), LocalDate.now());
         }
 
         String ubicacionCatalogo = null;

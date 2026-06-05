@@ -16,6 +16,7 @@ import com.app.usochicamochabackend.order.application.dto.*;
 import com.app.usochicamochabackend.order.application.port.*;
 import com.app.usochicamochabackend.order.infrastructure.entity.MaintenanceType;
 import com.app.usochicamochabackend.order.infrastructure.entity.OrderCounterEntity;
+import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
 import com.app.usochicamochabackend.order.infrastructure.entity.OrderEntity;
 import com.app.usochicamochabackend.order.infrastructure.repository.OrderCounterRepository;
 import com.app.usochicamochabackend.order.infrastructure.repository.OrderRepository;
@@ -136,7 +137,12 @@ public class OrderService implements AssignOrderUseCase, GetAllOrdersByInspectio
         UserEntity assignerUser = userRepository.findById(userPrincipal.id())
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with ID: " + userPrincipal.id()));
 
-        String consecutive = generateConsecutive("VH");
+        VehicleEntity vehiculo = vehicleInspection.getVehiculo();
+        String tipoNombre = (vehiculo != null && vehiculo.getTipoVehiculo() != null)
+                ? vehiculo.getTipoVehiculo().getNombreTipo().toUpperCase(java.util.Locale.ROOT)
+                : "";
+        String moduleCode = tipoNombre.contains("MOTO") ? "MT" : "VH";
+        String consecutive = generateConsecutive(moduleCode);
 
         MaintenanceType maintenanceType = request.maintenanceType() != null
                 ? MaintenanceType.valueOf(request.maintenanceType())
@@ -154,7 +160,7 @@ public class OrderService implements AssignOrderUseCase, GetAllOrdersByInspectio
                         .build()
         );
 
-        String placa = vehicleInspection.getVehiculo() != null ? vehicleInspection.getVehiculo().getPlaca() : "";
+        String placa = vehiculo != null ? vehiculo.getPlaca() : "";
         saveActionUseCase.save("El usuario " + assignerUser.getUsername() +
                 " ha asignado una orden de trabajo a la inspección del vehículo " + placa +
                 " del día " + vehicleInspection.getFechaRegistro());

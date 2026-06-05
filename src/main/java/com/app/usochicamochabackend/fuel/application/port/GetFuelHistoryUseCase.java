@@ -13,5 +13,6 @@ public interface GetFuelHistoryUseCase {
     FuelLogResponse getById(Long id);
     FuelLogResponse updateInvoiceStatus(Long id, String status);
     FuelLogResponse uploadInvoiceFile(Long id, MultipartFile file);
+    FuelLogResponse uploadInvoiceFileTemporal(MultipartFile file);
     FuelLogResponse dismissAnomaly(Long id, String reason, BigDecimal correctedCost);
 }
