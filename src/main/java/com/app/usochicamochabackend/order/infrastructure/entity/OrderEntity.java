@@ -38,7 +38,7 @@ public class OrderEntity {
     @JoinColumn(name = "vehicle_inspection_id", nullable = true)
     private InspPreOperativaEntity vehicleInspection;
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "result_id", nullable = true)
     private ResultEntity result;
 
