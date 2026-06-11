@@ -5,6 +5,7 @@ import com.app.usochicamochabackend.update.application.dto.VehicleOilChangeHisto
 import com.app.usochicamochabackend.update.application.dto.VehicleOilChangeRequest;
 import com.app.usochicamochabackend.update.infrastructure.entity.BrandEntity;
 import com.app.usochicamochabackend.update.infrastructure.entity.VehicleOilChangeEntity;
+import com.app.usochicamochabackend.update.infrastructure.entity.OilType;
 import com.app.usochicamochabackend.update.infrastructure.repository.BrandRepository;
 import com.app.usochicamochabackend.update.infrastructure.repository.VehicleOilChangeRepository;
 import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
@@ -41,7 +42,7 @@ public class VehicleOilChangeService {
         VehicleOilChangeEntity entity = VehicleOilChangeEntity.builder()
                 .vehicle(vehicle)
                 .dateStamp(request.dateStamp() != null ? request.dateStamp() : java.time.LocalDateTime.now())
-                .oilType(InputTextNormalizer.normalizeFreeTextPreserveCase(request.oilType()))
+                .oilType(OilType.valueOf(request.oilType().toUpperCase().replace("-", "_").replace(" ", "_")))
                 .brand(brand)
                 .quantity(request.quantity())
                 .kmAtChange(request.kmAtChange())
@@ -76,7 +77,7 @@ public class VehicleOilChangeService {
                 .map(e -> new VehicleOilChangeHistoryDTO(
                         e.getId(),
                         e.getDateStamp(),
-                        e.getOilType(),
+                        e.getOilType() != null ? e.getOilType().name() : null,
                         e.getBrand() != null ? e.getBrand().getName() : null,
                         e.getQuantity(),
                         e.getKmAtChange(),

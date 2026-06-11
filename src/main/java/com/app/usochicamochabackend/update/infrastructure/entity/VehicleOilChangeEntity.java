@@ -21,19 +21,20 @@ public class VehicleOilChangeEntity {
     private Long id;
 
     private LocalDateTime dateStamp;
-    
+
+    @Enumerated(EnumType.STRING)
     @Column(name = "oil_type")
-    private String oilType;
+    private OilType oilType;
 
     @ManyToOne
     @JoinColumn(name = "brand_id")
-    private BrandEntity brand; // Oil Brand (Mobil, etc.)
+    private BrandEntity brand;
 
     private Double quantity;
-    
+
     @Column(name = "km_at_change")
     private Integer kmAtChange;
-    
+
     @Column(name = "interval_km")
     private Integer intervalKm;
 

@@ -30,6 +30,25 @@ public class ExcelGenerationService {
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter DATETIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
+    private static String formatExecutionTime(Object orderResponse) {
+        if (orderResponse == null) return "—";
+        try {
+            Integer hours = (Integer) orderResponse.getClass().getMethod("hoursSpent").invoke(orderResponse);
+            Integer minutes = (Integer) orderResponse.getClass().getMethod("minutesSpent").invoke(orderResponse);
+
+            if (hours == null && minutes == null) return "—";
+            hours = hours != null ? hours : 0;
+            minutes = minutes != null ? minutes : 0;
+
+            if (hours == 0 && minutes == 0) return "—";
+            if (hours == 0) return String.format("%dm", minutes);
+            if (minutes == 0) return String.format("%dh", hours);
+            return String.format("%dh %dm", hours, minutes);
+        } catch (Exception e) {
+            return "—";
+        }
+    }
+
     public byte[] generateConsolidatedMachinesExcel(List<ConsolidateHydraulicAndMotorOilDTO> consolidatedData) throws IOException {
         log.info("Generando archivo Excel para {} máquinas", consolidatedData.size());
 
@@ -610,7 +629,7 @@ public class ExcelGenerationService {
 
             String[] headers = {
                 "ID Orden", "Fecha", "Estado", "Descripción",
-                "Asignado por", "Máquina", "Área"
+                "Asignado por", "Máquina", "Área", "Proveedor Repuesto", "Tiempo"
             };
 
             Row headerRow = sheet.createRow(0);
@@ -633,6 +652,8 @@ public class ExcelGenerationService {
                 row.createCell(c++).setCellValue(order != null && order.assignerUser() != null ? order.assignerUser().fullName() : "");
                 row.createCell(c++).setCellValue(machine != null && machine.name() != null ? machine.name() : "");
                 row.createCell(c++).setCellValue(machine != null && machine.belongsTo() != null ? machine.belongsTo() : "");
+                row.createCell(c++).setCellValue(order != null && order.suppliers() != null ? order.suppliers() : "");
+                row.createCell(c++).setCellValue(formatExecutionTime(order));
 
                 for (int i = 0; i < headers.length; i++) {
                     row.getCell(i).setCellStyle(dataStyle);
@@ -678,7 +699,7 @@ public class ExcelGenerationService {
 
             String[] headers = {
                 "ID Orden", "Fecha", "Estado", "Descripción",
-                "Asignado por", "Placa", "Marca", "Tipo Vehículo", "Fecha Inspección"
+                "Asignado por", "Placa", "Marca", "Tipo Vehículo", "Fecha Inspección", "Proveedor Repuesto", "Tiempo"
             };
 
             Row headerRow = sheet.createRow(0);
@@ -703,6 +724,8 @@ public class ExcelGenerationService {
                 row.createCell(c++).setCellValue(vehicle != null && vehicle.marca() != null ? vehicle.marca() : "");
                 row.createCell(c++).setCellValue(vehicle != null && vehicle.tipoVehiculo() != null ? vehicle.tipoVehiculo() : "");
                 row.createCell(c++).setCellValue(vehicle != null && vehicle.fechaInspeccion() != null ? vehicle.fechaInspeccion().format(DATETIME_FORMATTER) : "");
+                row.createCell(c++).setCellValue(order != null && order.suppliers() != null ? order.suppliers() : "");
+                row.createCell(c++).setCellValue(formatExecutionTime(order));
 
                 for (int i = 0; i < headers.length; i++) {
                     row.getCell(i).setCellStyle(dataStyle);

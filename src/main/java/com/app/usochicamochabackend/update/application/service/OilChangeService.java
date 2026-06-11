@@ -294,10 +294,12 @@ public class OilChangeService implements
 
         oilChangeRepository.save(oilChange);
 
+        machine.setHorometroActual(request.currentHourMeter().intValue());
+        machineRepository.save(machine);
+
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha cambiado el aceite de motor de la maquina " + machine.getName());
-        
-        
+
 
         return OilChangeMapper.motorOilEntityToResponse(oilChange);
     }
@@ -316,11 +318,12 @@ public class OilChangeService implements
 
         oilChangeRepository.save(oilChange);
 
+        machine.setHorometroActual(request.currentHourMeter().intValue());
+        machineRepository.save(machine);
+
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha cambiado el aceite hidraulico de la maquina " + machine.getName());
 
-        
-        
 
         return OilChangeMapper.hydraulicOilEntityToResponse(oilChange);
     }
