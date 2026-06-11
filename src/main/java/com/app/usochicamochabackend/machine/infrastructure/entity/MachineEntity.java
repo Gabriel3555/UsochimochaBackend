@@ -41,4 +41,8 @@ public class MachineEntity {
     /** Unidad de la eficiencia de fábrica: GAL_PER_HOUR | M3_PER_HOUR. Default: GAL_PER_HOUR. */
     @Column(name = "factory_efficiency_unit", length = 30)
     private String factoryEfficiencyUnit;
+
+    /** Horometro actual (horas de operación). Se actualiza desde la inspección diaria preoperativa. */
+    @Column(name = "horometro_actual")
+    private Integer horometroActual;
 }
