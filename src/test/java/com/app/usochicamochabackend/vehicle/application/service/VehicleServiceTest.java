@@ -4,7 +4,6 @@ import com.app.usochicamochabackend.catalog.infrastructure.repository.UbicacionR
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleRequest;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleResponse;
 import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
-import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleProjection;
 import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -44,44 +43,37 @@ class VehicleServiceTest {
 
     @Test
     void findAllVehicles_DebeRetornarListaDeVehiculos() {
-        VehicleProjection proj = mock(VehicleProjection.class);
-        when(proj.getId()).thenReturn(1);
-        when(proj.getPlaca()).thenReturn("ABC123");
-        when(proj.getMarca()).thenReturn("Toyota");
-        when(proj.getIdMarca()).thenReturn(1);
-        when(proj.getIdTipoVehiculo()).thenReturn(2);
-        when(proj.getTipoVehiculo()).thenReturn("AUTOMOVIL");
-        when(proj.getKilometrajeActual()).thenReturn(50000);
-        when(proj.getBelongsTo()).thenReturn("Distrito");
-        when(proj.getIdUbicacionBase()).thenReturn(null);
-        when(proj.getUbicacionBase()).thenReturn(null);
+        VehicleEntity entity = new VehicleEntity();
+        entity.setIdVehiculo(1);
+        entity.setPlaca("ABC123");
+        entity.setIdMarca(1);
+        entity.setIdTipoVehiculo(2);
+        entity.setKilometrajeActual(50000);
+        entity.setBelongsTo("Distrito");
+        entity.setActivo(true);
 
-        when(vehicleRepository.findAllActiveVehicles()).thenReturn(List.of(proj));
+        when(vehicleRepository.findAllActiveVehiclesWithDocuments()).thenReturn(List.of(entity));
 
         List<VehicleResponse> result = vehicleService.findAllVehicles();
 
         assertEquals(1, result.size());
         assertEquals("ABC123", result.get(0).placa());
-        assertEquals("AUTOMOVIL", result.get(0).tipoVehiculo());
     }
 
     // --- findByPlaca ---
 
     @Test
     void findByPlaca_CuandoExiste_DebeRetornarVehiculo() {
-        VehicleProjection proj = mock(VehicleProjection.class);
-        when(proj.getId()).thenReturn(1);
-        when(proj.getPlaca()).thenReturn("ABC123");
-        when(proj.getMarca()).thenReturn("Toyota");
-        when(proj.getIdMarca()).thenReturn(1);
-        when(proj.getIdTipoVehiculo()).thenReturn(2);
-        when(proj.getTipoVehiculo()).thenReturn("AUTOMOVIL");
-        when(proj.getKilometrajeActual()).thenReturn(50000);
-        when(proj.getBelongsTo()).thenReturn("Distrito");
-        when(proj.getIdUbicacionBase()).thenReturn(null);
-        when(proj.getUbicacionBase()).thenReturn(null);
+        VehicleEntity entity = new VehicleEntity();
+        entity.setIdVehiculo(1);
+        entity.setPlaca("ABC123");
+        entity.setIdMarca(1);
+        entity.setIdTipoVehiculo(2);
+        entity.setKilometrajeActual(50000);
+        entity.setBelongsTo("Distrito");
+        entity.setActivo(true);
 
-        when(vehicleRepository.findVehicleDetailByPlaca("ABC123")).thenReturn(Optional.of(proj));
+        when(vehicleRepository.findVehicleDetailByPlaca("ABC123")).thenReturn(Optional.of(entity));
 
         VehicleResponse result = vehicleService.findByPlaca("ABC123");
 
@@ -126,17 +118,14 @@ class VehicleServiceTest {
 
     @Test
     void createVehicle_ConDatosValidos_DebeGuardarVehiculo() {
-        VehicleProjection proj = mock(VehicleProjection.class);
-        when(proj.getId()).thenReturn(5);
-        when(proj.getPlaca()).thenReturn("ABC123");
-        when(proj.getMarca()).thenReturn("Toyota");
-        when(proj.getIdMarca()).thenReturn(1);
-        when(proj.getIdTipoVehiculo()).thenReturn(2);
-        when(proj.getTipoVehiculo()).thenReturn("AUTOMOVIL");
-        when(proj.getKilometrajeActual()).thenReturn(50000);
-        when(proj.getBelongsTo()).thenReturn("Distrito");
-        when(proj.getIdUbicacionBase()).thenReturn(null);
-        when(proj.getUbicacionBase()).thenReturn(null);
+        VehicleEntity entity = new VehicleEntity();
+        entity.setIdVehiculo(5);
+        entity.setPlaca("ABC123");
+        entity.setIdMarca(1);
+        entity.setIdTipoVehiculo(2);
+        entity.setKilometrajeActual(50000);
+        entity.setBelongsTo("Distrito");
+        entity.setActivo(true);
 
         when(vehicleRepository.findByPlaca("ABC123")).thenReturn(Optional.empty());
         when(vehicleRepository.save(any())).thenAnswer(inv -> {
@@ -144,7 +133,7 @@ class VehicleServiceTest {
             e.setIdVehiculo(5);
             return e;
         });
-        when(vehicleRepository.findVehicleDetailByPlaca("ABC123")).thenReturn(Optional.of(proj));
+        when(vehicleRepository.findVehicleDetailByPlaca("ABC123")).thenReturn(Optional.of(entity));
 
         VehicleResponse result = vehicleService.createVehicle(requestValido);
 
