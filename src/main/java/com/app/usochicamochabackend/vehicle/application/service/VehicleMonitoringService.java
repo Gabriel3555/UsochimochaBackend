@@ -110,7 +110,7 @@ public class VehicleMonitoringService implements VehicleMonitoringUseCase {
         }
 
         return new VehicleMonitoringDTO.OilStatus(
-            change.getOilType(),
+            change.getOilType() != null ? change.getOilType().name() : "DESCONOCIDO",
             change.getDateStamp().toLocalDate(),
             kmAtChange,
             nextChangeKm,

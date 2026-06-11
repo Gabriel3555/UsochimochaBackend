@@ -15,6 +15,9 @@ public interface VehicleRepository extends JpaRepository<VehicleEntity, Integer>
     @Query("SELECT v FROM VehicleEntity v WHERE v.activo = true ORDER BY v.placa")
     List<VehicleEntity> findAllActiveVehiclesWithDocuments();
 
+    @Query("SELECT v FROM VehicleEntity v WHERE v.activo = true AND UPPER(TRIM(v.tipoVehiculo.nombreTipo)) = UPPER(TRIM(:tipoName)) ORDER BY v.placa")
+    List<VehicleEntity> findAllActiveVehiclesByTipoNameWithDocuments(@Param("tipoName") String tipoName);
+
     @Query(nativeQuery = true, value = """
             SELECT
                 v.id_vehiculo        AS "id",

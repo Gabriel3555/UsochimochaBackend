@@ -53,14 +53,14 @@ public record VehicleRequest(
         @Schema(description = "Unidad de la eficiencia de fábrica: KM_PER_GALLON (combustible líquido) o KM_PER_CUBIC_METER (gas natural).", example = "KM_PER_GALLON")
         String factoryEfficiencyUnit
 ) {
-    /** Placa en mayúsculas sin espacios; {@code belongsTo} en minúsculas; resto sin cambiar. */
+    /** Placa en mayúsculas sin espacios; {@code belongsTo} con capitalización consistente; resto sin cambiar. */
     public VehicleRequest normalized() {
         return new VehicleRequest(
                 InputTextNormalizer.normalizePlaca(placa),
                 idMarca,
                 idTipoVehiculo,
                 kilometrajeActual,
-                belongsTo != null ? belongsTo.toLowerCase().trim() : null,
+                InputTextNormalizer.normalizeTitleWords(belongsTo),
                 idUbicacionBase,
                 activo,
                 fuelTankCapacityGallons,
