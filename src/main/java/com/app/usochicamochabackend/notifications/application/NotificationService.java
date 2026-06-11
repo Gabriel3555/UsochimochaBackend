@@ -143,4 +143,17 @@ public class NotificationService {
             recordNotificationStats("document-expiry");
         }
     }
+
+    /**
+     * Send preventive alert notification via WebSocket
+     * Used by AlertCalculationService to notify about preventive alerts
+     * Reutiliza el canal /topic/alerts que ya existe en el frontend
+     */
+    public void notifyAlert(Object alertData) {
+        if (alertData != null) {
+            log.info("Sending preventive alert WebSocket notification");
+            webSocketHandler.broadcastDataUpdate(alertData.toString());
+            recordNotificationStats("preventive-alert");
+        }
+    }
 }

@@ -1,6 +1,8 @@
 package com.app.usochicamochabackend.notifications.application;
 
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
+import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
+import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleRepository;
 import com.app.usochicamochabackend.vehicleinspection.infrastructure.repository.DocumentacionYElementosRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -8,7 +10,9 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Slf4j
 @Service
@@ -18,18 +22,22 @@ public class AlertSchedulerService {
     private final NotificationService notificationService;
     private final DocumentacionYElementosRepository documentacionRepository;
     private final UserRepositoryJpa userRepository;
+    private final AlertCalculationService alertCalculationService;
+    private final VehicleRepository vehicleRepository;
+    private final MachineRepository machineRepository;
 
     /**
      * Runs every day at 07:00 to check for expiring vehicle documents and driver licenses.
-     * Broadcasts a WebSocket alert so connected admin users are informed.
+     * Also calculates preventive alerts based on oil changes, documents, and licenses.
+     * Broadcasts WebSocket alerts to connected admin users.
      */
     @Scheduled(cron = "0 0 7 * * *")
     public void checkExpiringDocuments() {
-        log.info("AlertSchedulerService: checking expiring documents and licenses...");
+        log.info("🔔 AlertSchedulerService: iniciando verificación diaria de vencimientos y alertas...");
 
         LocalDate threshold = LocalDate.now().plusDays(30);
 
-        // Count active vehicle documents expiring within the next 30 days
+        // MANTENER: Count active vehicle documents expiring within the next 30 days
         List<?> expiringDocs = documentacionRepository.findAll().stream()
                 .filter(doc -> Boolean.TRUE.equals(doc.getActivo())
                         && doc.getFechaVencimiento() != null
@@ -37,7 +45,7 @@ public class AlertSchedulerService {
                         && !doc.getFechaVencimiento().isBefore(LocalDate.now()))
                 .toList();
 
-        // Count users (operators/drivers) whose license expires within 30 days
+        // MANTENER: Count users (operators/drivers) whose license expires within 30 days
         List<?> expiringLicenses = userRepository.findAll().stream()
                 .filter(user -> Boolean.TRUE.equals(user.getStatus())
                         && user.getLicenseExpiry() != null
@@ -45,6 +53,16 @@ public class AlertSchedulerService {
                         && !user.getLicenseExpiry().isBefore(LocalDate.now()))
                 .toList();
 
+        // NUEVO: Calcular alertas preventivas para TODAS las placas activas
+        try {
+            log.info("🔔 Calculando alertas preventivas para todos los activos...");
+            calculatePreventiveAlerts();
+            log.info("✅ Alertas preventivas calculadas exitosamente");
+        } catch (Exception e) {
+            log.error("❌ Error calculando alertas preventivas: {}", e.getMessage(), e);
+        }
+
+        // MANTENER: Notificación de resumen (lo existente sigue funcionando)
         String summary = String.format(
                 "Revisión diaria de vencimientos completada - %s | Documentos próximos a vencer: %d | Licencias próximas a vencer: %d",
                 LocalDate.now(),
@@ -54,5 +72,47 @@ public class AlertSchedulerService {
 
         log.info("AlertSchedulerService: {}", summary);
         notificationService.notifyDocumentExpiry(summary);
+    }
+
+    /**
+     * NUEVO: Calcula alertas preventivas para todos los vehículos, motos y máquinas
+     * Consulta todas las placas activas y calcula sus alertas
+     */
+    private void calculatePreventiveAlerts() {
+        Set<String> allPlacas = new HashSet<>();
+
+        // Obtener todas las placas de vehículos activos (incluyendo motos)
+        vehicleRepository.findAllActiveVehiclesWithDocuments().stream()
+                .forEach(v -> allPlacas.add(v.getPlaca()));
+
+        // Obtener todas las máquinas activas
+        machineRepository.findAll().stream()
+                .filter(m -> Boolean.TRUE.equals(m.getStatus()))
+                .forEach(m -> allPlacas.add(m.getName())); // Máquinas usan nombre como ID
+
+        log.info("🔔 Calculando alertas para {} placas activas", allPlacas.size());
+
+        // Para cada placa, calcular sus alertas
+        for (String placa : allPlacas) {
+            try {
+                String tipoActivo = determineAssetType(placa);
+                alertCalculationService.calculateAlertsForPlate(placa, tipoActivo);
+            } catch (Exception e) {
+                log.warn("⚠️ Error calculando alertas para placa {}: {}", placa, e.getMessage());
+            }
+        }
+    }
+
+    /**
+     * Determina el tipo de activo (VEHÍCULO, MÁQUINA) basado en la placa
+     * Las motos se consideran VEHÍCULO (están en la tabla vehiculos)
+     */
+    private String determineAssetType(String placa) {
+        // Si existe en vehículos (incluyendo motos)
+        if (vehicleRepository.findByPlaca(placa).isPresent()) {
+            return "VEHÍCULO";
+        }
+        // Si no existe en vehículos, es máquina
+        return "MÁQUINA";
     }
 }
