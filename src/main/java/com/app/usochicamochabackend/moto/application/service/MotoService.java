@@ -53,10 +53,21 @@ public class MotoService implements MotoCRUDUseCase {
 
         /** Retorna las motocicletas activas (tipo = MOTOCICLETA) con su ubicación base y marca */
         public List<MotoPlacaResponse> getMotocicletas() {
-                return vehicleRepository.findAllActiveVehiclesByTipoName(TIPO_MOTO)
+                log.debug("📋 [MotoService.getMotocicletas] Buscando todas las motos activas...");
+                List<MotoPlacaResponse> response = vehicleRepository.findAllActiveVehiclesByTipoName(TIPO_MOTO)
                                 .stream()
-                                .map(v -> new MotoPlacaResponse(v.getId(), v.getPlaca(), v.getMarca(), v.getIdUbicacionBase(), v.getUbicacionBase()))
+                                .map(v -> {
+                                        log.debug("   - Moto encontrada: ID={}, Placa={}, Marca={}", v.getId(), v.getPlaca(), v.getMarca());
+                                        return new MotoPlacaResponse(v.getId(), v.getPlaca(), v.getMarca(), v.getIdUbicacionBase(), v.getUbicacionBase());
+                                })
                                 .toList();
+
+                log.info("📡 [MotoService.getMotocicletas] Total {} motos activas devueltas", response.size());
+                if (response.isEmpty()) {
+                        log.warn("⚠️ [MotoService.getMotocicletas] Sin motos activas en el sistema");
+                }
+
+                return response;
         }
 
         /** Retorna todas las ubicaciones activas */
@@ -141,16 +152,24 @@ public class MotoService implements MotoCRUDUseCase {
 
         @Transactional
         public Long saveInspeccion(InspeccionMotoRequest req) {
-                log.info("📥 [MotoService] Iniciando guardado de inspección para vehículo ID: {}", req.idVehiculo());
+                log.info("📥 [MotoService.saveInspeccion] Iniciando guardado de inspección para vehículo ID: {}", req.idVehiculo());
+                log.debug("   - Placa esperada: (from request)");
+                log.debug("   - idUbicacion: {}", req.idUbicacion());
+                log.debug("   - estadoVehiculo: {}", req.estadoVehiculo());
+                log.debug("   - kilometrajeReportado: {}", req.kilometrajeReportado());
 
                 UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext()
                                 .getAuthentication()
                                 .getPrincipal();
                 String responsable = userPrincipal.username();
+                log.debug("   - Usuario responsable: {}", responsable);
 
                 VehicleEntity vehiculo = vehicleRepository.findById(req.idVehiculo())
-                                .orElseThrow(() -> new ResourceNotFoundException(
-                                                "Vehículo no encontrado: " + req.idVehiculo()));
+                                .orElseThrow(() -> {
+                                        log.error("❌ [MotoService.saveInspeccion] Vehículo NO ENCONTRADO con ID: {}", req.idVehiculo());
+                                        return new ResourceNotFoundException(
+                                                "Vehículo no encontrado: " + req.idVehiculo());
+                                });
 
                 // Actualizar fecha del último reporte (siempre) y kilometraje (si aplica)
                 if (req.kilometrajeReportado() != null && req.kilometrajeReportado() > 0) {
@@ -228,7 +247,7 @@ public class MotoService implements MotoCRUDUseCase {
     @Override
     @org.springframework.transaction.annotation.Transactional(readOnly = true)
     public List<VehicleResponse> findAllMotos() {
-        return vehicleRepository.findAllActiveVehiclesByTipoName(TIPO_MOTO).stream()
+        return vehicleRepository.findAllActiveVehiclesByTipoNameWithDocuments(TIPO_MOTO).stream()
                 .map(VehicleMapper::toResponse)
                 .toList();
     }

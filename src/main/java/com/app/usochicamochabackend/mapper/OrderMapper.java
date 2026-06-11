@@ -41,6 +41,17 @@ public class OrderMapper {
             return null;
         }
 
+        Integer hoursSpent = null;
+        Integer minutesSpent = null;
+        String suppliers = null;
+        if (entity.getResult() != null) {
+            hoursSpent = entity.getResult().getHoursSpent();
+            minutesSpent = entity.getResult().getMinutesSpent();
+            if (entity.getResult().getSparePart() != null) {
+                suppliers = entity.getResult().getSparePart().getSupplier();
+            }
+        }
+
         return new OrderWithoutInspectionResponse(
                 entity.getId(),
                 entity.getStatus(),
@@ -49,7 +60,10 @@ public class OrderMapper {
                 UserMapper.toResponse(entity.getAssignerUser()),
                 entity.getOrderType(),
                 entity.getMaintenanceType() != null ? entity.getMaintenanceType().name() : null,
-                entity.getConsecutive()
+                entity.getConsecutive(),
+                hoursSpent,
+                minutesSpent,
+                suppliers
         );
     }
 

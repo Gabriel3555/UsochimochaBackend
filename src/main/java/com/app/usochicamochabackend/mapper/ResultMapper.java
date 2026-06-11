@@ -18,6 +18,20 @@ public class ResultMapper {
 
     private ResultMapper() {}
 
+    /**
+     * Valida que los tiempos de ejecución sean válidos
+     * - Horas >= 0
+     * - Minutos entre 0-59
+     */
+    private static void validateExecutionTime(Integer hours, Integer minutes) {
+        if (hours == null || hours < 0) {
+            throw new IllegalArgumentException("Las horas deben ser mayor o igual a 0");
+        }
+        if (minutes == null || minutes < 0 || minutes > 59) {
+            throw new IllegalArgumentException("Los minutos deben estar entre 0 y 59");
+        }
+    }
+
     public static ResultEntity toEntity(
             ExecuteAnOrderRequest request,
             OrderEntity order,
@@ -25,12 +39,14 @@ public class ResultMapper {
     ) {
         if (request == null || order == null) return null;
 
+        // Validar tiempos
+        validateExecutionTime(request.hoursSpent(), request.minutesSpent());
+
         ResultEntity result = new ResultEntity();
         result.setDate(LocalDateTime.now());
         result.setHoursSpent(request.hoursSpent());
         result.setMinutesSpent(request.minutesSpent());
         result.setDescription(request.description());
-        result.setOrder(order);
 
         UserEntity mechanic = null;
         if (request.labor() != null && Boolean.TRUE.equals(request.labor().sameMecanic())) {
