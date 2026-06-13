@@ -24,7 +24,7 @@ public class FuelStationController {
 
     @GetMapping
     @Operation(summary = "Listar estaciones activas (usado por la app móvil para sincronizar)")
-    @PreAuthorize("hasAnyRole('OPERARIO','ADMIN','ACEITE')")
+    @PreAuthorize("hasAnyRole('OPERARIO','SUPERVISOR_OPERATIVO','ADMIN','ACEITE')")
     public ResponseEntity<List<Map<String, Object>>> listActive() {
         List<Map<String, Object>> result = repository.findByStatusTrueOrderByNameAsc()
                 .stream()

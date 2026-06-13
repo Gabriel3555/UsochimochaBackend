@@ -36,7 +36,7 @@ public class FuelLogController {
 
     @PostMapping
     @Operation(summary = "Registrar carga de combustible")
-    @PreAuthorize("hasAnyRole('OPERARIO','ADMIN')")
+    @PreAuthorize("hasAnyRole('OPERARIO','SUPERVISOR_OPERATIVO','ADMIN')")
     public ResponseEntity<FuelLogResponse> create(@RequestBody FuelLogRequest request) {
         FuelLogResponse saved = createFuelLogUseCase.createFuelLog(request);
         return ResponseEntity.created(URI.create("/api/v1/fuel/" + saved.id())).body(saved);
@@ -51,7 +51,7 @@ public class FuelLogController {
 
     @GetMapping("/asset/{assetType}/{assetId}")
     @Operation(summary = "Historial de combustible de un activo")
-    @PreAuthorize("hasAnyRole('OPERARIO','ADMIN','ACEITE')")
+    @PreAuthorize("hasAnyRole('OPERARIO','SUPERVISOR_OPERATIVO','ADMIN','ACEITE')")
     public ResponseEntity<List<FuelLogResponse>> getByAsset(
             @PathVariable String assetType,
             @PathVariable Long assetId,
@@ -65,7 +65,7 @@ public class FuelLogController {
 
     @GetMapping("/dashboard")
     @Operation(summary = "Dashboard consolidado de combustible")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN','SUPERVISOR_OPERATIVO')")
     public ResponseEntity<FuelDashboardResponse> getDashboard(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to) {
@@ -138,7 +138,7 @@ public class FuelLogController {
 
     @PostMapping(value = "/{id}/invoice/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Subir foto o PDF de factura para un registro de combustible existente")
-    @PreAuthorize("hasAnyRole('OPERARIO','ADMIN')")
+    @PreAuthorize("hasAnyRole('OPERARIO','SUPERVISOR_OPERATIVO','ADMIN')")
     public ResponseEntity<FuelLogResponse> uploadInvoice(
             @PathVariable Long id,
             @RequestPart("file") MultipartFile file) {
