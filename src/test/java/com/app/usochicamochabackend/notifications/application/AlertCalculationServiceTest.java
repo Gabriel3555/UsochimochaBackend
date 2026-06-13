@@ -4,6 +4,7 @@ import com.app.usochicamochabackend.notifications.application.dto.AlertDTO;
 import com.app.usochicamochabackend.notifications.infrastructure.entity.AlertEntity;
 import com.app.usochicamochabackend.notifications.infrastructure.repository.AlertRepository;
 import com.app.usochicamochabackend.update.infrastructure.entity.VehicleOilChangeEntity;
+import com.app.usochicamochabackend.update.infrastructure.entity.OilType;
 import com.app.usochicamochabackend.update.infrastructure.repository.VehicleOilChangeRepository;
 import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
 import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleRepository;
@@ -65,7 +66,7 @@ class AlertCalculationServiceTest {
         // Setup: último cambio de aceite hace 7 meses
         lastVehicleOilChange = VehicleOilChangeEntity.builder()
             .dateStamp(LocalDateTime.now().minusMonths(7))
-            .oilType("Mineral 15W-40")
+            .oilType(OilType.MOTOR)
             .quantity(5.0)
             .build();
 
@@ -113,7 +114,7 @@ class AlertCalculationServiceTest {
         // DADO: cambio de aceite hace solo 2 meses
         VehicleOilChangeEntity recentOilChange = VehicleOilChangeEntity.builder()
             .dateStamp(LocalDateTime.now().minusMonths(2))
-            .oilType("Mineral 15W-40")
+            .oilType(OilType.MOTOR)
             .quantity(5.0)
             .build();
 

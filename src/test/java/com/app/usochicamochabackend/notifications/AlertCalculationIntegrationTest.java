@@ -4,6 +4,7 @@ import com.app.usochicamochabackend.notifications.application.AlertCalculationSe
 import com.app.usochicamochabackend.notifications.infrastructure.entity.AlertEntity;
 import com.app.usochicamochabackend.notifications.infrastructure.repository.AlertRepository;
 import com.app.usochicamochabackend.update.infrastructure.entity.VehicleOilChangeEntity;
+import com.app.usochicamochabackend.update.infrastructure.entity.OilType;
 import com.app.usochicamochabackend.update.infrastructure.repository.VehicleOilChangeRepository;
 import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
 import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleRepository;
@@ -77,7 +78,7 @@ class AlertCalculationIntegrationTest {
         VehicleOilChangeEntity oilChange = VehicleOilChangeEntity.builder()
             .vehicle(testVehicle)
             .dateStamp(LocalDateTime.now().minusMonths(7))
-            .oilType("Mineral 15W-40")
+            .oilType(OilType.MOTOR)
             .quantity(5.0)
             .build();
         vehicleOilChangeRepository.save(oilChange);
@@ -118,7 +119,7 @@ class AlertCalculationIntegrationTest {
         VehicleOilChangeEntity oilChange = VehicleOilChangeEntity.builder()
             .vehicle(testVehicle)
             .dateStamp(LocalDateTime.now().minusMonths(7))
-            .oilType("Mineral 15W-40")
+            .oilType(OilType.MOTOR)
             .quantity(5.0)
             .build();
         vehicleOilChangeRepository.save(oilChange);
@@ -149,7 +150,7 @@ class AlertCalculationIntegrationTest {
         VehicleOilChangeEntity oilChange = VehicleOilChangeEntity.builder()
             .vehicle(testVehicle)
             .dateStamp(LocalDateTime.now().minusMonths(7))
-            .oilType("Mineral 15W-40")
+            .oilType(OilType.MOTOR)
             .quantity(5.0)
             .build();
         vehicleOilChangeRepository.save(oilChange);
@@ -171,7 +172,7 @@ class AlertCalculationIntegrationTest {
         VehicleOilChangeEntity oilChange = VehicleOilChangeEntity.builder()
             .vehicle(testVehicle)
             .dateStamp(LocalDateTime.now().minusMonths(8))
-            .oilType("Mineral 15W-40")
+            .oilType(OilType.MOTOR)
             .quantity(5.0)
             .build();
         vehicleOilChangeRepository.save(oilChange);
@@ -213,7 +214,7 @@ class AlertCalculationIntegrationTest {
         VehicleOilChangeEntity oilChange = VehicleOilChangeEntity.builder()
             .vehicle(testVehicle)
             .dateStamp(LocalDateTime.now().minusMonths(9))
-            .oilType("Mineral 15W-40")
+            .oilType(OilType.MOTOR)
             .quantity(5.0)
             .build();
         vehicleOilChangeRepository.save(oilChange);
@@ -232,7 +233,7 @@ class AlertCalculationIntegrationTest {
         VehicleOilChangeEntity oilChange = VehicleOilChangeEntity.builder()
             .vehicle(testVehicle)
             .dateStamp(LocalDateTime.now().minusMonths(7))
-            .oilType("Mineral 15W-40")
+            .oilType(OilType.MOTOR)
             .quantity(5.0)
             .build();
         vehicleOilChangeRepository.save(oilChange);
@@ -275,7 +276,7 @@ class AlertCalculationIntegrationTest {
         VehicleOilChangeEntity oilChange = VehicleOilChangeEntity.builder()
             .vehicle(testVehicle)
             .dateStamp(LocalDateTime.now().minusMonths(2))
-            .oilType("Mineral 15W-40")
+            .oilType(OilType.MOTOR)
             .quantity(5.0)
             .build();
         vehicleOilChangeRepository.save(oilChange);
@@ -315,7 +316,7 @@ class AlertCalculationIntegrationTest {
         VehicleOilChangeEntity oilChange = VehicleOilChangeEntity.builder()
             .vehicle(testVehicle)
             .dateStamp(LocalDateTime.now().minusMonths(7))
-            .oilType("Mineral 15W-40")
+            .oilType(OilType.MOTOR)
             .quantity(5.0)
             .build();
         vehicleOilChangeRepository.save(oilChange);
@@ -337,7 +338,7 @@ class AlertCalculationIntegrationTest {
         VehicleOilChangeEntity oilChange = VehicleOilChangeEntity.builder()
             .vehicle(testVehicle)
             .dateStamp(oilChangeDate)
-            .oilType("Mineral 15W-40")
+            .oilType(OilType.MOTOR)
             .quantity(5.0)
             .build();
         vehicleOilChangeRepository.save(oilChange);
@@ -359,7 +360,7 @@ class AlertCalculationIntegrationTest {
         VehicleOilChangeEntity oilChange = VehicleOilChangeEntity.builder()
             .vehicle(testVehicle)
             .dateStamp(LocalDateTime.now().minusMonths(7))
-            .oilType("Mineral 15W-40")
+            .oilType(OilType.MOTOR)
             .quantity(5.0)
             .build();
         vehicleOilChangeRepository.save(oilChange);
