@@ -473,11 +473,11 @@ public class ExcelGenerationService {
                 row.createCell(c++).setCellValue(dto.diasUltimoReporte() != null ? dto.diasUltimoReporte() : 0);
 
                 VehicleMonitoringDTO.OilStatus oil = dto.maintenance();
-                row.createCell(c++).setCellValue(oil != null && oil.tipoAceite() != null ? oil.tipoAceite() : "");
                 row.createCell(c++).setCellValue(oil != null && oil.fechaUltimoCambio() != null ? oil.fechaUltimoCambio().format(DATE_FORMATTER) : "");
-                row.createCell(c++).setCellValue(oil != null && oil.kmUltimoCambio() != null ? oil.kmUltimoCambio() : 0);
+                row.createCell(c++).setCellValue(oil != null && oil.kmCambio() != null ? oil.kmCambio() : 0);
                 row.createCell(c++).setCellValue(oil != null && oil.kmProximoCambio() != null ? oil.kmProximoCambio() : 0);
-                row.createCell(c++).setCellValue(oil != null && oil.kmParaCambio() != null ? oil.kmParaCambio() : 0);
+                row.createCell(c++).setCellValue(oil != null && oil.kmParaProximo() != null ? oil.kmParaProximo() : 0);
+                row.createCell(c++).setCellValue(oil != null && oil.filtroAire() != null ? (oil.filtroAire() ? "Sí" : "No") : "");
                 row.createCell(c++).setCellValue(oil != null && oil.estado() != null ? oil.estado() : "");
 
                 VehicleMonitoringDTO.DocumentStatus soat = dto.soat();

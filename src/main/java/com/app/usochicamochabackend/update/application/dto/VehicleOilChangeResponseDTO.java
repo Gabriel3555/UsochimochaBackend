@@ -48,7 +48,7 @@ public record VehicleOilChangeResponseDTO(
         if (entity.getIntervalKm() != null) {
             nextChangeKm = entity.getKmAtChange() + entity.getIntervalKm();
             oilDurability = entity.getOilType() != null
-                ? entity.getOilType().getDurabilityLevel()
+                ? entity.getOilType().getDisplayName()
                 : "No especificado";
         }
 

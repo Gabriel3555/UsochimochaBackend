@@ -52,7 +52,7 @@ public record OilChangeRequirementDTO(
             entity.getActive(),
             entity.getRangeUnit(),
             entity.getRangeValue(),
-            oilType.getDurabilityLevel()
+            oilType.getDisplayName()
         );
     }
 }

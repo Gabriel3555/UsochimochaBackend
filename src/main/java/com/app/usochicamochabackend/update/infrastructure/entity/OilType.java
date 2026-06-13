@@ -1,40 +1,51 @@
 package com.app.usochicamochabackend.update.infrastructure.entity;
 
 /**
- * Tipos de aceite basados en estándares reales
- * - MINERAL: Aceites convencionales (15W-40)
- * - SEMI_SYNTHETIC: Mezcla mineral-sintética con aditivos mejorados
- * - SYNTHETIC: Aceites 100% sintéticos para máxima protección
+ * Tipos de aceite para maquinaria y vehículos
+ * - MOTOR: Aceite de motor (para motores de combustión interna)
+ * - HYDRAULIC: Aceite hidráulico (para sistemas hidráulicos)
  */
 public enum OilType {
-    MINERAL("Mineral", 1),
-    SEMI_SYNTHETIC("Semicintético", 2),
-    SYNTHETIC("100% Sintético", 3);
+    MOTOR("Aceite Motor"),
+    HYDRAULIC("Aceite Hidráulico");
 
     private final String displayName;
-    private final Integer level;  // Para ordenar por calidad/durabilidad
 
-    OilType(String displayName, Integer level) {
+    OilType(String displayName) {
         this.displayName = displayName;
-        this.level = level;
     }
 
     public String getDisplayName() {
         return displayName;
     }
 
-    public Integer getLevel() {
-        return level;
-    }
-
     /**
-     * Retorna el nivel de durabilidad (a mayor número, mayor duración)
+     * Convierte valores variados (de mobile, web, etc.) a OilType enum
+     * Acepta: "motor", "MOTOR", "aceite motor", "hydraulic", "HYDRAULIC", "aceite hidraulico", etc.
      */
-    public String getDurabilityLevel() {
-        return switch (this) {
-            case MINERAL -> "Baja";
-            case SEMI_SYNTHETIC -> "Media-Alta";
-            case SYNTHETIC -> "Muy Alta";
-        };
+    public static OilType fromString(String value) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("El tipo de aceite no puede estar vacío");
+        }
+
+        String normalized = value.trim().toUpperCase()
+                .replace("ACEITE", "")
+                .replace("HIDRAULICO", "")
+                .replace("HYDRAULIC", "")
+                .replace("-", "")
+                .replace(" ", "")
+                .trim();
+
+        // Mapear valores simplificados
+        if (normalized.isEmpty() || normalized.equals("MOTOR")) {
+            return MOTOR;
+        }
+        if (normalized.equals("HYDRAULIC")) {
+            return HYDRAULIC;
+        }
+
+        // Si no coincide, lanzar error descriptivo
+        throw new IllegalArgumentException(
+                "Tipo de aceite no válido: '" + value + "'. Debe ser uno de: MOTOR, HYDRAULIC");
     }
 }

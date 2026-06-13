@@ -51,7 +51,7 @@ public record MachineOilChangeResponseDTO(
         if (entity.getRequirement() != null) {
             nextChangeHours = entity.getHourStamp() + entity.getRequirement().getHourRange();
             oilDurability = entity.getOilType() != null
-                ? entity.getOilType().getDurabilityLevel()
+                ? entity.getOilType().getDisplayName()
                 : "No especificado";
         }
 
