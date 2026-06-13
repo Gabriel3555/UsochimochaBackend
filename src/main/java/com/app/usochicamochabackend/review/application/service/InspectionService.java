@@ -10,6 +10,7 @@ import com.app.usochicamochabackend.mapper.ImagesMapper;
 import com.app.usochicamochabackend.mapper.InspectionMapper;
 import com.app.usochicamochabackend.mapper.MachineMapper;
 import com.app.usochicamochabackend.notifications.application.NotificationService;
+import com.app.usochicamochabackend.shared.event.InspectionCompletedEvent;
 import com.app.usochicamochabackend.review.application.dto.*;
 import com.app.usochicamochabackend.review.application.port.*;
 import com.app.usochicamochabackend.review.infrastructure.entity.ImageEntity;
@@ -18,6 +19,7 @@ import com.app.usochicamochabackend.review.infrastructure.repository.ImageReposi
 import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
 import com.app.usochicamochabackend.review.application.dto.ExpirationNotificationDTO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -36,7 +38,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import org.springframework.context.ApplicationEventPublisher;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveInspectionImageUseCase, GetInspectionByIdUseCase, GetInspectionImagesUseCase, GetAllInspectionsWithoutImagesUseCase, GetAllInspectionsForExportUseCase, UpdateInspectionHourMeterUseCase {
@@ -47,6 +51,7 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
     private final MachineRepository machineRepository;
     private final ImageRepository imageRepository;
     private final SaveActionUseCase saveActionUseCase;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public InspectionFormResponse createInspectionOnlyData(InspectionFormRequest request) {
@@ -100,6 +105,22 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " hizo una inspeccion a la maquina " + machine.getName());
 
+        // ✅ FASE 3: Publicar evento para actualizar alertas en tiempo real
+        try {
+            Long kmOHoras = saved.getHourMeter() != null ? saved.getHourMeter().longValue() : 0L;
+
+            eventPublisher.publishEvent(new InspectionCompletedEvent(
+                this,
+                machine.getId(),
+                machine.getName(),  // Usar name en lugar de placa
+                "MAQUINARIA",       // Tipo por defecto
+                kmOHoras,
+                saved.getDateStamp()
+            ));
+        } catch (Exception e) {
+            // Log pero no fallar: inspección se guardó, solo falla notificación
+            log.warn("Error publicando evento de inspección para máquina: {}", e.getMessage());
+        }
 
         return inspectionResponse;
     }

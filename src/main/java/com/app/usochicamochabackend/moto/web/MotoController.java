@@ -30,6 +30,7 @@ import java.nio.file.Paths;
 
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -102,6 +103,36 @@ public class MotoController {
         headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
         headers.setContentDispositionFormData("attachment", "consolidado_motos.xlsx");
         return ResponseEntity.ok().headers(headers).body(excelData);
+    }
+
+    @GetMapping("/monitoring/alerts/yellow")
+    @Operation(
+        summary = "Motocicletas con alertas YELLOW (próximas a cambio de aceite)",
+        description = "Filtra motocicletas con 80-99% de uso del intervalo de cambio de aceite"
+    )
+    public ResponseEntity<List<MotoMonitoringDTO>> getYellowAlerts() {
+        List<MotoMonitoringDTO> all = monitoringUseCase.getConsolidatedMonitoring();
+        List<MotoMonitoringDTO> yellow = all.stream()
+            .filter(m -> m.oil() != null
+                && m.oil().alertColor() != null
+                && "YELLOW".equals(m.oil().alertColor()))
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(yellow);
+    }
+
+    @GetMapping("/monitoring/alerts/red")
+    @Operation(
+        summary = "Motocicletas con alertas RED (cambio de aceite URGENTE)",
+        description = "Filtra motocicletas con 100%+ de uso del intervalo de cambio de aceite"
+    )
+    public ResponseEntity<List<MotoMonitoringDTO>> getRedAlerts() {
+        List<MotoMonitoringDTO> all = monitoringUseCase.getConsolidatedMonitoring();
+        List<MotoMonitoringDTO> red = all.stream()
+            .filter(m -> m.oil() != null
+                && m.oil().alertColor() != null
+                && "RED".equals(m.oil().alertColor()))
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(red);
     }
 
     @GetMapping("/inspections/export")
