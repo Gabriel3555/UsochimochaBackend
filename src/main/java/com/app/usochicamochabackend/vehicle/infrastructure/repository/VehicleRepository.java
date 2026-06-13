@@ -80,10 +80,20 @@ public interface VehicleRepository extends JpaRepository<VehicleEntity, Integer>
     @Query("SELECT v FROM VehicleEntity v WHERE v.placa = :placa")
     java.util.Optional<VehicleEntity> findVehicleDetailByPlaca(@Param("placa") String placa);
 
-    @Query("SELECT v FROM VehicleEntity v JOIN v.tipoVehiculo t WHERE UPPER(TRIM(t.nombreTipo)) = UPPER(TRIM(:tipoName)) AND v.activo = TRUE")
+    @Query("SELECT DISTINCT v FROM VehicleEntity v " +
+           "LEFT JOIN FETCH v.tipoVehiculo " +
+           "LEFT JOIN FETCH v.ubicacionBase " +
+           "WHERE UPPER(TRIM(v.tipoVehiculo.nombreTipo)) = UPPER(TRIM(:tipoName)) " +
+           "AND v.activo = TRUE " +
+           "ORDER BY v.placa")
     List<VehicleEntity> findAllByTipoName(@Param("tipoName") String tipoName);
 
-    @Query("SELECT v FROM VehicleEntity v JOIN v.tipoVehiculo t WHERE UPPER(TRIM(t.nombreTipo)) <> UPPER(TRIM(:tipoName)) AND v.activo = TRUE")
+    @Query("SELECT DISTINCT v FROM VehicleEntity v " +
+           "LEFT JOIN FETCH v.tipoVehiculo " +
+           "LEFT JOIN FETCH v.ubicacionBase " +
+           "WHERE UPPER(TRIM(v.tipoVehiculo.nombreTipo)) <> UPPER(TRIM(:tipoName)) " +
+           "AND v.activo = TRUE " +
+           "ORDER BY v.placa")
     List<VehicleEntity> findAllByTipoNameNot(@Param("tipoName") String tipoName);
 
     java.util.Optional<VehicleEntity> findByPlacaAndActivoTrue(String placa);

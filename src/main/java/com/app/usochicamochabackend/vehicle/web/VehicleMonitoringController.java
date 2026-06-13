@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/v1/vehicle/monitoring")
@@ -46,5 +47,35 @@ public class VehicleMonitoringController {
         headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
         headers.setContentDispositionFormData("attachment", "consolidado_vehiculos.xlsx");
         return ResponseEntity.ok().headers(headers).body(excelData);
+    }
+
+    @GetMapping("/alerts/yellow")
+    @Operation(
+        summary = "Vehículos con alertas YELLOW (próximos a cambio de aceite)",
+        description = "Filtra vehículos con 80-99% de uso del intervalo de cambio de aceite"
+    )
+    public ResponseEntity<List<VehicleMonitoringDTO>> getYellowAlerts() {
+        List<VehicleMonitoringDTO> all = vehicleMonitoringUseCase.getConsolidatedMonitoring();
+        List<VehicleMonitoringDTO> yellow = all.stream()
+            .filter(v -> v.maintenance() != null
+                && v.maintenance().alertColor() != null
+                && "YELLOW".equals(v.maintenance().alertColor()))
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(yellow);
+    }
+
+    @GetMapping("/alerts/red")
+    @Operation(
+        summary = "Vehículos con alertas RED (cambio de aceite URGENTE)",
+        description = "Filtra vehículos con 100%+ de uso del intervalo de cambio de aceite"
+    )
+    public ResponseEntity<List<VehicleMonitoringDTO>> getRedAlerts() {
+        List<VehicleMonitoringDTO> all = vehicleMonitoringUseCase.getConsolidatedMonitoring();
+        List<VehicleMonitoringDTO> red = all.stream()
+            .filter(v -> v.maintenance() != null
+                && v.maintenance().alertColor() != null
+                && "RED".equals(v.maintenance().alertColor()))
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(red);
     }
 }
