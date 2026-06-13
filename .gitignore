@@ -42,4 +42,6 @@ src/main/resources/application-sqlserver.properties
 scripts/*.sql
 
 ### Runtime uploads (documentos vehículo, etc.) ###
-/uploads/
+/uploads/**
+
+### Runtime uploads folder root glob (safety)
