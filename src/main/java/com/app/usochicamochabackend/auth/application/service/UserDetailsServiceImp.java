@@ -24,6 +24,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.scheduling.annotation.Async;
 
 import java.time.LocalDateTime;
 import java.util.Set;
@@ -61,9 +62,9 @@ public class UserDetailsServiceImp
 
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication()
                 .getPrincipal();
-        saveActionUseCase.save("El usuario " + userPrincipal.username() +
-                " ha iniciado sesion el dia " + LocalDateTime.now().toLocalDate() + " a las "
-                + LocalDateTime.now().toLocalTime());
+
+        // Guardar auditoría de forma asincrónica para no bloquear la respuesta de login
+        this.saveLoginAuditAsync(userPrincipal.username());
 
         return new AuthResponse(userEntity.getId(), username, userEntity.getFullName(), userEntity.getRole(),
                 "logged successfully!", jwtToken, refreshToken, true);
@@ -125,5 +126,17 @@ public class UserDetailsServiceImp
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         return this.searchUserDetails(username);
+    }
+
+    @Async
+    private void saveLoginAuditAsync(String username) {
+        try {
+            saveActionUseCase.save("El usuario " + username +
+                    " ha iniciado sesion el dia " + LocalDateTime.now().toLocalDate() + " a las "
+                    + LocalDateTime.now().toLocalTime());
+        } catch (Exception e) {
+            // Log error pero no falla el login
+            System.err.println("Error guardando auditoría de login para " + username + ": " + e.getMessage());
+        }
     }
 }
