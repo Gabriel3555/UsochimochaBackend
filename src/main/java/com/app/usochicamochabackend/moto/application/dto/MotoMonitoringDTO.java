@@ -40,11 +40,18 @@ public record MotoMonitoringDTO(
             name = "MotoMonitoringOilStatus",
             description = "Aceite: último cambio y proyección al siguiente.")
     public record OilStatus(
+            @Schema(description = "Marca del aceite") String brandName,
+            @Schema(description = "Cantidad de aceite (litros)") Double quantity,
+            @Schema(description = "Intervalo de cambio en km") Integer intervalKm,
             @Schema(description = "Fecha último cambio de aceite") LocalDate fechaUltimoCambio,
             @Schema(description = "Km al momento del cambio") Integer kmCambio,
             @Schema(description = "Km objetivo próximo cambio") Integer kmProximoCambio,
             @Schema(description = "Km restantes hasta el próximo servicio") Integer kmParaProximo,
+            @Schema(description = "Días desde último cambio") Long diasDesdeUltimoCambio,
             @Schema(description = "Si se cambió filtro de aire") Boolean filtroAire,
-            @Schema(description = "Estado OK / atención según reglas de negocio") String estado
+            @Schema(description = "Estado OK / atención según reglas de negocio") String estado,
+            @Schema(description = "Porcentaje de uso del intervalo (0-100+)") Double percentageUsed,
+            @Schema(description = "Color de alerta: GREEN, BLUE, YELLOW, RED") String alertColor,
+            @Schema(description = "Mensaje de alerta para operario") String alertMessage
     ) {}
 }

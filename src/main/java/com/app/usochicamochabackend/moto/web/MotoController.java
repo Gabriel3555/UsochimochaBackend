@@ -4,10 +4,14 @@ import com.app.usochicamochabackend.moto.application.dto.*;
 import com.app.usochicamochabackend.moto.application.port.MotoMonitoringUseCase;
 import com.app.usochicamochabackend.moto.application.service.MotoService;
 import com.app.usochicamochabackend.update.application.service.ExcelGenerationService;
+import com.app.usochicamochabackend.update.application.service.VehicleOilChangeService;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleRequest;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleResponse;
 import com.app.usochicamochabackend.vehicleinspection.application.dto.VehicleInspectionReportDTO;
 import com.app.usochicamochabackend.vehicleinspection.application.port.GetVehicleInspectionsUseCase;
+import com.app.usochicamochabackend.update.application.dto.VehicleOilChangeRequest;
+import org.springframework.security.access.prepost.PreAuthorize;
+import lombok.extern.slf4j.Slf4j;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -25,22 +29,20 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 import java.util.List;
+import java.util.Map;
 
+@Slf4j
 @RestController
 @RequestMapping("/api/v1/moto")
 @RequiredArgsConstructor
-@Tag(
-                name = "Moto",
-                description = "Motocicletas: **CRUD** sobre la tabla `vehiculos` (tipo forzado a MOTOCICLETA en servidor), "
-                                + "**inspección diaria** (`POST /inspeccion`), **documentos** por placa, **monitoreo** consolidado, "
-                                + "**reportes** de inspección e **imagen** pública de documentos. "
-                                + "Inspecciones formales tipo “preoperativa extendida” de automóvil usan `/api/v1/vehicle-inspection`.")
+@Tag(name = "Moto", description = "Motocicletas: CRUD, inspeccion diaria, documentos, monitoreo consolidado")
 public class MotoController {
 
     private final MotoService motoService;
     private final MotoMonitoringUseCase monitoringUseCase;
     private final GetVehicleInspectionsUseCase getInspectionsUseCase;
     private final ExcelGenerationService excelGenerationService;
+    private final VehicleOilChangeService vehicleOilChangeService;
 
     @GetMapping("/placas")
     @Operation(summary = "Obtener motocicletas activas", description = "Retorna la lista de placas de motocicletas activas en la BD")
@@ -196,5 +198,37 @@ public class MotoController {
             // Log error
         }
         return ResponseEntity.notFound().build();
+    }
+
+    @PostMapping("/{placa}/oil-change")
+    @PreAuthorize("hasAnyRole('OPERARIO', 'SUPERVISOR_OPERATIVO', 'ACEITE', 'MECANIC', 'ADMIN')")
+    @Operation(summary = "Registrar cambio de aceite de motocicleta", description = "Registra un cambio de aceite para una motocicleta por placa")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Cambio de aceite registrado"),
+            @ApiResponse(responseCode = "400", description = "Datos inválidos"),
+            @ApiResponse(responseCode = "404", description = "Motocicleta no encontrada")
+    })
+    public ResponseEntity<Long> registerMotoOilChange(@PathVariable String placa,
+                                                      @RequestBody VehicleOilChangeRequest request) {
+        log.info("Registrando cambio de aceite para motocicleta: {}", placa);
+
+        // ✅ VALIDAR que la placa del body no esté vacía
+        if (request.placa() == null || request.placa().isBlank()) {
+            log.warn("⚠️ Placa faltante en body para endpoint: {}", placa);
+            throw new IllegalArgumentException("Placa requerida en body");
+        }
+
+        // ✅ Delegar al servicio de cambios de aceite que maneja vehículos (aplica a motos también)
+        // El servicio hace:
+        // 1. Valida que el vehículo existe (lanza IllegalArgumentException si no existe)
+        // 2. Guarda el registro de cambio de aceite
+        // 3. Actualiza kilometraje y fecha de último reporte
+        vehicleOilChangeService.registerChange(request);
+
+        log.info("✅ Cambio de aceite registrado para moto: {}", placa);
+        return ResponseEntity.status(HttpStatus.CREATED).body(1L);
+
+        // Nota: Cualquier IllegalArgumentException será capturada automáticamente por:
+        // @RestControllerAdvice GlobalExceptionHandler.handleIllegalArgument()
     }
 }

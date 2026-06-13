@@ -4,17 +4,19 @@ import com.app.usochicamochabackend.catalog.infrastructure.entity.UbicacionEntit
 import com.app.usochicamochabackend.catalog.infrastructure.repository.UbicacionRepository;
 import com.app.usochicamochabackend.moto.application.dto.MotoMonitoringDTO;
 import com.app.usochicamochabackend.moto.application.port.MotoMonitoringUseCase;
+import com.app.usochicamochabackend.shared.calculator.OilChangeAlertCalculator;
+import com.app.usochicamochabackend.shared.dto.AlertStatus;
+import com.app.usochicamochabackend.vehicle.application.service.DocumentStatusCalculator;
 import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
 import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleRepository;
-import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.DocumentacionYElementosEntity;
 import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.InspPreOperativaEntity;
-import com.app.usochicamochabackend.vehicleinspection.infrastructure.repository.DocumentacionYElementosRepository;
 import com.app.usochicamochabackend.vehicleinspection.infrastructure.repository.InspPreOperativaRepository;
-import com.app.usochicamochabackend.update.infrastructure.entity.VehicleOilChangeEntity;
 import com.app.usochicamochabackend.update.infrastructure.repository.VehicleOilChangeRepository;
+import com.app.usochicamochabackend.update.application.service.OilStatusCalculator;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -27,22 +29,41 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class MotoMonitoringService implements MotoMonitoringUseCase {
 
+    private static final Logger logger = LoggerFactory.getLogger(MotoMonitoringService.class);
+
     private final VehicleRepository vehicleRepository;
     private final InspPreOperativaRepository inspectionRepository;
-    private final DocumentacionYElementosRepository documentRepository;
     private final VehicleOilChangeRepository oilChangeRepository;
     private final UbicacionRepository ubicacionRepository;
+    private final DocumentStatusCalculator documentStatusCalculator;
+    private final OilStatusCalculator oilStatusCalculator;
 
     @Override
     public List<MotoMonitoringDTO> getConsolidatedMonitoring() {
-        List<VehicleEntity> motos = vehicleRepository.findAllByTipoName("MOTOCICLETA");
-        List<MotoMonitoringDTO> result = new ArrayList<>();
+        logger.info("Iniciando obtención de monitoreo consolidado de motocicletas");
+        long startTime = System.currentTimeMillis();
 
-        for (VehicleEntity moto : motos) {
-            result.add(buildMonitoringDTO(moto));
+        try {
+            // Query optimizada con eager loading para evitar N+1
+            List<VehicleEntity> motos = vehicleRepository.findAllByTipoName("MOTOCICLETA");
+            logger.debug("Se obtuvieron {} motocicletas", motos.size());
+
+            List<MotoMonitoringDTO> result = new ArrayList<>();
+
+            for (VehicleEntity moto : motos) {
+                result.add(buildMonitoringDTO(moto));
+            }
+
+            long duration = System.currentTimeMillis() - startTime;
+            logger.info("Monitoreo consolidado completado: {} motocicletas en {} ms",
+                result.size(), duration);
+
+            return result;
+
+        } catch (Exception e) {
+            logger.error("Error al obtener monitoreo consolidado de motocicletas", e);
+            throw e;
         }
-
-        return result;
     }
 
     private MotoMonitoringDTO buildMonitoringDTO(VehicleEntity moto) {
@@ -50,9 +71,8 @@ public class MotoMonitoringService implements MotoMonitoringUseCase {
 
         Long daysSinceReport = null;
         LocalDateTime lastReportDate = moto.getFechaUltimoReporte();
-        String estadoMoto = "Óptimo";
+        String estadoMoto = "Optimo";
         String novedad = "Ninguna";
-        /** Excel «Responsable / unidad»: nombre de estación donde se reportó la última inspección (app móvil envía idUbicacion). */
         String unidadUltimoReporte = null;
 
         if (lastInsp.isPresent()) {
@@ -69,7 +89,6 @@ public class MotoMonitoringService implements MotoMonitoringUseCase {
                         .orElse(null);
             }
         } else if (lastReportDate != null) {
-            // Si no hay inspección pero sí hay fecha en la entidad, calcular días
             daysSinceReport = ChronoUnit.DAYS.between(lastReportDate.toLocalDate(), LocalDate.now());
         }
 
@@ -84,8 +103,8 @@ public class MotoMonitoringService implements MotoMonitoringUseCase {
             unidadUltimoReporte,
             moto.getPlaca(),
             moto.getKilometrajeActual(),
-            getDocumentStatus(moto.getIdVehiculo(), "SOAT"),
-            getDocumentStatus(moto.getIdVehiculo(), "TECNOMECANICA"),
+            toMotoDocumentStatus(documentStatusCalculator.calculate(moto.getIdVehiculo(), "SOAT")),
+            toMotoDocumentStatus(documentStatusCalculator.calculate(moto.getIdVehiculo(), "TECNOMECANICA")),
             getOilStatus(moto),
             estadoMoto,
             lastReportDate,
@@ -94,39 +113,43 @@ public class MotoMonitoringService implements MotoMonitoringUseCase {
         );
     }
 
-    private MotoMonitoringDTO.DocumentStatus getDocumentStatus(Integer vehicleId, String type) {
-        Optional<DocumentacionYElementosEntity> doc = documentRepository.findLatestByVehiculoAndTipo(vehicleId, type);
-        if (doc.isEmpty()) return null;
-
-        LocalDate expiry = doc.get().getFechaVencimiento();
-        long days = ChronoUnit.DAYS.between(LocalDate.now(), expiry);
-        String estado = (days >= 15) ? "Vigente" : (days >= 0 ? "Próximo a Vencer" : "Vencido");
-
-        return new MotoMonitoringDTO.DocumentStatus(expiry, days, estado);
+    private MotoMonitoringDTO.DocumentStatus toMotoDocumentStatus(DocumentStatusCalculator.DocumentStatus ds) {
+        if (ds == null) return null;
+        return new MotoMonitoringDTO.DocumentStatus(ds.fechaVencimiento(), ds.diasRestantes(), ds.estado());
     }
 
     private MotoMonitoringDTO.OilStatus getOilStatus(VehicleEntity moto) {
-        Optional<VehicleOilChangeEntity> lastChange = oilChangeRepository.findLatestByVehicleId(moto.getIdVehiculo());
-        if (lastChange.isEmpty()) return null;
+        var lastChange = oilChangeRepository.findFirstByVehicleIdVehiculoOrderByDateStampDesc(moto.getIdVehiculo());
+        if (lastChange.isEmpty()) {
+            logger.debug("Sin historial de cambio de aceite para motocicleta: {}", moto.getPlaca());
+            return null;
+        }
 
-        VehicleOilChangeEntity change = lastChange.get();
-        Integer kmAtChange = change.getKmAtChange();
-        Integer nextChangeKm = kmAtChange + change.getIntervalKm();
-        Integer kmActual = moto.getKilometrajeActual() != null ? moto.getKilometrajeActual() : 0;
-        Integer kmRemaining = nextChangeKm - kmActual;
+        var oilStatus = oilStatusCalculator.calculate(lastChange.get(), moto.getKilometrajeActual());
 
-        // Motos: intervalos cortos; “próximo” cuando quedan ≤ ~20 % del intervalo (mín. 100 km).
-        int interval = change.getIntervalKm() != null && change.getIntervalKm() > 0 ? change.getIntervalKm() : 3000;
-        int umbralProximo = Math.max(100, interval / 5);
-        String estado = (kmRemaining > umbralProximo) ? "OK" : (kmRemaining >= 0 ? "Próximo a Cambio" : "Cambio de Aceite");
+        if (oilStatus == null) return null;
+
+        // Cálculo unificado de alerta usando OilChangeAlertCalculator
+        long distanceSinceChange = moto.getKilometrajeActual() - oilStatus.kmCambio();
+        AlertStatus alertStatus = OilChangeAlertCalculator.calculateAlert(
+            distanceSinceChange,
+            oilStatus.intervalKm().longValue()
+        );
 
         return new MotoMonitoringDTO.OilStatus(
-            change.getDateStamp().toLocalDate(),
-            kmAtChange,
-            nextChangeKm,
-            kmRemaining,
-            change.getAirFilterChanged(),
-            estado
+            oilStatus.brandName(),
+            oilStatus.quantity(),
+            oilStatus.intervalKm(),
+            oilStatus.fechaUltimoCambio(),
+            oilStatus.kmCambio(),
+            oilStatus.kmProximoCambio(),
+            oilStatus.kmParaProximo(),
+            oilStatus.diasDesdeUltimoCambio(),
+            oilStatus.filtroAire(),
+            oilStatus.estado(),
+            alertStatus.percentageUsed(),      // % de uso
+            alertStatus.color(),                // Color (RED, YELLOW, BLUE, GREEN)
+            alertStatus.message()               // Mensaje de alerta
         );
     }
 }
