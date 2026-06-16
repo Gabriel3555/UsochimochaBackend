@@ -14,6 +14,7 @@ import com.app.usochicamochabackend.vehicleinspection.infrastructure.repository.
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -43,6 +44,7 @@ public class AlertCalculationService {
      *
      * Basado en datos EXISTENTES en BD (ADR-001)
      */
+    @Transactional(readOnly = true)
     public void calculateAlertsForPlate(String placa, String tipoActivo) {
         log.info("🔔 Calculando alertas para placa: {} (tipo: {})", placa, tipoActivo);
 
@@ -199,7 +201,9 @@ public class AlertCalculationService {
                         machineName,
                         "DOCUMENTO_SOAT",
                         "Documento SOAT próximo a vencer",
-                        soatDate
+                        soatDate,
+                        null,
+                        "MAQUINARIA"
                     );
                 } else if (soatDate != null) {
                     log.info("🔔 SOAT {} no necesita alerta (vencimiento: {})", machineName, soatDate);
@@ -218,7 +222,9 @@ public class AlertCalculationService {
                         machineName,
                         "DOCUMENTO_RUNT",
                         "Documento RUNT próximo a vencer",
-                        runtDate
+                        runtDate,
+                        null,
+                        "MAQUINARIA"
                     );
                 } else if (runtDate != null) {
                     log.info("🔔 RUNT {} no necesita alerta (vencimiento: {})", machineName, runtDate);
@@ -248,7 +254,8 @@ public class AlertCalculationService {
         }
 
         Integer idVehiculo = vehiculo.get().getIdVehiculo();
-        log.info("🔔 ID vehículo obtenido: {}", idVehiculo);
+        String tipoVehiculo = vehiculo.get().getTipoVehiculo() != null ? vehiculo.get().getTipoVehiculo().getNombreTipo() : "VEHICULO";
+        log.info("🔔 ID vehículo obtenido: {} (tipo: {})", idVehiculo, tipoVehiculo);
 
         LocalDate threshold = LocalDate.now().plusDays(ALERT_DOCUMENT_DAYS);
         LocalDate today = LocalDate.now();
@@ -279,7 +286,8 @@ public class AlertCalculationService {
                 "DOCUMENTO_" + doc.getTipoDocumento().toUpperCase(),
                 String.format("Documento %s próximo a vencer", doc.getTipoDocumento()),
                 doc.getFechaVencimiento(),
-                doc.getIdDocumento()
+                doc.getIdDocumento(),
+                tipoVehiculo
             );
         });
     }
@@ -289,11 +297,15 @@ public class AlertCalculationService {
      * Valida que no exista alerta activa del mismo tipo/placa antes de crear
      */
     private void createAlert(String placa, String tipo, String descripcion, LocalDate vencimiento) {
-        createAlert(placa, tipo, descripcion, vencimiento, null);
+        createAlert(placa, tipo, descripcion, vencimiento, null, null);
     }
 
     private void createAlert(String placa, String tipo, String descripcion, LocalDate vencimiento, Integer documentoId) {
-        log.info("🔔 Creando alerta para {} - {} - {}", placa, tipo, descripcion);
+        createAlert(placa, tipo, descripcion, vencimiento, documentoId, null);
+    }
+
+    private void createAlert(String placa, String tipo, String descripcion, LocalDate vencimiento, Integer documentoId, String tipoMaquinaria) {
+        log.info("🔔 Creando alerta para {} - {} - {} (tipoMaquinaria: {})", placa, tipo, descripcion, tipoMaquinaria);
 
         // PASO 3 (ADR): Validar que no exista alerta ACTIVA del mismo tipo
         var existingAlert = alertRepository.findTopByPlacaAndTipoAlertaAndEstadoOrderByFechaCreacionDesc(
@@ -316,13 +328,14 @@ public class AlertCalculationService {
             .fechaVencimiento(vencimiento)
             .fechaCreacion(LocalDateTime.now())
             .documentoId(documentoId != null ? documentoId.longValue() : null)
+            .tipoMaquinaria(tipoMaquinaria != null ? tipoMaquinaria : "DOCUMENTO")
             .build();
 
         alert.calculateColorEstado();
 
         // PASO 5 (ADR): Persistir en BD
         alertRepository.save(alert);
-        log.info("✅ Alerta creada: {} - {} - {}", placa, tipo, alert.getColorEstado());
+        log.info("✅ Alerta creada: {} - {} - {} (tipoMaquinaria: {})", placa, tipo, alert.getColorEstado(), tipoMaquinaria);
 
         // Notificar inmediatamente por WebSocket (sin romper lo existente)
         notificationService.notifyAlert(AlertDTO.fromEntity(alert));

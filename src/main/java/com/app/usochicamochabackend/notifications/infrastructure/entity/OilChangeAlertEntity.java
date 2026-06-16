@@ -33,6 +33,9 @@ public class OilChangeAlertEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "uuid", unique = true, nullable = false, length = 36)
+    private String uuid;
+
     @Column(name = "placa", nullable = false, length = 20)
     private String placa;
 

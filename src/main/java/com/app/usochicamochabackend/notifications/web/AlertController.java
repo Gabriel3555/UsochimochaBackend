@@ -2,7 +2,9 @@ package com.app.usochicamochabackend.notifications.web;
 
 import com.app.usochicamochabackend.notifications.application.dto.AlertDTO;
 import com.app.usochicamochabackend.notifications.infrastructure.entity.AlertEntity;
+import com.app.usochicamochabackend.notifications.infrastructure.entity.OilChangeAlertEntity;
 import com.app.usochicamochabackend.notifications.infrastructure.repository.AlertRepository;
+import com.app.usochicamochabackend.notifications.infrastructure.repository.OilChangeAlertRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -28,13 +30,14 @@ import java.util.stream.Collectors;
 public class AlertController {
 
     private final AlertRepository alertRepository;
+    private final OilChangeAlertRepository oilChangeAlertRepository;
 
     /**
      * Obtener todas las alertas activas con paginación y filtros
      * GET /api/v1/alerts?page=0&size=20&tipo=CAMBIO_ACEITE&estado=ACTIVE
      */
     @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERVISOR_OPERATIVO')")
     public ResponseEntity<Map<String, Object>> getAllAlerts(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -80,7 +83,7 @@ public class AlertController {
      * GET /api/v1/alerts/placa/ABC123
      */
     @GetMapping("/placa/{placa}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERVISOR_OPERATIVO')")
     public ResponseEntity<List<AlertDTO>> getAlertsByPlaca(@PathVariable String placa) {
         log.info("🔔 GET /alerts/placa/{} - Listando alertas para placa", placa);
 
@@ -96,17 +99,22 @@ public class AlertController {
      * GET /api/v1/alerts/{id}
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<AlertDTO> getAlertById(@PathVariable Long id) {
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERVISOR_OPERATIVO')")
+    public ResponseEntity<AlertDTO> getAlertById(@PathVariable String id) {
         log.info("🔔 GET /alerts/{} - Obteniendo alerta", id);
 
-        Optional<AlertEntity> alert = alertRepository.findById(id);
-        if (alert.isEmpty()) {
-            log.warn("⚠️ Alerta no encontrada: {}", id);
+        try {
+            Long longId = Long.parseLong(id);
+            Optional<AlertEntity> alert = alertRepository.findById(longId);
+            if (alert.isEmpty()) {
+                log.warn("⚠️ Alerta no encontrada: {}", id);
+                return ResponseEntity.notFound().build();
+            }
+            return ResponseEntity.ok(AlertDTO.fromEntity(alert.get()));
+        } catch (NumberFormatException e) {
+            log.warn("⚠️ ID no es un número: {}", id);
             return ResponseEntity.notFound().build();
         }
-
-        return ResponseEntity.ok(AlertDTO.fromEntity(alert.get()));
     }
 
     /**
@@ -114,43 +122,82 @@ public class AlertController {
      * PATCH /api/v1/alerts/{id}/resolve
      */
     @PatchMapping("/{id}/resolve")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<AlertDTO> resolveAlert(@PathVariable Long id) {
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERVISOR_OPERATIVO')")
+    public ResponseEntity<AlertDTO> resolveAlert(@PathVariable String id) {
         log.info("🔔 PATCH /alerts/{}/resolve - Resolviendo alerta", id);
 
-        Optional<AlertEntity> alertOpt = alertRepository.findById(id);
-        if (alertOpt.isEmpty()) {
-            log.warn("⚠️ Alerta no encontrada: {}", id);
+        try {
+            Long longId = Long.parseLong(id);
+            Optional<AlertEntity> alertOpt = alertRepository.findById(longId);
+            if (alertOpt.isEmpty()) {
+                log.warn("⚠️ Alerta no encontrada: {}", id);
+                return ResponseEntity.notFound().build();
+            }
+
+            AlertEntity alert = alertOpt.get();
+            alert.setEstado("RESOLVED");
+            alert.setColorEstado("VERDE");
+            alertRepository.save(alert);
+
+            log.info("✅ Alerta {} resuelta", id);
+            return ResponseEntity.ok(AlertDTO.fromEntity(alert));
+        } catch (NumberFormatException e) {
+            log.warn("⚠️ ID no es un número: {}", id);
             return ResponseEntity.notFound().build();
         }
-
-        AlertEntity alert = alertOpt.get();
-        alert.setEstado("RESOLVED");
-        alert.setColorEstado("VERDE"); // Cuando se resuelve, color verde
-        alertRepository.save(alert);
-
-        log.info("✅ Alerta {} resuelta", id);
-        return ResponseEntity.ok(AlertDTO.fromEntity(alert));
     }
 
     /**
      * Eliminar una alerta
      * DELETE /api/v1/alerts/{id}
+     *
+     * Soporta búsqueda por:
+     * 1. UUID (alertas de cambio de aceite o documentos)
+     * 2. ID Long (compatibilidad)
      */
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Void> deleteAlert(@PathVariable Long id) {
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERVISOR_OPERATIVO')")
+    public ResponseEntity<Void> deleteAlert(@PathVariable String id) {
         log.info("🔔 DELETE /alerts/{} - Eliminando alerta", id);
 
-        Optional<AlertEntity> alertOpt = alertRepository.findById(id);
-        if (alertOpt.isEmpty()) {
-            log.warn("⚠️ Alerta no encontrada: {}", id);
-            return ResponseEntity.notFound().build();
+        // Primero intentar buscar por UUID (válido para ambas tablas)
+        Optional<AlertEntity> alertByUuid = alertRepository.findByUuid(id);
+        if (alertByUuid.isPresent()) {
+            alertRepository.deleteById(alertByUuid.get().getId());
+            log.info("✅ Alerta {} eliminada (AlertEntity por UUID)", id);
+            return ResponseEntity.noContent().build();
         }
 
-        alertRepository.deleteById(id);
-        log.info("✅ Alerta {} eliminada", id);
-        return ResponseEntity.noContent().build();
+        Optional<OilChangeAlertEntity> oilAlertByUuid = oilChangeAlertRepository.findByUuid(id);
+        if (oilAlertByUuid.isPresent()) {
+            oilChangeAlertRepository.deleteById(oilAlertByUuid.get().getId());
+            log.info("✅ Alerta {} eliminada (OilChangeAlertEntity por UUID)", id);
+            return ResponseEntity.noContent().build();
+        }
+
+        // Si no es UUID, intentar como Long ID (compatibilidad hacia atrás)
+        try {
+            Long longId = Long.parseLong(id);
+            Optional<AlertEntity> alertOpt = alertRepository.findById(longId);
+            if (alertOpt.isPresent()) {
+                alertRepository.deleteById(longId);
+                log.info("✅ Alerta {} eliminada (AlertEntity por ID Long)", id);
+                return ResponseEntity.noContent().build();
+            }
+
+            Optional<OilChangeAlertEntity> oilAlertOpt = oilChangeAlertRepository.findById(longId);
+            if (oilAlertOpt.isPresent()) {
+                oilChangeAlertRepository.deleteById(longId);
+                log.info("✅ Alerta {} eliminada (OilChangeAlertEntity por ID Long)", id);
+                return ResponseEntity.noContent().build();
+            }
+
+            log.warn("⚠️ Alerta no encontrada: {}", id);
+            return ResponseEntity.notFound().build();
+        } catch (NumberFormatException e) {
+            log.warn("⚠️ ID inválido (no es número ni UUID válido): {}", id);
+            return ResponseEntity.notFound().build();
+        }
     }
 
     /**
@@ -158,7 +205,7 @@ public class AlertController {
      * GET /api/v1/alerts/summary
      */
     @GetMapping("/stats/summary")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERVISOR_OPERATIVO')")
     public ResponseEntity<Map<String, Object>> getAlertsSummary() {
         log.info("🔔 GET /alerts/stats/summary - Obteniendo resumen de alertas");
 
@@ -206,7 +253,7 @@ public class AlertController {
      * GET /api/v1/alerts/criticas
      */
     @GetMapping("/criticas")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERVISOR_OPERATIVO')")
     public ResponseEntity<List<AlertDTO>> getCriticalAlerts() {
         log.info("🔔 GET /alerts/criticas - Obteniendo alertas críticas (ROJO)");
 
@@ -222,7 +269,7 @@ public class AlertController {
      * GET /api/v1/alerts/warnings
      */
     @GetMapping("/warnings")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERVISOR_OPERATIVO')")
     public ResponseEntity<List<AlertDTO>> getWarningAlerts() {
         log.info("🔔 GET /alerts/warnings - Obteniendo alertas de advertencia (AMARILLO)");
 

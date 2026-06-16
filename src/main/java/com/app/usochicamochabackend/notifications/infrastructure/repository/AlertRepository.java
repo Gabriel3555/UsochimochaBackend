@@ -74,4 +74,9 @@ public interface AlertRepository extends JpaRepository<AlertEntity, Long> {
      */
     @Query("SELECT COUNT(a) FROM AlertEntity a WHERE a.estado = 'ACTIVE'")
     long countActiveAlerts();
+
+    /**
+     * Busca una alerta por su UUID
+     */
+    Optional<AlertEntity> findByUuid(String uuid);
 }

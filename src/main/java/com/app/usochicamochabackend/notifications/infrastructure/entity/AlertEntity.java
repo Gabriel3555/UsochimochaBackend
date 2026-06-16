@@ -28,6 +28,9 @@ public class AlertEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(name = "uuid", unique = true, length = 36)
+    private String uuid;
+
     @Column(name = "placa", length = 20)
     private String placa;
 
@@ -36,6 +39,9 @@ public class AlertEntity {
 
     @Column(name = "machine_name", length = 255)
     private String machineName;
+
+    @Column(name = "tipo_maquinaria", length = 50)
+    private String tipoMaquinaria;
 
     @Column(name = "tipo_alerta", nullable = false, length = 50)
     private String tipoAlerta;

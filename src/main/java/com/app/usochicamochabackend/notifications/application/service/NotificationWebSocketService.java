@@ -133,6 +133,7 @@ public class NotificationWebSocketService {
     private void saveAlertToDatabase(OilChangeAlertPayload payload, String estado) {
         try {
             OilChangeAlertEntity alert = new OilChangeAlertEntity();
+            alert.setUuid(payload.id());
             alert.setPlaca(payload.placa());
             alert.setTipoMaquinaria(payload.tipoMaquinaria());
             alert.setAlertColor(payload.colorEstado());

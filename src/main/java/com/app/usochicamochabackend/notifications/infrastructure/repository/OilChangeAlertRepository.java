@@ -8,12 +8,18 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Repository para auditoría de alertas de cambio de aceite.
  */
 @Repository
 public interface OilChangeAlertRepository extends JpaRepository<OilChangeAlertEntity, Long> {
+
+    /**
+     * Busca una alerta por su UUID.
+     */
+    Optional<OilChangeAlertEntity> findByUuid(String uuid);
 
     /**
      * Obtiene todas las alertas para una placa específica.
