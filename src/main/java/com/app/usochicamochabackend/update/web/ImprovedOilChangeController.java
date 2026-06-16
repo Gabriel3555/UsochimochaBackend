@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -32,6 +33,7 @@ public class ImprovedOilChangeController {
     private final OilChangeRepository oilChangeRepository;
     private final OilChangeRequirementRepository requirementRepository;
     private final OilAnalysisSosRepository sosRepository;
+    private final com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository machineRepository;
 
     @PostMapping("/vehicle")
     @PreAuthorize("hasAnyRole('OPERARIO', 'SUPERVISOR_OPERATIVO', 'ADMIN')")
@@ -101,6 +103,43 @@ public class ImprovedOilChangeController {
         } catch (IllegalArgumentException e) {
             log.error("❌ Error creando cambio de aceite: {}", e.getMessage());
             return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @PostMapping("/machine/simple")
+    @PreAuthorize("hasAnyRole('OPERARIO', 'SUPERVISOR_OPERATIVO', 'ADMIN')")
+    @Operation(summary = "Crear cambio de aceite simplificado (sin requisito)")
+    public ResponseEntity<?> createSimpleMachineOilChange(
+            @RequestParam Long machineId,
+            @RequestParam Integer hourStamp,
+            @RequestParam Integer averageHoursChange,
+            @RequestParam(defaultValue = "true") Boolean motorOil,
+            @RequestParam(defaultValue = "false") Boolean hydraulicOil,
+            @RequestParam(defaultValue = "50") Double quantity) {
+        log.info("🛢️ Creando cambio de aceite simplificado para máquina ID: {}, horas: {}", machineId, hourStamp);
+
+        try {
+            var machine = machineRepository.findById(machineId)
+                    .orElseThrow(() -> new IllegalArgumentException("Máquina no encontrada"));
+
+            OilChangeEntity entity = OilChangeEntity.builder()
+                    .machine(machine)
+                    .hourStamp(hourStamp)
+                    .averageHoursChange(averageHoursChange)
+                    .motorOil(motorOil)
+                    .hydraulicOil(hydraulicOil)
+                    .quantity(quantity)
+                    .dateStamp(LocalDateTime.now())
+                    .build();
+
+            OilChangeEntity saved = oilChangeRepository.save(entity);
+            log.info("✅ Cambio de aceite simplificado creado con ID: {}", saved.getId());
+
+            return ResponseEntity.status(HttpStatus.CREATED).body(saved);
+
+        } catch (IllegalArgumentException e) {
+            log.error("❌ Error creando cambio de aceite: {}", e.getMessage());
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
     }
 

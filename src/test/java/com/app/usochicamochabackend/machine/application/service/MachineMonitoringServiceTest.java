@@ -3,6 +3,7 @@ package com.app.usochicamochabackend.machine.application.service;
 import com.app.usochicamochabackend.machine.application.dto.MachineMonitoringDTO;
 import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
 import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
+import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
 import com.app.usochicamochabackend.update.infrastructure.entity.OilChangeEntity;
 import com.app.usochicamochabackend.update.infrastructure.repository.OilChangeRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,11 +28,14 @@ class MachineMonitoringServiceTest {
     @Mock
     private OilChangeRepository oilChangeRepository;
 
+    @Mock
+    private InspectionRepository inspectionRepository;
+
     private MachineMonitoringService machineMonitoringService;
 
     @BeforeEach
     void setUp() {
-        machineMonitoringService = new MachineMonitoringService(machineRepository, oilChangeRepository);
+        machineMonitoringService = new MachineMonitoringService(machineRepository, oilChangeRepository, inspectionRepository);
     }
 
     @Test

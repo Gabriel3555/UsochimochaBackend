@@ -58,7 +58,7 @@ public class NotificationWebSocketHandler {
      */
     public void broadcastOilChange(String oilChangeData) {
         log.debug("Broadcasting oil change data: {}", oilChangeData);
-        messagingTemplate.convertAndSend("/topic/notifications/oil-change", oilChangeData);
+        messagingTemplate.convertAndSend("/topic/oil-change-alerts", oilChangeData);
     }
 
     /**

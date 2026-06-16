@@ -3,6 +3,8 @@ package com.app.usochicamochabackend.machine.application.service;
 import com.app.usochicamochabackend.machine.application.dto.MachineMonitoringDTO;
 import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
 import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
+import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
+import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
 import com.app.usochicamochabackend.shared.calculator.OilChangeAlertCalculator;
 import com.app.usochicamochabackend.shared.dto.AlertStatus;
 import com.app.usochicamochabackend.update.infrastructure.entity.OilChangeEntity;
@@ -32,6 +34,7 @@ public class MachineMonitoringService {
 
     private final MachineRepository machineRepository;
     private final OilChangeRepository oilChangeRepository;
+    private final InspectionRepository inspectionRepository;
 
     /**
      * Obtiene consolidado de aceite de TODAS las máquinas.
@@ -75,9 +78,17 @@ public class MachineMonitoringService {
 
     /**
      * Construye el DTO de monitoreo para una máquina.
+     * IMPORTANTE: El horómetro se obtiene de la última INSPECCIÓN, no de machine.horometroActual
      */
     private MachineMonitoringDTO buildMonitoringDTO(MachineEntity machine) {
-        Integer horometroActual = machine.getHorometroActual() != null ? machine.getHorometroActual() : 0;
+        // Obtener el horómetro actual desde la última inspección (como lo hace OilChangeService)
+        InspectionEntity lastInspection = inspectionRepository.getLastInspection(machine.getId());
+        Integer horometroActual = (lastInspection != null && lastInspection.getHourMeter() != null)
+            ? lastInspection.getHourMeter().intValue()
+            : (machine.getHorometroActual() != null ? machine.getHorometroActual() : 0);
+
+        logger.info("✅ [MONITORING] Máquina: {}, Horómetro: {} (from inspection: {})",
+            machine.getName(), horometroActual, lastInspection != null);
 
         // Obtener cambios más recientes de CADA tipo de aceite
         OilChangeEntity lastMotorOil = oilChangeRepository.getLastMotorOilChangeByMachineId(machine.getId());

@@ -3,6 +3,7 @@ package com.app.usochicamochabackend.notifications.application;
 import com.app.usochicamochabackend.notifications.infrastructure.websocket.NotificationWebSocketHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -13,6 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class NotificationService {
 
     private final NotificationWebSocketHandler webSocketHandler;
+    private final SimpMessagingTemplate messagingTemplate;
     private final ConcurrentHashMap<String, Long> notificationStats = new ConcurrentHashMap<>();
 
     /**
@@ -151,8 +153,9 @@ public class NotificationService {
      */
     public void notifyAlert(Object alertData) {
         if (alertData != null) {
-            log.info("Sending preventive alert WebSocket notification");
-            webSocketHandler.broadcastDataUpdate(alertData.toString());
+            log.info("📢 Enviando alerta preventiva: {}", alertData);
+            // Enviar SOLO por topic unificado para que aparezca como ALERTA PREVENTIVA
+            messagingTemplate.convertAndSend("/topic/alerts/unified", alertData);
             recordNotificationStats("preventive-alert");
         }
     }

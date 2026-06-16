@@ -181,35 +181,53 @@ public class AlertCalculationService {
      * Verifica: SOAT y RUNT
      */
     private void checkDocumentAlertsForMachine(Object machine, String machineName) {
-        log.debug("Checking document alerts for machine: {}", machineName);
+        log.info("🔔 Chequear documentos para máquina: {}", machineName);
 
         try {
             LocalDate threshold = LocalDate.now().plusDays(ALERT_DOCUMENT_DAYS);
             LocalDate today = LocalDate.now();
 
+            log.info("🔔 Umbral de alerta: {}", threshold);
+
             // Verificar SOAT
-            LocalDate soatDate = (LocalDate) machine.getClass().getMethod("getSoat").invoke(machine);
-            if (soatDate != null && !soatDate.isAfter(threshold) && !soatDate.isBefore(today)) {
-                createAlert(
-                    machineName,
-                    "DOCUMENTO",
-                    "Documento SOAT próximo a vencer",
-                    soatDate
-                );
+            try {
+                LocalDate soatDate = (LocalDate) machine.getClass().getMethod("getSoat").invoke(machine);
+                log.info("🔔 SOAT para {}: {}", machineName, soatDate);
+                if (soatDate != null && !soatDate.isAfter(threshold) && !soatDate.isBefore(today)) {
+                    log.info("🔔 Creando alerta SOAT para {}", machineName);
+                    createAlert(
+                        machineName,
+                        "DOCUMENTO_SOAT",
+                        "Documento SOAT próximo a vencer",
+                        soatDate
+                    );
+                } else if (soatDate != null) {
+                    log.info("🔔 SOAT {} no necesita alerta (vencimiento: {})", machineName, soatDate);
+                }
+            } catch (Exception e) {
+                log.warn("❌ Error al obtener SOAT para {}: {}", machineName, e.getMessage());
             }
 
             // Verificar RUNT
-            LocalDate runtDate = (LocalDate) machine.getClass().getMethod("getRunt").invoke(machine);
-            if (runtDate != null && !runtDate.isAfter(threshold) && !runtDate.isBefore(today)) {
-                createAlert(
-                    machineName,
-                    "DOCUMENTO",
-                    "Documento RUNT próximo a vencer",
-                    runtDate
-                );
+            try {
+                LocalDate runtDate = (LocalDate) machine.getClass().getMethod("getRunt").invoke(machine);
+                log.info("🔔 RUNT para {}: {}", machineName, runtDate);
+                if (runtDate != null && !runtDate.isAfter(threshold) && !runtDate.isBefore(today)) {
+                    log.info("🔔 Creando alerta RUNT para {}", machineName);
+                    createAlert(
+                        machineName,
+                        "DOCUMENTO_RUNT",
+                        "Documento RUNT próximo a vencer",
+                        runtDate
+                    );
+                } else if (runtDate != null) {
+                    log.info("🔔 RUNT {} no necesita alerta (vencimiento: {})", machineName, runtDate);
+                }
+            } catch (Exception e) {
+                log.warn("❌ Error al obtener RUNT para {}: {}", machineName, e.getMessage());
             }
         } catch (Exception e) {
-            log.warn("Error checking document alerts for machine {}: {}", machineName, e.getMessage());
+            log.error("❌ Error critical checking document alerts for machine {}: {}", machineName, e.getMessage(), e);
         }
     }
 
@@ -220,36 +238,45 @@ public class AlertCalculationService {
      *           AND activo = true AND fecha_vencimiento <= HOY + 30 DÍAS
      */
     private void checkDocumentAlertsForVehicle(String placa) {
-        log.debug("Checking document alerts for: {}", placa);
+        log.info("🔔 Chequear documentos para vehículo/moto: {}", placa);
 
         // Obtener el vehículo para acceder a su ID
         var vehiculo = vehicleRepository.findByPlaca(placa);
         if (vehiculo.isEmpty()) {
-            log.debug("Vehicle not found for placa: {}", placa);
+            log.info("❌ Vehículo no encontrado para placa: {}", placa);
             return;
         }
 
         Integer idVehiculo = vehiculo.get().getIdVehiculo();
+        log.info("🔔 ID vehículo obtenido: {}", idVehiculo);
+
         LocalDate threshold = LocalDate.now().plusDays(ALERT_DOCUMENT_DAYS);
         LocalDate today = LocalDate.now();
+        log.info("🔔 Búsqueda: hoy={}, threshold={}", today, threshold);
 
-        var docsExpiring = documentacionRepository.findAll()
-            .stream()
+        var allDocs = documentacionRepository.findAll();
+        log.info("🔔 Total documentos en BD: {}", allDocs.size());
+
+        var docsExpiring = allDocs.stream()
+            .peek(doc -> log.debug("🔍 Documento: id={}, idVehiculo={}, tipoDocumento={}, vencimiento={}, activo={}",
+                doc.getIdDocumento(), doc.getIdVehiculo(), doc.getTipoDocumento(), doc.getFechaVencimiento(), doc.getActivo()))
             .filter(doc -> idVehiculo.equals(doc.getIdVehiculo()))
             .filter(doc -> Boolean.TRUE.equals(doc.getActivo()))
             .filter(doc -> doc.getFechaVencimiento() != null)
             // PASO 2 (ADR): Filtrar solo documentos que vencen en < 30 días
             .filter(doc -> !doc.getFechaVencimiento().isAfter(threshold))
             .filter(doc -> !doc.getFechaVencimiento().isBefore(today))
+            .peek(doc -> log.info("✅ Documento que vence pronto: {} (vence: {})", doc.getTipoDocumento(), doc.getFechaVencimiento()))
             .toList();
 
-        log.debug("Found {} documents expiring for {}", docsExpiring.size(), placa);
+        log.info("🔔 Documentos próximos a vencer para {}: {}", placa, docsExpiring.size());
 
         // PASO 3 (ADR): Crear alerta por cada documento que vence
         docsExpiring.forEach(doc -> {
+            log.info("🔔 Creando alerta para documento: {} (vence: {})", doc.getTipoDocumento(), doc.getFechaVencimiento());
             createAlert(
                 placa,
-                "DOCUMENTO",
+                "DOCUMENTO_" + doc.getTipoDocumento().toUpperCase(),
                 String.format("Documento %s próximo a vencer", doc.getTipoDocumento()),
                 doc.getFechaVencimiento(),
                 doc.getIdDocumento()
@@ -266,17 +293,17 @@ public class AlertCalculationService {
     }
 
     private void createAlert(String placa, String tipo, String descripcion, LocalDate vencimiento, Integer documentoId) {
-        log.debug("Creating alert for {} - {} - {}", placa, tipo, descripcion);
+        log.info("🔔 Creando alerta para {} - {} - {}", placa, tipo, descripcion);
 
         // PASO 3 (ADR): Validar que no exista alerta ACTIVA del mismo tipo
         var existingAlert = alertRepository.findTopByPlacaAndTipoAlertaAndEstadoOrderByFechaCreacionDesc(
             placa,
             tipo,
-            "ACTIVE"
+            "ACTIVA"  // Cambiar a ACTIVA (en español, como está en BD)
         );
 
         if (existingAlert.isPresent()) {
-            log.debug("Alert already exists for {} - {}", placa, tipo);
+            log.info("⚠️ Alerta ya existe para {} - {}", placa, tipo);
             return; // No crear si ya existe activa
         }
 
@@ -284,7 +311,7 @@ public class AlertCalculationService {
         AlertEntity alert = AlertEntity.builder()
             .placa(placa)
             .tipoAlerta(tipo)
-            .estado("ACTIVE")
+            .estado("ACTIVA")  // Cambiar a ACTIVA
             .descripcion(descripcion)
             .fechaVencimiento(vencimiento)
             .fechaCreacion(LocalDateTime.now())
@@ -295,7 +322,7 @@ public class AlertCalculationService {
 
         // PASO 5 (ADR): Persistir en BD
         alertRepository.save(alert);
-        log.info("✅ Alert created: {} - {} - {}", placa, tipo, alert.getColorEstado());
+        log.info("✅ Alerta creada: {} - {} - {}", placa, tipo, alert.getColorEstado());
 
         // Notificar inmediatamente por WebSocket (sin romper lo existente)
         notificationService.notifyAlert(AlertDTO.fromEntity(alert));

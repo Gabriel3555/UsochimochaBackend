@@ -5,6 +5,8 @@ import com.app.usochicamochabackend.vehicle.application.dto.VehicleMonitoringDTO
 import com.app.usochicamochabackend.vehicle.application.service.VehicleMonitoringService;
 import com.app.usochicamochabackend.moto.application.dto.MotoMonitoringDTO;
 import com.app.usochicamochabackend.moto.application.service.MotoMonitoringService;
+import com.app.usochicamochabackend.machine.application.dto.MachineMonitoringDTO;
+import com.app.usochicamochabackend.machine.application.service.MachineMonitoringService;
 import com.app.usochicamochabackend.actions.application.port.SaveActionUseCase;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -30,6 +32,7 @@ public class OilChangeNotificationListener {
 
     private final VehicleMonitoringService vehicleMonitoringService;
     private final MotoMonitoringService motoMonitoringService;
+    private final MachineMonitoringService machineMonitoringService;
     private final NotificationWebSocketService notificationWebSocketService;
     private final SaveActionUseCase saveActionUseCase;
     private final SimpMessagingTemplate messagingTemplate;
@@ -48,6 +51,8 @@ public class OilChangeNotificationListener {
                 processVehicleAlert(placa, event);
             } else if ("MOTOCICLETA".equals(tipoMaquinaria)) {
                 processMotoAlert(placa, event);
+            } else if ("MAQUINARIA".equals(tipoMaquinaria)) {
+                processMachineAlert(event.getMachineId(), event);
             }
 
             // Registrar en auditoría
@@ -133,6 +138,46 @@ public class OilChangeNotificationListener {
 
         } catch (Exception e) {
             logger.error("Error procesando alerta para motocicleta: {}", placa, e);
+        }
+    }
+
+    /**
+     * Procesa alerta para una máquina (motor e hidráulico).
+     */
+    private void processMachineAlert(Long machineId, InspectionCompletedEvent event) {
+        try {
+            // Obtener consolidado de la máquina específica
+            MachineMonitoringDTO updated = machineMonitoringService.getConsolidateById(machineId);
+
+            if (updated == null) {
+                logger.debug("Máquina no encontrada o sin historial de aceite: {}", machineId);
+                return;
+            }
+
+            // Validar si hay alerta en aceite motor o hidráulico
+            boolean motorAlert = shouldNotify(
+                updated.motorOilInfo() != null ? updated.motorOilInfo().alertColor() : null
+            );
+            boolean hydraulicAlert = shouldNotify(
+                updated.hydraulicOilInfo() != null ? updated.hydraulicOilInfo().alertColor() : null
+            );
+
+            if (motorAlert || hydraulicAlert) {
+                // 1. Enviar notificación de alerta específica
+                notificationWebSocketService.broadcastOilChangeAlert(updated);
+
+                // 2. Notificar al sistema general que hay actualización
+                messagingTemplate.convertAndSend("/topic/notifications/data-update",
+                    "oil-change-alert-updated");
+
+                logger.info("Alerta enviada por WebSocket: machineId={} | Motor: {} | Hidráulico: {}",
+                    machineId,
+                    updated.motorOilInfo() != null ? updated.motorOilInfo().alertColor() : "N/A",
+                    updated.hydraulicOilInfo() != null ? updated.hydraulicOilInfo().alertColor() : "N/A");
+            }
+
+        } catch (Exception e) {
+            logger.error("Error procesando alerta para máquina: {}", machineId, e);
         }
     }
 

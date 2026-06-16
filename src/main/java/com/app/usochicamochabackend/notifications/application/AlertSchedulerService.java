@@ -77,8 +77,10 @@ public class AlertSchedulerService {
     /**
      * NUEVO: Calcula alertas preventivas para todos los vehículos, motos y máquinas
      * Consulta todas las placas activas y calcula sus alertas
+     * Método público para ser llamado cuando se conecta un cliente WebSocket
      */
-    private void calculatePreventiveAlerts() {
+    public void calculatePreventiveAlerts() {
+        log.info("🔔 === INICIANDO calculatePreventiveAlerts ===");
         Set<String> allPlacas = new HashSet<>();
 
         // Obtener todas las placas de vehículos activos (incluyendo motos)
@@ -90,17 +92,19 @@ public class AlertSchedulerService {
                 .filter(m -> Boolean.TRUE.equals(m.getStatus()))
                 .forEach(m -> allPlacas.add(m.getName())); // Máquinas usan nombre como ID
 
-        log.info("🔔 Calculando alertas para {} placas activas", allPlacas.size());
+        log.info("🔔 Calculando alertas para {} placas activas: {}", allPlacas.size(), allPlacas);
 
         // Para cada placa, calcular sus alertas
         for (String placa : allPlacas) {
             try {
                 String tipoActivo = determineAssetType(placa);
+                log.info("🔔 Calculando alertas para placa: {} (tipo: {})", placa, tipoActivo);
                 alertCalculationService.calculateAlertsForPlate(placa, tipoActivo);
             } catch (Exception e) {
-                log.warn("⚠️ Error calculando alertas para placa {}: {}", placa, e.getMessage());
+                log.warn("⚠️ Error calculando alertas para placa {}: {}", placa, e.getMessage(), e);
             }
         }
+        log.info("✅ === calculatePreventiveAlerts COMPLETADO ===");
     }
 
     /**

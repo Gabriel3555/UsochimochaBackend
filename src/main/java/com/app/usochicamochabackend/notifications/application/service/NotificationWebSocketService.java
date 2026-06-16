@@ -3,6 +3,7 @@ package com.app.usochicamochabackend.notifications.application.service;
 import com.app.usochicamochabackend.shared.dto.OilChangeAlertPayload;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleMonitoringDTO;
 import com.app.usochicamochabackend.moto.application.dto.MotoMonitoringDTO;
+import com.app.usochicamochabackend.machine.application.dto.MachineMonitoringDTO;
 import com.app.usochicamochabackend.notifications.infrastructure.entity.OilChangeAlertEntity;
 import com.app.usochicamochabackend.notifications.infrastructure.repository.OilChangeAlertRepository;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +29,7 @@ public class NotificationWebSocketService {
     /**
      * Envía alerta de cambio de aceite a través de WebSocket y guarda en BD.
      *
-     * Topic: /topic/oil-change-alerts
+     * Topic: /topic/alerts/unified
      * Clientes suscritos recibirán la alerta inmediatamente.
      */
     public void broadcastOilChangeAlert(VehicleMonitoringDTO vehicle) {
@@ -39,13 +40,13 @@ public class NotificationWebSocketService {
                 return;
             }
 
-            // 1. Enviar por WebSocket
-            messagingTemplate.convertAndSend("/topic/oil-change-alerts", payload);
+            // 1. Enviar por WebSocket (topic unificado)
+            messagingTemplate.convertAndSend("/topic/alerts/unified", payload);
 
             // 2. Guardar en BD para auditoría
             saveAlertToDatabase(payload, vehicle.maintenance().estado());
 
-            logger.info("Alerta enviada (WebSocket + BD): {} | {} | {}%",
+            logger.info("✅ Alerta enviada (WebSocket + BD): {} | {} | {}%",
                 vehicle.placa(),
                 vehicle.maintenance().alertColor(),
                 vehicle.maintenance().percentageUsed());
@@ -66,13 +67,13 @@ public class NotificationWebSocketService {
                 return;
             }
 
-            // 1. Enviar por WebSocket
-            messagingTemplate.convertAndSend("/topic/oil-change-alerts", payload);
+            // 1. Enviar por WebSocket (topic unificado)
+            messagingTemplate.convertAndSend("/topic/alerts/unified", payload);
 
             // 2. Guardar en BD para auditoría
             saveAlertToDatabase(payload, moto.oil().estado());
 
-            logger.info("Alerta enviada (WebSocket + BD): {} | {} | {}%",
+            logger.info("✅ Alerta enviada (WebSocket + BD): {} | {} | {}%",
                 moto.placa(),
                 moto.oil().alertColor(),
                 moto.oil().percentageUsed());
@@ -83,6 +84,50 @@ public class NotificationWebSocketService {
     }
 
     /**
+     * Envía alerta de cambio de aceite para máquina a través de WebSocket y guarda en BD.
+     * Si hay alertas en ambos aceites (motor e hidráulico), envía la más crítica.
+     */
+    public void broadcastOilChangeAlert(MachineMonitoringDTO machine) {
+        try {
+            OilChangeAlertPayload payload = OilChangeAlertPayload.fromMachineMonitoring(machine);
+            if (payload == null) {
+                logger.warn("No se puede crear payload para máquina: {}", machine.machineId());
+                return;
+            }
+
+            // 1. Enviar por WebSocket (topic unificado)
+            messagingTemplate.convertAndSend("/topic/alerts/unified", payload);
+
+            // 2. Guardar en BD para auditoría
+            saveAlertToDatabase(payload, payload.estado());
+
+            logger.info("✅ Alerta enviada (WebSocket + BD): machineId={} | {} | {}%",
+                machine.machineId(),
+                payload.colorEstado(),
+                payload.percentageUsed());
+
+        } catch (Exception e) {
+            logger.error("Error enviando alerta de cambio de aceite (máquina): {}", machine.machineId(), e);
+        }
+    }
+
+    private boolean isCritical(String newColor, String currentColor) {
+        int newPriority = getColorPriority(newColor);
+        int currentPriority = getColorPriority(currentColor);
+        return newPriority < currentPriority;
+    }
+
+    private int getColorPriority(String color) {
+        return switch (color) {
+            case "RED" -> 0;
+            case "YELLOW" -> 1;
+            case "BLUE" -> 2;
+            case "GREEN" -> 3;
+            default -> 4;
+        };
+    }
+
+    /**
      * Guarda alerta en BD para auditoría y análisis.
      */
     private void saveAlertToDatabase(OilChangeAlertPayload payload, String estado) {
@@ -90,10 +135,10 @@ public class NotificationWebSocketService {
             OilChangeAlertEntity alert = new OilChangeAlertEntity();
             alert.setPlaca(payload.placa());
             alert.setTipoMaquinaria(payload.tipoMaquinaria());
-            alert.setAlertColor(payload.alertColor());
-            alert.setAlertStatus(payload.alertStatus());
+            alert.setAlertColor(payload.colorEstado());
+            alert.setAlertStatus(payload.tipoAlerta());
             alert.setPercentageUsed(payload.percentageUsed());
-            alert.setAlertMessage(payload.alertMessage());
+            alert.setAlertMessage(payload.descripcion());
             alert.setNotificationSentAt(payload.timestamp());
 
             alertRepository.save(alert);

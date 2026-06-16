@@ -44,4 +44,4 @@ scripts/*.sql
 ### Runtime uploads (documentos vehículo, etc.) ###
 /uploads/**
 
-### Runtime uploads folder root glob (safety)
+### Runtime uploads folder root glob (safety)backend.log

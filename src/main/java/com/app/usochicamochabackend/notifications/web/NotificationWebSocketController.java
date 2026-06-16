@@ -1,15 +1,22 @@
     package com.app.usochicamochabackend.notifications.web;
 
 import com.app.usochicamochabackend.notifications.application.NotificationService;
+import com.app.usochicamochabackend.notifications.application.AlertSchedulerService;
+import com.app.usochicamochabackend.notifications.application.service.NotificationWebSocketService;
 import com.app.usochicamochabackend.review.application.dto.InspectionFormResponse;
 import com.app.usochicamochabackend.notifications.infrastructure.websocket.NotificationWebSocketHandler;
+import com.app.usochicamochabackend.vehicle.application.service.VehicleMonitoringService;
+import com.app.usochicamochabackend.moto.application.service.MotoMonitoringService;
+import com.app.usochicamochabackend.machine.application.service.MachineMonitoringService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.event.EventListener;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.*;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.socket.messaging.SessionConnectEvent;
 
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -22,7 +29,12 @@ public class NotificationWebSocketController {
     private final NotificationService notificationService;
     private final NotificationWebSocketHandler webSocketHandler;
     private final SimpMessagingTemplate messagingTemplate;
-    
+    private final NotificationWebSocketService notificationWebSocketService;
+    private final AlertSchedulerService alertSchedulerService;
+    private final VehicleMonitoringService vehicleMonitoringService;
+    private final MotoMonitoringService motoMonitoringService;
+    private final MachineMonitoringService machineMonitoringService;
+
     private final ConcurrentHashMap<String, String> activeConnections = new ConcurrentHashMap<>();
 
     /**
@@ -43,10 +55,78 @@ public class NotificationWebSocketController {
     public void handleDisconnection(@Header("simpSessionId") String sessionId) {
         String user = activeConnections.remove(sessionId);
         log.info("WebSocket disconnected - Session: {}, User: {}", sessionId, user);
-        
+
         // Send disconnection notification
-        messagingTemplate.convertAndSend("/topic/notifications/connection", 
+        messagingTemplate.convertAndSend("/topic/notifications/connection",
             "disconnected:" + user);
+    }
+
+    @EventListener
+    public void handleSessionConnect(SessionConnectEvent event) {
+        log.info("🔌 [WEBSOCKET] Cliente conectado - enviando snapshot de alertas...");
+
+        new Thread(() -> {
+            try {
+                Thread.sleep(1000);
+                log.info("📸 [SNAPSHOT] Enviando alertas de cambio de aceite...");
+                sendOilChangeAlertsSnapshot();
+
+                Thread.sleep(500);
+                log.info("📸 [SNAPSHOT] Calculando alertas de documentos...");
+                alertSchedulerService.calculatePreventiveAlerts();
+
+                log.info("✅ [SNAPSHOT] Todas las alertas enviadas");
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                log.error("Error en thread de snapshot", e);
+            }
+        }).start();
+    }
+
+    private void sendOilChangeAlertsSnapshot() {
+        try {
+            log.info("📸 [SNAPSHOT] Enviando alertas de cambio de aceite...");
+
+            // Vehículos
+            vehicleMonitoringService.getConsolidatedMonitoring().forEach(vehicle -> {
+                if (vehicle.maintenance() != null &&
+                    ("YELLOW".equals(vehicle.maintenance().alertColor()) ||
+                     "RED".equals(vehicle.maintenance().alertColor()))) {
+                    notificationWebSocketService.broadcastOilChangeAlert(vehicle);
+                    log.debug("📸 [SNAPSHOT] Enviada alerta vehículo: {}", vehicle.placa());
+                }
+            });
+
+            // Motos
+            motoMonitoringService.getConsolidatedMonitoring().forEach(moto -> {
+                if (moto.oil() != null &&
+                    ("YELLOW".equals(moto.oil().alertColor()) ||
+                     "RED".equals(moto.oil().alertColor()))) {
+                    notificationWebSocketService.broadcastOilChangeAlert(moto);
+                    log.debug("📸 [SNAPSHOT] Enviada alerta moto: {}", moto.placa());
+                }
+            });
+
+            // Máquinas - enviar alertas de aceite de motor y aceite hidráulico
+            machineMonitoringService.getConsolidatedMonitoring().forEach(machine -> {
+                boolean hasMotorAlert = machine.motorOilInfo() != null &&
+                    ("YELLOW".equals(machine.motorOilInfo().alertColor()) ||
+                     "RED".equals(machine.motorOilInfo().alertColor()));
+
+                boolean hasHydraulicAlert = machine.hydraulicOilInfo() != null &&
+                    ("YELLOW".equals(machine.hydraulicOilInfo().alertColor()) ||
+                     "RED".equals(machine.hydraulicOilInfo().alertColor()));
+
+                if (hasMotorAlert || hasHydraulicAlert) {
+                    notificationWebSocketService.broadcastOilChangeAlert(machine);
+                    log.debug("📸 [SNAPSHOT] Enviada alerta máquina: {}", machine.machineName());
+                }
+            });
+
+            log.info("✅ [SNAPSHOT] Snapshot de alertas completado");
+        } catch (Exception e) {
+            log.error("❌ [SNAPSHOT] Error enviando snapshot de alertas", e);
+        }
     }
 
     /**
