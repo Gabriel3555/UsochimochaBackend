@@ -1,8 +1,10 @@
 package com.app.usochicamochabackend.moto.application.service;
 
+import com.app.usochicamochabackend.actions.application.port.SaveActionUseCase;
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.common.text.InputTextNormalizer;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
+import com.app.usochicamochabackend.exception.VehicleSoftDeletedConflictException;
 import com.app.usochicamochabackend.catalog.infrastructure.entity.TipoVehiculoEntity;
 import com.app.usochicamochabackend.catalog.infrastructure.entity.UbicacionEntity;
 import com.app.usochicamochabackend.catalog.infrastructure.repository.TipoVehiculoRepository;
@@ -34,6 +36,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
@@ -50,10 +53,11 @@ public class MotoService implements MotoCRUDUseCase {
     private final InspDetalleMecanicoRepository detalleMecanicoRepository;
     private final DocumentacionYElementosRepository documentacionRepository;
     private final NotificationService notificationService;
+    private final SaveActionUseCase saveActionUseCase;
 
         /** Retorna las motocicletas activas (tipo = MOTOCICLETA) con su ubicación base y marca */
         public List<MotoPlacaResponse> getMotocicletas() {
-                log.debug("📋 [MotoService.getMotocicletas] Buscando todas las motos activas...");
+                log.debug("[MotoService.getMotocicletas] Buscando todas las motos activas...");
                 List<MotoPlacaResponse> response = vehicleRepository.findAllActiveVehiclesByTipoName(TIPO_MOTO)
                                 .stream()
                                 .map(v -> {
@@ -62,9 +66,9 @@ public class MotoService implements MotoCRUDUseCase {
                                 })
                                 .toList();
 
-                log.info("📡 [MotoService.getMotocicletas] Total {} motos activas devueltas", response.size());
+                log.info("[MotoService.getMotocicletas] Total {} motos activas devueltas", response.size());
                 if (response.isEmpty()) {
-                        log.warn("⚠️ [MotoService.getMotocicletas] Sin motos activas en el sistema");
+                        log.warn("[MotoService.getMotocicletas] Sin motos activas en el sistema");
                 }
 
                 return response;
@@ -152,7 +156,7 @@ public class MotoService implements MotoCRUDUseCase {
 
         @Transactional
         public Long saveInspeccion(InspeccionMotoRequest req) {
-                log.info("📥 [MotoService.saveInspeccion] Iniciando guardado de inspección para vehículo ID: {}", req.idVehiculo());
+                log.info("[MotoService.saveInspeccion] Iniciando guardado de inspección para vehículo ID: {}", req.idVehiculo());
                 log.debug("   - Placa esperada: (from request)");
                 log.debug("   - idUbicacion: {}", req.idUbicacion());
                 log.debug("   - estadoVehiculo: {}", req.estadoVehiculo());
@@ -269,9 +273,21 @@ public class MotoService implements MotoCRUDUseCase {
         if (placa.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La placa es obligatoria");
         }
-        if (vehicleRepository.findByPlaca(placa).isPresent()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ya existe un vehículo con esta placa");
+
+        Optional<VehicleEntity> existingVehicle = vehicleRepository.findByPlaca(placa);
+        if (existingVehicle.isPresent()) {
+            VehicleEntity existing = existingVehicle.get();
+            if (existing.getActivo()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ya existe un vehículo con esta placa");
+            } else {
+                throw new VehicleSoftDeletedConflictException(
+                    "La motocicleta con placa " + placa +
+                    " fue eliminada. Opciones: restaurar o crear con otra placa",
+                    VehicleMapper.toResponse(existing)
+                );
+            }
         }
+
         TipoVehiculoEntity tipoMoto = tipoVehiculoRepository.findByNombreTipoIgnoreCase(TIPO_MOTO)
                 .orElseGet(() -> {
                     log.warn("Tipo MOTOCICLETA no encontrado. Creando automáticamente...");
@@ -298,6 +314,14 @@ public class MotoService implements MotoCRUDUseCase {
                 .activo(req.activo() != null ? req.activo() : Boolean.TRUE)
                 .build();
         vehicleRepository.save(entity);
+
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getPrincipal() instanceof UserPrincipal userPrincipal) {
+            saveActionUseCase.save("La motocicleta " + entity.getPlaca() + " ha sido creada por " + userPrincipal.username());
+        } else {
+            saveActionUseCase.save("La motocicleta " + entity.getPlaca() + " ha sido creada");
+        }
+
         return VehicleMapper.toResponse(
                 vehicleRepository.findById(entity.getIdVehiculo()).orElse(entity));
     }
@@ -354,6 +378,36 @@ public class MotoService implements MotoCRUDUseCase {
         assertMotoTipo(entity);
         entity.setActivo(false);
         vehicleRepository.save(entity);
+
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getPrincipal() instanceof UserPrincipal userPrincipal) {
+            saveActionUseCase.save("La motocicleta " + entity.getPlaca() + " ha sido eliminada por " + userPrincipal.username());
+        } else {
+            saveActionUseCase.save("La motocicleta " + entity.getPlaca() + " ha sido eliminada");
+        }
+    }
+
+    @Transactional
+    public VehicleResponse restoreMoto(Integer id) {
+        VehicleEntity moto = vehicleRepository.findDeletedById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Motocicleta eliminada no encontrada con id: " + id
+                ));
+
+        assertMotoTipo(moto);
+        moto.setActivo(true);
+        vehicleRepository.save(moto);
+
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getPrincipal() instanceof UserPrincipal userPrincipal) {
+            saveActionUseCase.save("La motocicleta " + moto.getPlaca() + " ha sido restaurada por " + userPrincipal.username());
+        } else {
+            saveActionUseCase.save("La motocicleta " + moto.getPlaca() + " ha sido restaurada");
+        }
+
+        return VehicleMapper.toResponse(
+                vehicleRepository.findById(moto.getIdVehiculo()).orElse(moto));
     }
 
     private void assertMotoTipo(VehicleEntity entity) {

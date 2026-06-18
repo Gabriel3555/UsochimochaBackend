@@ -214,6 +214,22 @@ public class MotoController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/{id}/restore")
+    @Operation(
+        summary = "Restaurar motocicleta soft-deleted",
+        description = "Reactiva una motocicleta que fue eliminada (soft-delete). " +
+            "Cambia status de false a true y registra en auditoría quién la restauró. " +
+            "Requiere rol **ADMIN**.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Motocicleta restaurada"),
+        @ApiResponse(responseCode = "400", description = "El id no corresponde a una motocicleta"),
+        @ApiResponse(responseCode = "404", description = "Motocicleta eliminada no encontrada")
+    })
+    public ResponseEntity<VehicleResponse> restoreMoto(@PathVariable Integer id) {
+        VehicleResponse restored = motoService.restoreMoto(id);
+        return ResponseEntity.ok(restored);
+    }
+
     @GetMapping("/documento/imagen/{fileName:.+}")
     @Operation(summary = "Obtener imagen de documento", description = "Retorna el flujo de bytes de la imagen del documento")
     public ResponseEntity<Resource> getDocumentoImagen(@PathVariable String fileName) {
@@ -232,7 +248,7 @@ public class MotoController {
     }
 
     @PostMapping("/{placa}/oil-change")
-    @PreAuthorize("hasAnyRole('OPERARIO', 'SUPERVISOR_OPERATIVO', 'ACEITE', 'MECANIC', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('OPERARIO', 'SUPERVISOR_OPERATIVO', 'ADMIN')")
     @Operation(summary = "Registrar cambio de aceite de motocicleta", description = "Registra un cambio de aceite para una motocicleta por placa")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Cambio de aceite registrado"),
