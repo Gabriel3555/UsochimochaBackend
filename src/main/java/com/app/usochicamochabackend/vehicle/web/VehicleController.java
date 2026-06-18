@@ -3,6 +3,7 @@ package com.app.usochicamochabackend.vehicle.web;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleRequest;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleResponse;
 import com.app.usochicamochabackend.vehicle.application.port.VehicleUseCase;
+import com.app.usochicamochabackend.vehicle.application.service.VehicleService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -26,6 +27,7 @@ import java.util.List;
 public class VehicleController {
 
     private final VehicleUseCase vehicleUseCase;
+    private final VehicleService vehicleService;
 
     @GetMapping
     @Operation(
@@ -73,5 +75,19 @@ public class VehicleController {
     public ResponseEntity<Void> deleteVehicle(@PathVariable Integer id) {
         vehicleUseCase.deleteVehicle(id);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/{id}/restore")
+    @Operation(
+        summary = "Restaurar vehículo soft-deleted",
+        description = "Reactiva un vehículo que fue eliminado (soft-delete). " +
+            "Cambia status de false a true y registra en auditoría quién lo restauró.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Vehículo restaurado"),
+        @ApiResponse(responseCode = "404", description = "Vehículo eliminado no encontrado")
+    })
+    public ResponseEntity<VehicleResponse> restoreVehicle(@PathVariable Integer id) {
+        VehicleResponse restored = vehicleService.restoreVehicle(id);
+        return ResponseEntity.ok(restored);
     }
 }

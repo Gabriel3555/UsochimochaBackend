@@ -2,6 +2,7 @@ package com.app.usochicamochabackend.web;
 
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.exception.UserSoftDeletedConflictException;
+import com.app.usochicamochabackend.exception.VehicleSoftDeletedConflictException;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -43,6 +44,27 @@ public class GlobalExceptionHandler {
         Map<String, Object> response = new HashMap<>();
         response.put("error", ex.getMessage());
         response.put("softDeletedUser", ex.getSoftDeletedUser());
+        response.put("suggestedAction", ex.getSuggestedAction());
+        response.put("options", new String[]{
+            "Restaurar: POST /api/v1/user/{id}/restore",
+            "Restaurar con cambio de contraseña: POST /api/v1/user/{id}/restore-with-password",
+            "Crear con otro nombre de usuario: POST /api/v1/user"
+        });
+        response.put("statusCode", HttpStatus.CONFLICT.value());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
+
+    @ExceptionHandler(VehicleSoftDeletedConflictException.class)
+    public ResponseEntity<Map<String, Object>> handleVehicleSoftDeletedConflict(VehicleSoftDeletedConflictException ex) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("error", ex.getMessage());
+        response.put("softDeletedVehicle", ex.getSoftDeletedVehicle());
+        response.put("suggestedAction", ex.getSuggestedAction());
+        response.put("options", new String[]{
+            "Restaurar: POST /api/v1/vehicle/" + ex.getSoftDeletedVehicle().id() + "/restore",
+            "Crear con otra placa: POST /api/v1/vehicle"
+        });
+        response.put("statusCode", HttpStatus.CONFLICT.value());
         return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
     }
 
