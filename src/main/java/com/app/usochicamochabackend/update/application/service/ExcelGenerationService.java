@@ -533,7 +533,7 @@ public class ExcelGenerationService {
             dataStyle.setBorderLeft(BorderStyle.THIN);
 
             String[] headers = {
-                "Departamento", "Ubicación Base", "Estación Último Reporte", "Placa",
+                "Departamento", "Ubicación Base", "Placa",
                 "Km Actual", "Estado Moto", "Novedad Actual",
                 "Fecha Último Reporte", "Días sin Reporte",
                 // Aceite
@@ -559,7 +559,6 @@ public class ExcelGenerationService {
 
                 row.createCell(c++).setCellValue(dto.departamento() != null ? dto.departamento() : "");
                 row.createCell(c++).setCellValue(dto.ubicacionBase() != null ? dto.ubicacionBase() : "");
-                row.createCell(c++).setCellValue(dto.responsable() != null ? dto.responsable() : "");
                 row.createCell(c++).setCellValue(dto.placa() != null ? dto.placa() : "");
                 row.createCell(c++).setCellValue(dto.kmActual() != null ? dto.kmActual() : 0);
                 row.createCell(c++).setCellValue(dto.estadoMoto() != null ? dto.estadoMoto() : "");
@@ -628,7 +627,7 @@ public class ExcelGenerationService {
             dataStyle.setBorderLeft(BorderStyle.THIN);
 
             String[] headers = {
-                "ID Orden", "Fecha", "Estado", "Descripción",
+                "Consecutivo", "Fecha", "Estado", "Descripción",
                 "Asignado por", "Máquina", "Área", "Proveedor Repuesto", "Tiempo"
             };
 
@@ -645,7 +644,7 @@ public class ExcelGenerationService {
                 int c = 0;
                 var order = dto.order();
                 var machine = dto.machine();
-                row.createCell(c++).setCellValue(order != null && order.id() != null ? order.id() : 0);
+                row.createCell(c++).setCellValue(order != null && order.consecutive() != null ? order.consecutive() : "");
                 row.createCell(c++).setCellValue(order != null && order.date() != null ? order.date().format(DATETIME_FORMATTER) : "");
                 row.createCell(c++).setCellValue(order != null && order.status() != null ? order.status() : "");
                 row.createCell(c++).setCellValue(order != null && order.description() != null ? order.description() : "");
@@ -698,7 +697,7 @@ public class ExcelGenerationService {
             dataStyle.setBorderLeft(BorderStyle.THIN);
 
             String[] headers = {
-                "ID Orden", "Fecha", "Estado", "Descripción",
+                "Consecutivo", "Fecha", "Estado", "Descripción",
                 "Asignado por", "Placa", "Marca", "Tipo Vehículo", "Fecha Inspección", "Proveedor Repuesto", "Tiempo"
             };
 
@@ -715,7 +714,7 @@ public class ExcelGenerationService {
                 int c = 0;
                 var order = dto.order();
                 var vehicle = dto.vehicle();
-                row.createCell(c++).setCellValue(order != null && order.id() != null ? order.id() : 0);
+                row.createCell(c++).setCellValue(order != null && order.consecutive() != null ? order.consecutive() : "");
                 row.createCell(c++).setCellValue(order != null && order.date() != null ? order.date().format(DATETIME_FORMATTER) : "");
                 row.createCell(c++).setCellValue(order != null && order.status() != null ? order.status() : "");
                 row.createCell(c++).setCellValue(order != null && order.description() != null ? order.description() : "");
@@ -845,12 +844,14 @@ public class ExcelGenerationService {
                 "Nivel Aceite", "Nivel Refrigerante", "Nivel Frenos", "Estado Llantas",
                 "Luces", "Estado Visual", "Limpieza",
                 // Documentos
-                "Check SOAT", "Check Tecnomecánica", "Check Licencia", "Check Extintor",
+                "Check SOAT", "Check Tecnomecánica", "Check Extintor",
                 // Elementos
                 "Botiquín", "Señalización", "Líneas Emergencia", "Llanta Repuesto", "Gato Hidráulico",
                 // Salud
                 "Salud Física", "Salud Mental", "Sobriedad", "Medicamentos",
                 "Condición para Conducir", "Consciente Responsabilidad",
+                // Mano de Obra
+                "Mecánico de Planta", "Contratista", "Tiempo Empleado",
                 // Observaciones
                 "Observaciones"
             };
@@ -887,7 +888,6 @@ public class ExcelGenerationService {
 
                 row.createCell(c++).setCellValue(dto.checkSoat() != null ? dto.checkSoat() : "");
                 row.createCell(c++).setCellValue(dto.checkTecno() != null ? dto.checkTecno() : "");
-                row.createCell(c++).setCellValue(dto.checkLicencia() != null ? dto.checkLicencia() : "");
                 row.createCell(c++).setCellValue(dto.checkExtintor() != null ? dto.checkExtintor() : "");
 
                 row.createCell(c++).setCellValue(dto.tieneBotiquin() != null ? (dto.tieneBotiquin() ? "Sí" : "No") : "");
@@ -902,6 +902,13 @@ public class ExcelGenerationService {
                 row.createCell(c++).setCellValue(dto.medicamentos() != null ? (dto.medicamentos() ? "Sí" : "No") : "");
                 row.createCell(c++).setCellValue(dto.condicionParaConducir() != null ? (dto.condicionParaConducir() ? "Sí" : "No") : "");
                 row.createCell(c++).setCellValue(dto.conscienteResponsabilidad() != null ? (dto.conscienteResponsabilidad() ? "Sí" : "No") : "");
+
+                // Mano de Obra
+                row.createCell(c++).setCellValue(dto.mechanicName() != null ? dto.mechanicName() : "");
+                row.createCell(c++).setCellValue(dto.contractorName() != null ? dto.contractorName() : "");
+                row.createCell(c++).setCellValue(dto.timeSpent() != null ? dto.timeSpent() : "");
+
+                // Observaciones
                 row.createCell(c++).setCellValue(dto.observacionesFinales() != null ? dto.observacionesFinales() : "");
 
                 for (int i = 0; i < headers.length; i++) {
