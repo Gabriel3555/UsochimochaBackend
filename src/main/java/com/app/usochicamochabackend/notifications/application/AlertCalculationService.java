@@ -401,39 +401,44 @@ public class AlertCalculationService {
     }
 
     private void createAlert(String placa, String tipo, String descripcion, LocalDate vencimiento, Integer documentoId, String tipoMaquinaria) {
-        log.info("🔔 Creando alerta para {} - {} - {} (tipoMaquinaria: {})", placa, tipo, descripcion, tipoMaquinaria);
+        log.info("🔔 Creando/Actualizando alerta para {} - {} - {} (tipoMaquinaria: {})", placa, tipo, descripcion, tipoMaquinaria);
 
         // PASO 3 (ADR): Validar que no exista alerta ACTIVA del mismo tipo
         var existingAlert = alertRepository.findTopByPlacaAndTipoAlertaAndEstadoOrderByFechaCreacionDesc(
             placa,
             tipo,
-            "ACTIVA"  // Cambiar a ACTIVA (en español, como está en BD)
+            "ACTIVA"
         );
 
+        AlertEntity alert;
         if (existingAlert.isPresent()) {
-            log.info("⚠️ Alerta ya existe para {} - {}", placa, tipo);
-            return; // No crear si ya existe activa
+            // ACTUALIZAR alerta existente con nueva descripción (puede haber cambiado de "próximo" a "vencido")
+            alert = existingAlert.get();
+            log.info("📝 Actualizando alerta existente para {} - {}", placa, tipo);
+            alert.setDescripcion(descripcion);
+            alert.setFechaVencimiento(vencimiento);
+        } else {
+            // CREAR nueva alerta
+            alert = AlertEntity.builder()
+                .placa(placa)
+                .tipoAlerta(tipo)
+                .estado("ACTIVA")
+                .descripcion(descripcion)
+                .fechaVencimiento(vencimiento)
+                .fechaCreacion(LocalDateTime.now())
+                .documentoId(documentoId != null ? documentoId.longValue() : null)
+                .tipoMaquinaria(tipoMaquinaria != null ? tipoMaquinaria : "DOCUMENTO")
+                .build();
+            log.info("✨ Creando nueva alerta para {} - {}", placa, tipo);
         }
-
-        // PASO 4 (ADR): Calcular color_estado
-        AlertEntity alert = AlertEntity.builder()
-            .placa(placa)
-            .tipoAlerta(tipo)
-            .estado("ACTIVA")  // Cambiar a ACTIVA
-            .descripcion(descripcion)
-            .fechaVencimiento(vencimiento)
-            .fechaCreacion(LocalDateTime.now())
-            .documentoId(documentoId != null ? documentoId.longValue() : null)
-            .tipoMaquinaria(tipoMaquinaria != null ? tipoMaquinaria : "DOCUMENTO")
-            .build();
 
         alert.calculateColorEstado();
 
         // PASO 5 (ADR): Persistir en BD
         alertRepository.save(alert);
-        log.info("✅ Alerta creada: {} - {} - {} (tipoMaquinaria: {})", placa, tipo, alert.getColorEstado(), tipoMaquinaria);
+        log.info("✅ Alerta persistida: {} - {} - {} (tipoMaquinaria: {})", placa, tipo, alert.getColorEstado(), tipoMaquinaria);
 
-        // Notificar inmediatamente por WebSocket (sin romper lo existente)
+        // Notificar inmediatamente por WebSocket
         notificationService.notifyAlert(AlertDTO.fromEntity(alert));
     }
 }
