@@ -45,7 +45,10 @@ public record VehicleResponse(
         SoatInfo soat,
 
         @Schema(description = "Información de Tecnicomecánica", example = "{}")
-        TecnoInfo tecno
+        TecnoInfo tecno,
+
+        @Schema(description = "Información de Extintor (seguridad contra incendios)", example = "{}")
+        FireExtinguisherInfo extintor
 ) {
         public record SoatInfo(
                 @Schema(description = "Fecha de vencimiento del SOAT", example = "2025-12-31")
@@ -60,6 +63,15 @@ public record VehicleResponse(
                 @Schema(description = "Fecha de vencimiento de Tecnicomecánica", example = "2025-11-30")
                 LocalDate fechaVencimiento,
                 @Schema(description = "Días restantes hasta vencimiento", example = "95")
+                Long diasRestantes,
+                @Schema(description = "Estado: Vigente | Próximo a Vencer | Vencido", example = "Vigente")
+                String estado
+        ) {}
+
+        public record FireExtinguisherInfo(
+                @Schema(description = "Mes de vencimiento del extintor (último día del mes)", example = "2025-08-31")
+                LocalDate fechaVencimiento,
+                @Schema(description = "Meses restantes hasta vencimiento", example = "3")
                 Long diasRestantes,
                 @Schema(description = "Estado: Vigente | Próximo a Vencer | Vencido", example = "Vigente")
                 String estado

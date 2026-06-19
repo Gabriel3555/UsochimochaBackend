@@ -3,6 +3,7 @@ package com.app.usochicamochabackend.mapper;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleResponse;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleResponse.SoatInfo;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleResponse.TecnoInfo;
+import com.app.usochicamochabackend.vehicle.application.dto.VehicleResponse.FireExtinguisherInfo;
 import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
 import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleProjection;
 import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.DocumentacionYElementosEntity;
@@ -17,10 +18,11 @@ public class VehicleMapper {
         if (entity == null) return null;
         Integer ubiId = entity.getUbicacionBase() != null ? entity.getUbicacionBase().getId() : null;
         String ubiNombre = entity.getUbicacionBase() != null ? entity.getUbicacionBase().getNombreUbicacion() : null;
-        log.info("📋 Mapeando vehículo {} - belongsTo: '{}' (null={})", entity.getPlaca(), entity.getBelongsTo(), entity.getBelongsTo() == null);
+        log.info("Mapeando vehículo {} - belongsTo: '{}' (null={})", entity.getPlaca(), entity.getBelongsTo(), entity.getBelongsTo() == null);
 
         SoatInfo soatInfo = extractDocumentInfo(entity, "SOAT");
         TecnoInfo tecnoInfo = extractDocumentInfo(entity, "TECNOMECANICA");
+        FireExtinguisherInfo extintorInfo = extractExtinguisherInfo(entity);
 
         return new VehicleResponse(
                 entity.getIdVehiculo(),
@@ -38,7 +40,8 @@ public class VehicleMapper {
                 entity.getFactoryEfficiencyKmPerGallon(),
                 entity.getFactoryEfficiencyUnit(),
                 soatInfo,
-                tecnoInfo
+                tecnoInfo,
+                extintorInfo
         );
     }
 
@@ -73,6 +76,34 @@ public class VehicleMapper {
         return null;
     }
 
+    private static FireExtinguisherInfo extractExtinguisherInfo(VehicleEntity entity) {
+        if (entity.getDocumentos() == null || entity.getDocumentos().isEmpty()) {
+            return null;
+        }
+
+        DocumentacionYElementosEntity doc = entity.getDocumentos().stream()
+                .filter(d -> "EXTINTOR".equals(d.getTipoDocumento()) && Boolean.TRUE.equals(d.getActivo()))
+                .findFirst()
+                .orElse(null);
+
+        if (doc == null) {
+            return null;
+        }
+
+        LocalDate fechaMesYear = doc.getFechaExtintor();
+        if (fechaMesYear == null) {
+            fechaMesYear = doc.getMesyear();
+        }
+        if (fechaMesYear == null) {
+            return null;
+        }
+
+        Long mesesRestantes = ChronoUnit.MONTHS.between(LocalDate.now(), fechaMesYear);
+        String estado = mesesRestantes < 0 ? "Vencido" : mesesRestantes <= 1 ? "Próximo a Vencer" : "Vigente";
+
+        return new FireExtinguisherInfo(fechaMesYear, mesesRestantes, estado);
+    }
+
     public static VehicleResponse toResponse(VehicleProjection projection) {
         if (projection == null) return null;
         return new VehicleResponse(
@@ -90,6 +121,7 @@ public class VehicleMapper {
                 null, // VehicleProjection no incluye fuelTankCapacityGallons
                 null, // VehicleProjection no incluye factoryEfficiencyKmPerGallon
                 null, // VehicleProjection no incluye factoryEfficiencyUnit
+                null, // VehicleProjection no incluye documentos
                 null, // VehicleProjection no incluye documentos
                 null  // VehicleProjection no incluye documentos
         );
