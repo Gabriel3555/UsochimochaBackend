@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.notifications.web;
 
+import com.app.usochicamochabackend.notifications.application.AlertSchedulerService;
 import com.app.usochicamochabackend.notifications.application.dto.AlertDTO;
 import com.app.usochicamochabackend.notifications.infrastructure.entity.AlertEntity;
 import com.app.usochicamochabackend.notifications.infrastructure.entity.OilChangeAlertEntity;
@@ -31,6 +32,7 @@ public class AlertController {
 
     private final AlertRepository alertRepository;
     private final OilChangeAlertRepository oilChangeAlertRepository;
+    private final AlertSchedulerService alertSchedulerService;
 
     /**
      * Obtener todas las alertas activas con paginación y filtros
@@ -279,5 +281,28 @@ public class AlertController {
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(alertas);
+    }
+
+    /**
+     * Recalcular todas las alertas preventivas
+     * POST /api/v1/alerts/recalculate
+     */
+    @PostMapping("/recalculate")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('SUPERVISOR_OPERATIVO')")
+    public ResponseEntity<Map<String, Object>> recalculateAlerts() {
+        log.info("🔔 POST /alerts/recalculate - Recalculando todas las alertas");
+        try {
+            alertSchedulerService.calculatePreventiveAlerts();
+            Map<String, Object> response = new HashMap<>();
+            response.put("message", "Alertas recalculadas exitosamente");
+            response.put("timestamp", LocalDateTime.now());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("❌ Error al recalcular alertas: ", e);
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "Error al recalcular alertas");
+            error.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+        }
     }
 }
