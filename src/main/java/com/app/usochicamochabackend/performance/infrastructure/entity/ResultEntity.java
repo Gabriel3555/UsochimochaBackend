@@ -37,9 +37,9 @@ public class ResultEntity {
     @OneToOne(mappedBy = "result")
     private OrderEntity order;
 
-    @OneToOne(cascade = CascadeType.ALL)
+    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     private LaborEntity laborForce;
 
-    @OneToOne(cascade = CascadeType.ALL)
+    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     private SparePartEntity sparePart;
 }

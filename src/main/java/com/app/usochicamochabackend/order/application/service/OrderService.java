@@ -75,6 +75,7 @@ public class OrderService implements AssignOrderUseCase, GetAllOrdersByInspectio
                         .inspection(inspectionEntity)
                         .orderType(assignOrderRequest.orderType())
                         .maintenanceType(maintenanceType)
+                        .maintenanceCategory(assignOrderRequest.maintenanceCategory())
                         .consecutive(consecutive)
                         .build()
         );
@@ -156,6 +157,7 @@ public class OrderService implements AssignOrderUseCase, GetAllOrdersByInspectio
                         .vehicleInspection(vehicleInspection)
                         .orderType(request.orderType())
                         .maintenanceType(maintenanceType)
+                        .maintenanceCategory(request.maintenanceCategory())
                         .consecutive(consecutive)
                         .build()
         );

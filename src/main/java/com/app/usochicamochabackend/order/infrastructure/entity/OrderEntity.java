@@ -53,6 +53,9 @@ public class OrderEntity {
     @Column(name = "maintenance_type", length = 30)
     private MaintenanceType maintenanceType;
 
+    @Column(name = "maintenance_category", length = 30)
+    private String maintenanceCategory;
+
     @Column(unique = true, length = 20)
     private String consecutive;
 
