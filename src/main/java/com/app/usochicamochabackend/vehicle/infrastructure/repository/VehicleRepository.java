@@ -12,10 +12,16 @@ import java.util.List;
 @Repository
 public interface VehicleRepository extends JpaRepository<VehicleEntity, Integer> {
 
-    @Query("SELECT v FROM VehicleEntity v WHERE v.activo = true ORDER BY v.placa")
+    @Query("SELECT DISTINCT v FROM VehicleEntity v " +
+           "LEFT JOIN FETCH v.documentos " +
+           "WHERE v.activo = true " +
+           "ORDER BY v.placa")
     List<VehicleEntity> findAllActiveVehiclesWithDocuments();
 
-    @Query("SELECT v FROM VehicleEntity v WHERE v.activo = true AND UPPER(TRIM(v.tipoVehiculo.nombreTipo)) = UPPER(TRIM(:tipoName)) ORDER BY v.placa")
+    @Query("SELECT DISTINCT v FROM VehicleEntity v " +
+           "LEFT JOIN FETCH v.documentos " +
+           "WHERE v.activo = true AND UPPER(TRIM(v.tipoVehiculo.nombreTipo)) = UPPER(TRIM(:tipoName)) " +
+           "ORDER BY v.placa")
     List<VehicleEntity> findAllActiveVehiclesByTipoNameWithDocuments(@Param("tipoName") String tipoName);
 
     @Query(nativeQuery = true, value = """

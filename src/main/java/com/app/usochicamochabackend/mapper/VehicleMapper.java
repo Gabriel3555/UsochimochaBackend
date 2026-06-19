@@ -79,23 +79,34 @@ public class VehicleMapper {
 
     private static FireExtinguisherInfo extractExtinguisherInfo(VehicleEntity entity) {
         if (entity.getDocumentos() == null || entity.getDocumentos().isEmpty()) {
+            log.warn("🔴 Extintor: No hay documentos para vehículo {}", entity.getPlaca());
             return null;
         }
 
+        log.info("📋 Vehículo {}: {} documentos encontrados", entity.getPlaca(), entity.getDocumentos().size());
+        entity.getDocumentos().forEach(d -> log.info("  - Tipo: {}, Activo: {}, TipoDoc: {}", d.getTipoDocumento(), d.getActivo(), d.getClass().getSimpleName()));
+
         DocumentacionYElementosEntity doc = entity.getDocumentos().stream()
-                .filter(d -> "EXTINTOR".equals(d.getTipoDocumento()) && Boolean.TRUE.equals(d.getActivo()))
+                .filter(d -> ("EXTINTOR".equals(d.getTipoDocumento()) || "EXTINTOR".equals(d.getTipoDocumento())) && Boolean.TRUE.equals(d.getActivo()))
                 .findFirst()
                 .orElse(null);
 
         if (doc == null) {
+            log.warn("🔴 Extintor no encontrado o inactivo para placa {}", entity.getPlaca());
             return null;
         }
+
+        log.info("✅ Extintor encontrado para {}: fechaExtintor={}, mesyear={}, fechaVencimiento={}", entity.getPlaca(), doc.getFechaExtintor(), doc.getMesyear(), doc.getFechaVencimiento());
 
         LocalDate fechaMesYear = doc.getFechaExtintor();
         if (fechaMesYear == null) {
             fechaMesYear = doc.getMesyear();
         }
         if (fechaMesYear == null) {
+            fechaMesYear = doc.getFechaVencimiento();
+        }
+        if (fechaMesYear == null) {
+            log.warn("🔴 Extintor sin fecha para placa {}", entity.getPlaca());
             return null;
         }
 
