@@ -32,6 +32,7 @@ public class OrderMapper {
                 UserMapper.toResponse(entity.getAssignerUser()),
                 entity.getOrderType(),
                 entity.getMaintenanceType() != null ? entity.getMaintenanceType().name() : null,
+                entity.getMaintenanceCategory(),
                 entity.getConsecutive()
         );
     }
@@ -60,6 +61,7 @@ public class OrderMapper {
                 UserMapper.toResponse(entity.getAssignerUser()),
                 entity.getOrderType(),
                 entity.getMaintenanceType() != null ? entity.getMaintenanceType().name() : null,
+                entity.getMaintenanceCategory(),
                 entity.getConsecutive(),
                 hoursSpent,
                 minutesSpent,

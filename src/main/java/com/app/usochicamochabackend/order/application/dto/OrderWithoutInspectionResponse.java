@@ -12,6 +12,7 @@ public record OrderWithoutInspectionResponse(
         UserResponse assignerUser,
         String orderType,
         String maintenanceType,
+        String maintenanceCategory,
         String consecutive,
         Integer hoursSpent,
         Integer minutesSpent,

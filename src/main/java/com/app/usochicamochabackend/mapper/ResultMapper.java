@@ -50,7 +50,14 @@ public class ResultMapper {
 
         UserEntity mechanic = null;
         if (request.labor() != null && Boolean.TRUE.equals(request.labor().sameMecanic())) {
-            mechanic = order.getInspection() != null ? order.getInspection().getUser() : null;
+            if (order.getInspection() != null) {
+                mechanic = order.getInspection().getUser();
+            } else if (order.getVehicleInspection() != null) {
+                String loginUser = order.getVehicleInspection().getLoginUser();
+                if (loginUser != null) {
+                    mechanic = userRepository.findByUsername(loginUser).orElse(null);
+                }
+            }
         }
 
         LaborEntity labor = LaborMapper.toEntity(request.labor(), mechanic);
@@ -94,16 +101,30 @@ public class ResultMapper {
         BigDecimal laborPrice = labor != null ? labor.price() : BigDecimal.ZERO;
         BigDecimal sparePrice = sparePart != null ? sparePart.price() : BigDecimal.ZERO;
 
+        String timeSpent = formatTimeSpent(entity.getHoursSpent(), entity.getMinutesSpent());
+
         return new ResultDTO(
                 entity.getId(),
                 entity.getDate(),
                 entity.getDescription(),
                 hourMeter,
-                entity.getTimeSpent(),
+                timeSpent,
                 labor,
                 sparePart,
                 laborPrice.add(sparePrice)
         );
+    }
+
+    private static String formatTimeSpent(Integer hours, Integer minutes) {
+        if (hours == null && minutes == null) return null;
+
+        int h = hours != null ? hours : 0;
+        int m = minutes != null ? minutes : 0;
+
+        if (h == 0 && m == 0) return null;
+        if (h == 0) return m + "m";
+        if (m == 0) return h + "h";
+        return h + "h " + m + "m";
     }
 
     public static List<ResultDTO> toResponseList(List<ResultEntity> entityList) {

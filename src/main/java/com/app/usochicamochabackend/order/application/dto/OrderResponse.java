@@ -14,5 +14,6 @@ public record OrderResponse(
         UserResponse assignerUser,
         String orderType,
         String maintenanceType,
+        String maintenanceCategory,
         String consecutive
 ) {}
