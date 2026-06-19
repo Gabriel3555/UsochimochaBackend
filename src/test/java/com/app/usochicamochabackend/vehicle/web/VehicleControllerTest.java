@@ -45,7 +45,7 @@ class VehicleControllerTest {
     private ObjectMapper objectMapper;
 
     private static final VehicleResponse RESPONSE_MOCK = new VehicleResponse(
-            1, "ABC123", "Toyota", 1, 2, "AUTOMOVIL", 50000, "Distrito", null, null, true, null, null, null, null, null);
+            1, "ABC123", "Toyota", 1, 2, "AUTOMOVIL", 50000, "Distrito", null, null, true, null, null, null, null, null, null);
 
     private static final VehicleRequest REQUEST_VALIDO = new VehicleRequest(
             "ABC123", 1, 2, 50000, "Distrito", null, true, null, null, null);
