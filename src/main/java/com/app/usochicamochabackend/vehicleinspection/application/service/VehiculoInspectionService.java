@@ -104,7 +104,6 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
                         .idInspeccion(idInspeccion)
                         .checkSoat(req.checkSoat())
                         .checkTecno(req.checkTecno())
-                        .checkLicencia(req.checkLicencia())
                         .checkExtintor(req.checkExtintor())
                         .build());
 
@@ -390,7 +389,6 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
                 
                 documentos.getCheckSoat(),
                 documentos.getCheckTecno(),
-                documentos.getCheckLicencia(),
                 documentos.getCheckExtintor(),
                 
                 elementos.getTieneBotiquin(),
@@ -404,7 +402,11 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
                 salud.getSobrio(),
                 salud.getMedicamentos(),
                 salud.getCondicionParaConducir(),
-                salud.getConscienteResponsabilidad()
+                salud.getConscienteResponsabilidad(),
+
+                null,  // mechanicName - no disponible en inspección
+                null,  // contractorName - no disponible en inspección
+                null   // timeSpent - no disponible en inspección
             ));
         }
         return reportList;

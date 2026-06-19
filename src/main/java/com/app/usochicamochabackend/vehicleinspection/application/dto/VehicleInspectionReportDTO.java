@@ -33,7 +33,6 @@ public record VehicleInspectionReportDTO(
         // Detalle Documentos (Checks visuales)
         @Schema(description = "Estado SOAT declarado") String checkSoat,
         @Schema(description = "Estado Tecnomecánica declarado") String checkTecno,
-        @Schema(description = "Estado licencia declarado") String checkLicencia,
         @Schema(description = "Estado extintor declarado") String checkExtintor,
 
         // Detalle Elementos
@@ -50,5 +49,10 @@ public record VehicleInspectionReportDTO(
         @Schema(description = "Sobriedad") Boolean sobrio,
         @Schema(description = "Medicamentos") Boolean medicamentos,
         @Schema(description = "Condición para conducir") Boolean condicionParaConducir,
-        @Schema(description = "Consciencia de responsabilidad") Boolean conscienteResponsabilidad
+        @Schema(description = "Consciencia de responsabilidad") Boolean conscienteResponsabilidad,
+
+        // Detalle Mano de Obra
+        @Schema(description = "Nombre del mecánico de planta que realizó el procedimiento") String mechanicName,
+        @Schema(description = "Nombre del contratista que realizó el procedimiento") String contractorName,
+        @Schema(description = "Tiempo empleado en el procedimiento") String timeSpent
 ) {}
