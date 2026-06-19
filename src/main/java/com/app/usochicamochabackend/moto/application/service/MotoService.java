@@ -211,7 +211,6 @@ public class MotoService implements MotoCRUDUseCase {
                                 .idInspeccion(inspeccion.getIdInspeccion())
                                 .checkSoat(req.checkSoat())
                                 .checkTecno(req.checkTecno())
-                                .checkLicencia(req.checkLicencia())
                                 .checkExtintor(req.checkExtintor())
                                 .build();
                 detalleDocumentosRepository.save(detalleDoc);

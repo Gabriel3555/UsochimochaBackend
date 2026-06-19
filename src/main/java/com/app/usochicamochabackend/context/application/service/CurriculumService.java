@@ -49,8 +49,12 @@ public class CurriculumService implements GetMachineCurriculumUseCase {
             throw new ResourceNotFoundException("No inspections found");
         }
 
-        List<ResultEntity> resultEntities = inspectionEntities.stream()
-                .flatMap(i -> i.getOrders().stream())
+        // Obtener solo la inspección más reciente para evitar duplicados
+        InspectionEntity latestInspection = inspectionEntities.stream()
+                .max(java.util.Comparator.comparing(InspectionEntity::getDateStamp))
+                .orElseThrow(() -> new ResourceNotFoundException("No inspections found"));
+
+        List<ResultEntity> resultEntities = latestInspection.getOrders().stream()
                 .map(OrderEntity::getResult)
                 .filter(Objects::nonNull)
                 .toList();

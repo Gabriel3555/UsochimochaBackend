@@ -22,8 +22,6 @@ public record InspeccionMotoRequest(
         String checkSoat,
         @Schema(description = "Estado declarado de tecnomecánica", example = "Vigente")
         String checkTecno,
-        @Schema(description = "Estado declarado de licencia", example = "Vigente")
-        String checkLicencia,
         @Schema(description = "Extintor u observación (ej. N/A si no aplica)", example = "N/A")
         String checkExtintor,
 
