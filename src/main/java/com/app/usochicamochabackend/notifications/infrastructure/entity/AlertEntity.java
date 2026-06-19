@@ -9,6 +9,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 
 @Data
 @Entity
@@ -84,9 +85,14 @@ public class AlertEntity {
 
     /**
      * Calcula el color del estado basado en fecha de vencimiento
-     * ROJO: vencido o hoy
-     * AMARILLO: próximos 30 días
-     * VERDE: más de 30 días
+     * Para EXTINTOR: usa comparación de meses
+     *   ROJO: mes de vencimiento o después (está VENCIDO)
+     *   AMARILLO: un mes antes (Próximo a vencer)
+     *   VERDE: más de un mes
+     * Para otros documentos: usa comparación de días
+     *   ROJO: vencido o hoy
+     *   AMARILLO: próximos 30 días
+     *   VERDE: más de 30 días
      */
     public void calculateColorEstado() {
         if (this.fechaVencimiento == null) {
@@ -95,14 +101,34 @@ public class AlertEntity {
         }
 
         LocalDate today = LocalDate.now();
-        LocalDate threshold30 = today.plusDays(30);
 
-        if (this.fechaVencimiento.isBefore(today) || this.fechaVencimiento.isEqual(today)) {
-            this.colorEstado = "ROJO";
-        } else if (this.fechaVencimiento.isBefore(threshold30) || this.fechaVencimiento.isEqual(threshold30)) {
-            this.colorEstado = "AMARILLO";
+        // Lógica especial para EXTINTOR: comparar por meses
+        if (this.tipoAlerta != null && this.tipoAlerta.contains("EXTINTOR")) {
+            YearMonth mesActual = YearMonth.from(today);
+            YearMonth mesVencimiento = YearMonth.from(this.fechaVencimiento);
+            YearMonth mesAnterior = mesVencimiento.minusMonths(1);
+
+            if (mesActual.isAfter(mesAnterior)) {
+                // Estamos en mes de vencimiento o después
+                this.colorEstado = "ROJO";
+            } else if (mesActual.equals(mesAnterior)) {
+                // Estamos un mes antes
+                this.colorEstado = "AMARILLO";
+            } else {
+                // Más de un mes de diferencia
+                this.colorEstado = "VERDE";
+            }
         } else {
-            this.colorEstado = "VERDE";
+            // Lógica estándar para otros documentos: por días
+            LocalDate threshold30 = today.plusDays(30);
+
+            if (this.fechaVencimiento.isBefore(today) || this.fechaVencimiento.isEqual(today)) {
+                this.colorEstado = "ROJO";
+            } else if (this.fechaVencimiento.isBefore(threshold30) || this.fechaVencimiento.isEqual(threshold30)) {
+                this.colorEstado = "AMARILLO";
+            } else {
+                this.colorEstado = "VERDE";
+            }
         }
     }
 }
