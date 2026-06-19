@@ -32,7 +32,7 @@ public class ResultService implements ExecuteAnOrderUseCase {
     @Override
     @Transactional
     public ExecuteDTO execute(ExecuteAnOrderRequest request) {
-        // 1. Obtener la orden
+        // Obtener la orden
         OrderEntity orderEntity = orderRepository.findById(request.orderId())
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
 
@@ -40,16 +40,16 @@ public class ResultService implements ExecuteAnOrderUseCase {
             throw new RuntimeException("Order has already been executed");
         }
 
-        // 2. Crear y guardar el resultado PRIMERO
+        // Crear y guardar el resultado PRIMERO
         ResultEntity result = ResultMapper.toEntity(request, orderEntity, userRepository);
         ResultEntity savedResult = resultRepository.save(result);
         resultRepository.flush(); // Forzar flush para obtener el ID
 
-        // 3. Asignar resultado a la orden
+        // Asignar resultado a la orden
         orderEntity.setResult(savedResult);
         orderEntity.setStatus("Completada");
 
-        // 4. Guardar SOLO la orden (Hibernate manejará el resto)
+        // Guardar SOLO la orden (Hibernate manejará el resto)
         orderRepository.save(orderEntity);
         orderRepository.flush(); // Forzar flush para asegurar persistencia
 

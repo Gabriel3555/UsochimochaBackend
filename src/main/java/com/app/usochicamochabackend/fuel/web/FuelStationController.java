@@ -35,7 +35,7 @@ public class FuelStationController {
 
     @PostMapping
     @Operation(summary = "Crear estación de combustible")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPERVISOR_OPERATIVO','ADMIN')")
     public ResponseEntity<FuelStationEntity> create(@RequestBody Map<String, String> body) {
         String name = body.get("name");
         if (name == null || name.isBlank()) {

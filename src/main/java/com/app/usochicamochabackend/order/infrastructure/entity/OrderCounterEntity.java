@@ -12,7 +12,7 @@ public class OrderCounterEntity {
 
     @Id
     @Column(name = "module_code", length = 5)
-    private String moduleCode;  // 'VH', 'MQ', 'MT'
+    private String moduleCode;  // 'VH', 'MQ', 'MT' serial para cada orden de trabajo
 
     @Column(name = "last_value", nullable = false)
     private Integer lastValue = 0;

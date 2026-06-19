@@ -22,7 +22,7 @@ public class FuelAssetConfigController {
 
     @PutMapping("/{assetType}/{assetId}")
     @Operation(summary = "Crear o actualizar configuración de combustible de un activo (capacidad, unidad, presupuesto)")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('OPERARIO','ADMIN')")
     public ResponseEntity<FuelAssetConfigResponse> upsertConfig(
             @PathVariable String assetType,
             @PathVariable Long assetId,

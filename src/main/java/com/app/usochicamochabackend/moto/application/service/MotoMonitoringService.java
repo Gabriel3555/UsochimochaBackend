@@ -44,7 +44,6 @@ public class MotoMonitoringService implements MotoMonitoringUseCase {
         long startTime = System.currentTimeMillis();
 
         try {
-            // Query optimizada con eager loading para evitar N+1
             List<VehicleEntity> motos = vehicleRepository.findAllByTipoName("MOTOCICLETA");
             logger.debug("Se obtuvieron {} motocicletas", motos.size());
 

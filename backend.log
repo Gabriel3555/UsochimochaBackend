@@ -1,0 +1,112 @@
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v3.5.4)
+
+2026-06-16T11:36:54.626-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] c.a.u.UsochicamochaBackendApplication    : Starting UsochicamochaBackendApplication v0.0.1-SNAPSHOT using Java 26.0.1 with PID 82642 (/home/david/Projects/sena_Proyectos/Usochicamocha/Proyect/back/UsochimochaBackend/target/UsochicamochaBacken-0.0.1-SNAPSHOT.jar started by david in /home/david/Projects/sena_Proyectos/Usochicamocha/Proyect/back/UsochimochaBackend)
+2026-06-16T11:36:54.628-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] c.a.u.UsochicamochaBackendApplication    : The following 1 profile is active: "dev"
+2026-06-16T11:36:55.464-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-06-16T11:36:55.557-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 84 ms. Found 31 JPA repository interfaces.
+2026-06-16T11:36:56.176-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8080 (http)
+2026-06-16T11:36:56.191-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-06-16T11:36:56.192-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.43]
+2026-06-16T11:36:56.223-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-06-16T11:36:56.224-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 1553 ms
+2026-06-16T11:36:56.499-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-06-16T11:36:56.652-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@13e1e816
+2026-06-16T11:36:56.653-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-06-16T11:36:56.679-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] org.flywaydb.core.FlywayExecutor         : Database: jdbc:postgresql://localhost:5432/usochicamocha_local (PostgreSQL 18.4)
+2026-06-16T11:36:56.686-05:00  WARN 82642 --- [UsochicamochaBackend] [           main] o.f.c.internal.database.base.Database    : Flyway upgrade recommended: PostgreSQL 18.4 is newer than this version of Flyway and support has not been tested. The latest supported version of PostgreSQL is 17.
+2026-06-16T11:36:56.722-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] o.f.core.internal.command.DbValidate     : Successfully validated 10 migrations (execution time 00:00.025s)
+2026-06-16T11:36:56.746-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] o.f.core.internal.command.DbMigrate      : Current version of schema "public": 10
+2026-06-16T11:36:56.750-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] o.f.core.internal.command.DbMigrate      : Schema "public" is up to date. No migration necessary.
+2026-06-16T11:36:56.846-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-06-16T11:36:56.891-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.6.22.Final
+2026-06-16T11:36:56.923-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-06-16T11:36:57.150-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-06-16T11:36:57.213-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [Connecting through datasource 'HikariDataSource (HikariPool-1)']
+	Database driver: undefined/unknown
+	Database version: 18.4
+	Autocommit mode: undefined/unknown
+	Isolation level: undefined/unknown
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-06-16T11:36:58.368-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-06-16T11:36:59.366-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-06-16T11:36:59.848-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] o.s.d.j.r.query.QueryEnhancerFactory     : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-06-16T11:37:01.291-05:00  WARN 82642 --- [UsochicamochaBackend] [           main] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-06-16T11:37:01.375-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] o.s.b.a.w.s.WelcomePageHandlerMapping    : Adding welcome page: class path resource [static/index.html]
+2026-06-16T11:37:01.660-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] eAuthenticationProviderManagerConfigurer : Global AuthenticationManager configured with AuthenticationProvider bean with name authenticationProvider
+2026-06-16T11:37:01.661-05:00  WARN 82642 --- [UsochicamochaBackend] [           main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with an AuthenticationProvider bean. UserDetailsService beans will not be used by Spring Security for automatically configuring username/password login. Consider removing the AuthenticationProvider bean. Alternatively, consider using the UserDetailsService in a manually instantiated DaoAuthenticationProvider. If the current configuration is intentional, to turn off this warning, increase the logging level of 'org.springframework.security.config.annotation.authentication.configuration.InitializeUserDetailsBeanManagerConfigurer' to ERROR
+2026-06-16T11:37:02.103-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] o.s.m.s.b.SimpleBrokerMessageHandler     : Starting...
+2026-06-16T11:37:02.103-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] o.s.m.s.b.SimpleBrokerMessageHandler     : BrokerAvailabilityEvent[available=true, SimpleBrokerMessageHandler [org.springframework.messaging.simp.broker.DefaultSubscriptionRegistry@1a763008]]
+2026-06-16T11:37:02.104-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] o.s.m.s.b.SimpleBrokerMessageHandler     : Started.
+2026-06-16T11:37:02.123-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8080 (http) with context path '/'
+2026-06-16T11:37:02.135-05:00  INFO 82642 --- [UsochicamochaBackend] [           main] c.a.u.UsochicamochaBackendApplication    : Started UsochicamochaBackendApplication in 7.898 seconds (process running for 8.307)
+2026-06-16T11:37:11.312-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-06-16T11:37:11.312-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-06-16T11:37:11.313-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 1 ms
+2026-06-16T11:37:11.330-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-1] c.a.u.a.s.filter.JwtTokenValidator       : 🔐 [JWT] Validando token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...
+2026-06-16T11:37:11.330-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-3] c.a.u.a.s.filter.JwtTokenValidator       : 🔐 [JWT] Validando token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...
+2026-06-16T11:37:11.346-05:00  WARN 82642 --- [UsochicamochaBackend] [nio-8080-exec-3] c.a.u.a.s.filter.JwtTokenValidator       : ❌ [JWT] Token inválido: TokenExpiredException - The Token has expired on 2026-06-16T16:37:10Z.
+2026-06-16T11:37:11.346-05:00  WARN 82642 --- [UsochicamochaBackend] [nio-8080-exec-1] c.a.u.a.s.filter.JwtTokenValidator       : ❌ [JWT] Token inválido: TokenExpiredException - The Token has expired on 2026-06-16T16:37:10Z.
+2026-06-16T11:37:12.787-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-6] c.a.u.a.s.filter.JwtTokenValidator       : 🔐 [JWT] Validando token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...
+2026-06-16T11:37:12.788-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-6] c.a.u.a.s.filter.JwtTokenValidator       : ✅ [JWT] Token válido para usuario: david
+2026-06-16T11:37:12.788-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-7] c.a.u.a.s.filter.JwtTokenValidator       : 🔐 [JWT] Validando token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...
+2026-06-16T11:37:12.789-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-7] c.a.u.a.s.filter.JwtTokenValidator       : ✅ [JWT] Token válido para usuario: david
+2026-06-16T11:37:12.818-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-8] c.a.u.a.s.filter.JwtTokenValidator       : 🔐 [JWT] Validando token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...
+2026-06-16T11:37:12.818-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-9] c.a.u.a.s.filter.JwtTokenValidator       : 🔐 [JWT] Validando token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...
+2026-06-16T11:37:12.818-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-8] c.a.u.a.s.filter.JwtTokenValidator       : ✅ [JWT] Token válido para usuario: david
+2026-06-16T11:37:12.818-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-9] c.a.u.a.s.filter.JwtTokenValidator       : ✅ [JWT] Token válido para usuario: david
+2026-06-16T11:37:12.867-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-1] c.a.u.a.s.filter.JwtTokenValidator       : 🔐 [JWT] Validando token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...
+2026-06-16T11:37:12.867-05:00  INFO 82642 --- [UsochicamochaBackend] [io-8080-exec-10] c.a.u.a.s.filter.JwtTokenValidator       : 🔐 [JWT] Validando token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...
+2026-06-16T11:37:12.868-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-1] c.a.u.a.s.filter.JwtTokenValidator       : ✅ [JWT] Token válido para usuario: david
+2026-06-16T11:37:12.868-05:00  INFO 82642 --- [UsochicamochaBackend] [io-8080-exec-10] c.a.u.a.s.filter.JwtTokenValidator       : ✅ [JWT] Token válido para usuario: david
+2026-06-16T11:37:12.894-05:00  INFO 82642 --- [UsochicamochaBackend] [io-8080-exec-10] c.a.u.m.application.service.MotoService  : 📡 [MotoService.getMotocicletas] Total 1 motos activas devueltas
+2026-06-16T11:37:12.894-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-1] c.a.u.m.application.service.MotoService  : 📡 [MotoService.getMotocicletas] Total 1 motos activas devueltas
+2026-06-16T11:37:12.902-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-2] c.a.u.a.s.filter.JwtTokenValidator       : 🔐 [JWT] Validando token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...
+2026-06-16T11:37:12.902-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-3] c.a.u.a.s.filter.JwtTokenValidator       : 🔐 [JWT] Validando token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...
+2026-06-16T11:37:12.902-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-2] c.a.u.a.s.filter.JwtTokenValidator       : ✅ [JWT] Token válido para usuario: david
+2026-06-16T11:37:12.902-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-3] c.a.u.a.s.filter.JwtTokenValidator       : ✅ [JWT] Token válido para usuario: david
+2026-06-16T11:37:12.912-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-4] c.a.u.a.s.filter.JwtTokenValidator       : 🔐 [JWT] Validando token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...
+2026-06-16T11:37:12.912-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-5] c.a.u.a.s.filter.JwtTokenValidator       : 🔐 [JWT] Validando token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...
+2026-06-16T11:37:12.913-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-5] c.a.u.a.s.filter.JwtTokenValidator       : ✅ [JWT] Token válido para usuario: david
+2026-06-16T11:37:12.913-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-4] c.a.u.a.s.filter.JwtTokenValidator       : ✅ [JWT] Token válido para usuario: david
+2026-06-16T11:37:12.942-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-4] c.a.u.mapper.VehicleMapper               : 📋 Mapeando vehículo ABC123 - belongsTo: 'Distrito' (null=false)
+2026-06-16T11:37:12.942-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-5] c.a.u.mapper.VehicleMapper               : 📋 Mapeando vehículo ABC123 - belongsTo: 'Distrito' (null=false)
+2026-06-16T11:37:12.945-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-4] c.a.u.mapper.VehicleMapper               : 📋 Mapeando vehículo SDZ53F - belongsTo: 'Distrito' (null=false)
+2026-06-16T11:37:12.945-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-5] c.a.u.mapper.VehicleMapper               : 📋 Mapeando vehículo SDZ53F - belongsTo: 'Distrito' (null=false)
+2026-06-16T11:37:12.960-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-6] c.a.u.a.s.filter.JwtTokenValidator       : 🔐 [JWT] Validando token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...
+2026-06-16T11:37:12.960-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-7] c.a.u.a.s.filter.JwtTokenValidator       : 🔐 [JWT] Validando token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...
+2026-06-16T11:37:12.961-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-7] c.a.u.a.s.filter.JwtTokenValidator       : ✅ [JWT] Token válido para usuario: david
+2026-06-16T11:37:12.961-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-6] c.a.u.a.s.filter.JwtTokenValidator       : ✅ [JWT] Token válido para usuario: david
+2026-06-16T11:37:12.990-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-8] c.a.u.a.s.filter.JwtTokenValidator       : 🔐 [JWT] Validando token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...
+2026-06-16T11:37:12.990-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-9] c.a.u.a.s.filter.JwtTokenValidator       : 🔐 [JWT] Validando token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...
+2026-06-16T11:37:12.991-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-8] c.a.u.a.s.filter.JwtTokenValidator       : ✅ [JWT] Token válido para usuario: david
+2026-06-16T11:37:12.991-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-9] c.a.u.a.s.filter.JwtTokenValidator       : ✅ [JWT] Token válido para usuario: david
+2026-06-16T11:37:13.006-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-1] c.a.u.a.s.filter.JwtTokenValidator       : 🔐 [JWT] Validando token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...
+2026-06-16T11:37:13.006-05:00  INFO 82642 --- [UsochicamochaBackend] [io-8080-exec-10] c.a.u.a.s.filter.JwtTokenValidator       : 🔐 [JWT] Validando token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...
+2026-06-16T11:37:13.007-05:00  INFO 82642 --- [UsochicamochaBackend] [io-8080-exec-10] c.a.u.a.s.filter.JwtTokenValidator       : ✅ [JWT] Token válido para usuario: david
+2026-06-16T11:37:13.007-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-1] c.a.u.a.s.filter.JwtTokenValidator       : ✅ [JWT] Token válido para usuario: david
+2026-06-16T11:37:13.027-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-3] c.a.u.a.s.filter.JwtTokenValidator       : 🔐 [JWT] Validando token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...
+2026-06-16T11:37:13.027-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-2] c.a.u.a.s.filter.JwtTokenValidator       : 🔐 [JWT] Validando token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...
+2026-06-16T11:37:13.027-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-3] c.a.u.a.s.filter.JwtTokenValidator       : ✅ [JWT] Token válido para usuario: david
+2026-06-16T11:37:13.027-05:00  INFO 82642 --- [UsochicamochaBackend] [nio-8080-exec-2] c.a.u.a.s.filter.JwtTokenValidator       : ✅ [JWT] Token válido para usuario: david
+2026-06-16T11:38:02.101-05:00  INFO 82642 --- [UsochicamochaBackend] [MessageBroker-1] o.s.w.s.c.WebSocketMessageBrokerStats    : WebSocketSession[0 current WS(0)-HttpStream(0)-HttpPoll(0), 0 total, 0 closed abnormally (0 connect failure, 0 send limit, 0 transport error)], stompSubProtocol[processed CONNECT(0)-CONNECTED(0)-DISCONNECT(0)], stompBrokerRelay[null], inboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 0], outboundChannel[pool size = 0, active threads = 0, queued tasks = 0, completed tasks = 0], sockJsScheduler[pool size = 3, active threads = 1, queued tasks = 2, completed tasks = 0]
+2026-06-16T11:41:06.055-05:00  INFO 82642 --- [UsochicamochaBackend] [io-8080-exec-10] c.a.u.a.s.filter.JwtTokenValidator       : 🔐 [JWT] Validando token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiO...
+2026-06-16T11:41:06.055-05:00  INFO 82642 --- [UsochicamochaBackend] [io-8080-exec-10] c.a.u.a.s.filter.JwtTokenValidator       : ✅ [JWT] Token válido para usuario: admin
+2026-06-16T11:41:06.059-05:00  INFO 82642 --- [UsochicamochaBackend] [io-8080-exec-10] c.a.u.notifications.web.AlertController  : 🔔 GET /alerts - Listando alertas (page=0, size=50)
+2026-06-16T11:43:28.287-05:00  INFO 82642 --- [UsochicamochaBackend] [ionShutdownHook] o.s.b.w.e.tomcat.GracefulShutdown        : Commencing graceful shutdown. Waiting for active requests to complete
+2026-06-16T11:43:28.289-05:00  INFO 82642 --- [UsochicamochaBackend] [tomcat-shutdown] o.s.b.w.e.tomcat.GracefulShutdown        : Graceful shutdown complete
+2026-06-16T11:43:28.291-05:00  INFO 82642 --- [UsochicamochaBackend] [ionShutdownHook] o.s.m.s.b.SimpleBrokerMessageHandler     : Stopping...
+2026-06-16T11:43:28.291-05:00  INFO 82642 --- [UsochicamochaBackend] [ionShutdownHook] o.s.m.s.b.SimpleBrokerMessageHandler     : BrokerAvailabilityEvent[available=false, SimpleBrokerMessageHandler [org.springframework.messaging.simp.broker.DefaultSubscriptionRegistry@1a763008]]
+2026-06-16T11:43:28.291-05:00  INFO 82642 --- [UsochicamochaBackend] [ionShutdownHook] o.s.m.s.b.SimpleBrokerMessageHandler     : Stopped.
+2026-06-16T11:43:28.297-05:00  INFO 82642 --- [UsochicamochaBackend] [ionShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-06-16T11:43:28.299-05:00  INFO 82642 --- [UsochicamochaBackend] [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-06-16T11:43:28.303-05:00  INFO 82642 --- [UsochicamochaBackend] [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.

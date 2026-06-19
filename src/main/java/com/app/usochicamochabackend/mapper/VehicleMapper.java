@@ -9,6 +9,7 @@ import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehiclePro
 import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.DocumentacionYElementosEntity;
 import lombok.extern.slf4j.Slf4j;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.temporal.ChronoUnit;
 
 @Slf4j
@@ -98,10 +99,27 @@ public class VehicleMapper {
             return null;
         }
 
-        Long mesesRestantes = ChronoUnit.MONTHS.between(LocalDate.now(), fechaMesYear);
-        String estado = mesesRestantes < 0 ? "Vencido" : mesesRestantes <= 1 ? "Próximo a Vencer" : "Vigente";
+        // Extintor se vence el PRIMER DÍA del mes indicado
+        LocalDate fechaVencimiento = fechaMesYear.withDayOfMonth(1);
 
-        return new FireExtinguisherInfo(fechaMesYear, mesesRestantes, estado);
+        // Comparar meses: próximo mes = próximo a vencer, mes actual o posterior = vencido
+        LocalDate hoy = LocalDate.now();
+        YearMonth mesActual = YearMonth.from(hoy);
+        YearMonth mesVencimiento = YearMonth.from(fechaVencimiento);
+        YearMonth mesAnterior = mesVencimiento.minusMonths(1);
+
+        String estado;
+        if (mesActual.isBefore(mesAnterior)) {
+            estado = "Vigente";
+        } else if (mesActual.equals(mesAnterior)) {
+            estado = "Próximo a Vencer";
+        } else {
+            estado = "Vencido";
+        }
+
+        Long mesesRestantes = ChronoUnit.MONTHS.between(hoy, fechaVencimiento);
+
+        return new FireExtinguisherInfo(fechaVencimiento, mesesRestantes, estado);
     }
 
     public static VehicleResponse toResponse(VehicleProjection projection) {

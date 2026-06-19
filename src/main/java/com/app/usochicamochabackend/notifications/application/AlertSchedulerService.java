@@ -45,15 +45,37 @@ public class AlertSchedulerService {
                         && !doc.getFechaVencimiento().isBefore(LocalDate.now()))
                 .toList();
 
-        // MANTENER: Count users (operators/drivers) whose license expires within 30 days
-        List<?> expiringLicenses = userRepository.findAll().stream()
+        // Crear alertas para licencias de usuarios próximas a vencer
+        var usersWithLicense = userRepository.findAll().stream()
                 .filter(user -> Boolean.TRUE.equals(user.getStatus())
                         && user.getLicenseExpiry() != null
                         && !user.getLicenseExpiry().isAfter(threshold)
                         && !user.getLicenseExpiry().isBefore(LocalDate.now()))
                 .toList();
 
-        // NUEVO: Calcular alertas preventivas para TODAS las placas activas
+        log.info("🔔 Usuarios con licencia próxima a vencer: {}", usersWithLicense.size());
+
+        List<?> expiringLicenses = usersWithLicense.stream()
+                .peek(user -> {
+                    com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity userEntity =
+                        (com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity) user;
+                    log.info("🔔 Creando alerta de licencia para usuario: {} (vence: {})",
+                        userEntity.getUsername(), userEntity.getLicenseExpiry());
+                    alertCalculationService.createLicenseAlert(
+                        userEntity.getUsername(),
+                        userEntity.getLicenseCategory(),
+                        userEntity.getLicenseExpiry()
+                    );
+                })
+                .toList();
+
+        String summary = String.format(
+                "Revisión diaria de vencimientos completada - %s | Documentos próximos a vencer: %d | Licencias próximas a vencer: %d",
+                LocalDate.now(),
+                expiringDocs.size(),
+                expiringLicenses.size()
+        );
+
         try {
             log.info("🔔 Calculando alertas preventivas para todos los activos...");
             calculatePreventiveAlerts();
@@ -61,14 +83,6 @@ public class AlertSchedulerService {
         } catch (Exception e) {
             log.error("❌ Error calculando alertas preventivas: {}", e.getMessage(), e);
         }
-
-        // MANTENER: Notificación de resumen (lo existente sigue funcionando)
-        String summary = String.format(
-                "Revisión diaria de vencimientos completada - %s | Documentos próximos a vencer: %d | Licencias próximas a vencer: %d",
-                LocalDate.now(),
-                expiringDocs.size(),
-                expiringLicenses.size()
-        );
 
         log.info("AlertSchedulerService: {}", summary);
         notificationService.notifyDocumentExpiry(summary);
@@ -104,7 +118,27 @@ public class AlertSchedulerService {
                 log.warn("⚠️ Error calculando alertas para placa {}: {}", placa, e.getMessage(), e);
             }
         }
-        log.info("✅ === calculatePreventiveAlerts COMPLETADO ===");
+
+        // Crear alertas para licencias de usuarios próximas a vencer
+        LocalDate threshold = LocalDate.now().plusDays(30);
+        var usersWithLicense = userRepository.findAll().stream()
+                .filter(user -> Boolean.TRUE.equals(user.getStatus())
+                        && user.getLicenseExpiry() != null
+                        && !user.getLicenseExpiry().isAfter(threshold)
+                        && !user.getLicenseExpiry().isBefore(LocalDate.now()))
+                .toList();
+
+        log.info("🔔 Usuarios con licencia próxima a vencer: {}", usersWithLicense.size());
+
+        usersWithLicense.forEach(user -> {
+            log.info("🔔 Creando alerta de licencia para usuario: {} (vence: {})",
+                user.getUsername(), user.getLicenseExpiry());
+            alertCalculationService.createLicenseAlert(
+                user.getUsername(),
+                user.getLicenseCategory(),
+                user.getLicenseExpiry()
+            );
+        });
     }
 
     /**

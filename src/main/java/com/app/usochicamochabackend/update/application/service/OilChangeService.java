@@ -278,8 +278,6 @@ public class OilChangeService implements
         );
     }
 
-
-
     @Override
     public PerformChangeMotorOilResponse performMotorOilChange(PerformChangeMotorOilRequest request) {
         OilChangeEntity oilChange = OilChangeMapper.motorOilRequestToEntity(request, machineRepository, brandRepository);

@@ -224,7 +224,7 @@ public class OrderService implements AssignOrderUseCase, GetAllOrdersByInspectio
     }
 
     @Transactional
-    private String generateConsecutive(String moduleCode) {
+    protected String generateConsecutive(String moduleCode) {
         OrderCounterEntity counter = orderCounterRepository.findByModuleCodeForUpdate(moduleCode)
                 .orElse(new OrderCounterEntity(moduleCode, 0));
         int newValue = counter.getLastValue() + 1;

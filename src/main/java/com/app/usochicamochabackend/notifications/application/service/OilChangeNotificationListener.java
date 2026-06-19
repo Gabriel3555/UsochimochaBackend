@@ -17,7 +17,7 @@ import org.springframework.stereotype.Service;
 
 /**
  * Listener que reacciona a inspecciones completadas.
- *
+ * <p>
  * Cuando se registra una inspección:
  * 1. Recalcula el consolidado de aceite
  * 2. Determina si hay nueva alerta (YELLOW o RED)
@@ -41,24 +41,25 @@ public class OilChangeNotificationListener {
     public void onInspectionCompleted(InspectionCompletedEvent event) {
         try {
             logger.info("Procesando evento de inspección completada: placa={}, tipo={}, km={}",
-                event.getPlaca(), event.getTipoMaquinaria(), event.getNewDistance());
+                    event.getPlaca(), event.getTipoMaquinaria(), event.getNewDistance());
 
             String tipoMaquinaria = event.getTipoMaquinaria();
             String placa = event.getPlaca();
 
-            // 1. Recalcular consolidado según tipo de maquinaria
             if ("VEHICULO".equals(tipoMaquinaria)) {
                 processVehicleAlert(placa, event);
-            } else if ("MOTOCICLETA".equals(tipoMaquinaria)) {
+            }
+            if ("MOTOCICLETA".equals(tipoMaquinaria)) {
                 processMotoAlert(placa, event);
-            } else if ("MAQUINARIA".equals(tipoMaquinaria)) {
+            }
+            if ("MAQUINARIA".equals(tipoMaquinaria)) {
                 processMachineAlert(event.getMachineId(), event);
             }
 
             // Registrar en auditoría
             saveActionUseCase.save(
-                String.format("Alerta de aceite actualizada en tiempo real: %s | Tipo: %s | Km/Hrs: %d",
-                    placa, tipoMaquinaria, event.getNewDistance())
+                    String.format("Alerta de aceite actualizada en tiempo real: %s | Tipo: %s | Km/Hrs: %d",
+                            placa, tipoMaquinaria, event.getNewDistance())
             );
 
         } catch (Exception e) {
@@ -75,9 +76,9 @@ public class OilChangeNotificationListener {
             // Obtener consolidado y buscar el vehículo por placa
             var allVehicles = vehicleMonitoringService.getConsolidatedMonitoring();
             var updated = allVehicles.stream()
-                .filter(v -> placa.equals(v.placa()))
-                .findFirst()
-                .orElse(null);
+                    .filter(v -> placa.equals(v.placa()))
+                    .findFirst()
+                    .orElse(null);
 
             if (updated == null || updated.maintenance() == null) {
                 logger.debug("Vehículo sin historial de aceite: {}", placa);
@@ -91,12 +92,12 @@ public class OilChangeNotificationListener {
 
                 // 2. Notificar al sistema general que hay actualización
                 messagingTemplate.convertAndSend("/topic/notifications/data-update",
-                    "oil-change-alert-updated");
+                        "oil-change-alert-updated");
 
                 logger.info("Alerta enviada por WebSocket: {} | Color: {} | %: {}",
-                    placa,
-                    updated.maintenance().alertColor(),
-                    updated.maintenance().percentageUsed());
+                        placa,
+                        updated.maintenance().alertColor(),
+                        updated.maintenance().percentageUsed());
             }
 
         } catch (Exception e) {
@@ -112,9 +113,9 @@ public class OilChangeNotificationListener {
             // Obtener consolidado y buscar la moto por placa
             var allMotos = motoMonitoringService.getConsolidatedMonitoring();
             var updated = allMotos.stream()
-                .filter(m -> placa.equals(m.placa()))
-                .findFirst()
-                .orElse(null);
+                    .filter(m -> placa.equals(m.placa()))
+                    .findFirst()
+                    .orElse(null);
 
             if (updated == null || updated.oil() == null) {
                 logger.debug("Motocicleta sin historial de aceite: {}", placa);
@@ -128,12 +129,12 @@ public class OilChangeNotificationListener {
 
                 // 2. Notificar al sistema general que hay actualización
                 messagingTemplate.convertAndSend("/topic/notifications/data-update",
-                    "oil-change-alert-updated");
+                        "oil-change-alert-updated");
 
                 logger.info("Alerta enviada por WebSocket: {} | Color: {} | %: {}",
-                    placa,
-                    updated.oil().alertColor(),
-                    updated.oil().percentageUsed());
+                        placa,
+                        updated.oil().alertColor(),
+                        updated.oil().percentageUsed());
             }
 
         } catch (Exception e) {
@@ -156,10 +157,10 @@ public class OilChangeNotificationListener {
 
             // Validar si hay alerta en aceite motor o hidráulico
             boolean motorAlert = shouldNotify(
-                updated.motorOilInfo() != null ? updated.motorOilInfo().alertColor() : null
+                    updated.motorOilInfo() != null ? updated.motorOilInfo().alertColor() : null
             );
             boolean hydraulicAlert = shouldNotify(
-                updated.hydraulicOilInfo() != null ? updated.hydraulicOilInfo().alertColor() : null
+                    updated.hydraulicOilInfo() != null ? updated.hydraulicOilInfo().alertColor() : null
             );
 
             if (motorAlert || hydraulicAlert) {
@@ -168,12 +169,12 @@ public class OilChangeNotificationListener {
 
                 // 2. Notificar al sistema general que hay actualización
                 messagingTemplate.convertAndSend("/topic/notifications/data-update",
-                    "oil-change-alert-updated");
+                        "oil-change-alert-updated");
 
                 logger.info("Alerta enviada por WebSocket: machineId={} | Motor: {} | Hidráulico: {}",
-                    machineId,
-                    updated.motorOilInfo() != null ? updated.motorOilInfo().alertColor() : "N/A",
-                    updated.hydraulicOilInfo() != null ? updated.hydraulicOilInfo().alertColor() : "N/A");
+                        machineId,
+                        updated.motorOilInfo() != null ? updated.motorOilInfo().alertColor() : "N/A",
+                        updated.hydraulicOilInfo() != null ? updated.hydraulicOilInfo().alertColor() : "N/A");
             }
 
         } catch (Exception e) {
@@ -183,7 +184,7 @@ public class OilChangeNotificationListener {
 
     /**
      * Determina si debe notificar al operario.
-     *
+     * <p>
      * Solo notificar en casos de alerta:
      * - YELLOW (80-99% uso): "próximo a cambio"
      * - RED (100%+ uso): "cambio URGENTE"

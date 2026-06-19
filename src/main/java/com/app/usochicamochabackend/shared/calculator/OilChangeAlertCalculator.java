@@ -42,7 +42,7 @@ public class OilChangeAlertCalculator {
             return new AlertStatus(
                 "Cambio de Aceite",
                 "RED",
-                "🔴 URGENTE: Cambio de aceite vencido. Riego en funcionamiento con sistema comprometido.",
+                "URGENTE: Cambio de aceite vencido",
                 percentageUsed,
                 distanceRemaining,
                 null
@@ -51,7 +51,7 @@ public class OilChangeAlertCalculator {
             return new AlertStatus(
                 "Próximo a Cambio",
                 "YELLOW",
-                "🟡 Próximo a cambio de aceite. Programar intervención dentro de " +
+                "Próximo a cambio de aceite. Programar intervención dentro de " +
                     Math.max(0, distanceRemaining) + " km/horas.",
                 percentageUsed,
                 distanceRemaining,
@@ -61,7 +61,7 @@ public class OilChangeAlertCalculator {
             return new AlertStatus(
                 "Programado",
                 "BLUE",
-                "🔵 Cambio de aceite programado. Quedan " + distanceRemaining + " km/horas.",
+                "Cambio de aceite programado. Quedan " + distanceRemaining + " km/horas.",
                 percentageUsed,
                 distanceRemaining,
                 null
@@ -70,7 +70,7 @@ public class OilChangeAlertCalculator {
             return new AlertStatus(
                 "OK",
                 "GREEN",
-                "✅ Sistema de aceite en buen estado. Quedan " + distanceRemaining + " km/horas.",
+                "Sistema de aceite en buen estado. Quedan " + distanceRemaining + " km/horas.",
                 percentageUsed,
                 distanceRemaining,
                 null

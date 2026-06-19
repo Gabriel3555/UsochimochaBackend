@@ -58,6 +58,7 @@ public class UserService implements
     private String uploadsRoot;
 
     @Override
+    @Transactional
     public CreateUserResponse createUser(CreateUserRequest request) {
         Optional<UserEntity> existingUser = userRepository.findByUsername(request.username());
 
@@ -67,10 +68,17 @@ public class UserService implements
                 throw new IllegalArgumentException("El usuario '" + request.username() + "' ya existe");
             } else {
                 throw new UserSoftDeletedConflictException(
-                    "El usuario '" + request.username() + "' fue eliminado. ¿Es el mismo usuario?",
+                    "El usuario '" + request.username() + "' fue eliminado. Opciones: restaurar con POST /{id}/restore o crear con otro nombre de usuario",
                     UserMapper.toResponse(existing)
                 );
             }
+        }
+
+        Optional<UserEntity> existingEmail = userRepository.findActiveByEmail(request.email());
+        if (existingEmail.isPresent()) {
+            throw new IllegalArgumentException(
+                "El email '" + request.email() + "' ya está registrado por otro usuario"
+            );
         }
 
         UserEntity user = UserEntity.builder()
@@ -97,9 +105,12 @@ public class UserService implements
     }
 
     @Override
+    @Transactional
     public void deleteUser(Long id) {
-        UserEntity user = userRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+        UserEntity user = userRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
         user.setStatus(false);
+        userRepository.save(user);
 
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.getPrincipal() instanceof UserPrincipal userPrincipal) {
@@ -107,14 +118,14 @@ public class UserService implements
         } else {
             saveActionUseCase.save("El usuario " + user.getUsername() + " ha sido eliminado");
         }
-
-        userRepository.save(user);
     }
 
     @Transactional
     public UserResponse restoreUser(Long id) {
-        UserEntity user = userRepository.findById(id).orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
+        UserEntity user = userRepository.findDeletedById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Deleted user not found with id: " + id));
         user.setStatus(true);
+        UserEntity restored = userRepository.save(user);
 
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.getPrincipal() instanceof UserPrincipal userPrincipal) {
@@ -123,31 +134,55 @@ public class UserService implements
             saveActionUseCase.save("El usuario " + user.getUsername() + " ha sido restaurado");
         }
 
+        return resolveUserResponse(UserMapper.toResponse(restored));
+    }
+
+    @Transactional
+    public UserResponse restoreAndUpdateUser(Long id, RestoreUserRequest request) {
+        UserEntity user = userRepository.findDeletedById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Deleted user not found with id: " + id));
+
+        user.setStatus(true);
+
+        if (request.restoreWithNewPassword() && request.newPassword() != null && !request.newPassword().isBlank()) {
+            user.setPassword(passwordEncoder.encode(request.newPassword()));
+        }
+
         UserEntity restored = userRepository.save(user);
+
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        String performer = "sistema";
+        if (authentication != null && authentication.getPrincipal() instanceof UserPrincipal userPrincipal) {
+            performer = userPrincipal.username();
+        }
+
+        String mensaje = "El usuario " + user.getUsername() + " ha sido restaurado por " + performer;
+        if (request.restoreWithNewPassword() && request.newPassword() != null && !request.newPassword().isBlank()) {
+            mensaje += " con cambio de contraseña";
+        }
+        saveActionUseCase.save(mensaje);
+
         return resolveUserResponse(UserMapper.toResponse(restored));
     }
 
     @Override
     public UsersResponse findAllUsers() {
-        List<UserEntity> userEntities = userRepository.findAll()
-                .stream()
-                .filter(UserEntity::getStatus)
-                .toList();
-
-
+        List<UserEntity> userEntities = userRepository.findAllActive();
         return UserMapper.toResponse(userEntities);
     }
 
     @Override
     public UserResponse findUserById(Long id) {
-        UserEntity user = userRepository.findById(id)
+        UserEntity user = userRepository.findActiveById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
         return resolveUserResponse(UserMapper.toResponse(user));
     }
 
     @Override
+    @Transactional
     public UserResponse updateUser(UpdateUserRequest request) throws ResourceNotFoundException, URISyntaxException {
-        UserEntity currentUser = userRepository.getUserEntityById(request.id());
+        UserEntity currentUser = userRepository.findActiveById(request.id())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + request.id()));
 
         List<String> changes = new ArrayList<>();
 
@@ -198,14 +233,15 @@ public class UserService implements
 
         saveActionUseCase.save(mensaje);
 
-
         return resolveUserResponse(UserMapper.toResponse(userUpdated));
     }
 
 
     @Override
+    @Transactional
     public ChangePasswordResponse changePassword(ChangePasswordRequest request) {
-        UserEntity currentUser = userRepository.findById(request.id()).orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + request.id()));
+        UserEntity currentUser = userRepository.findActiveById(request.id())
+                .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + request.id()));
 
         currentUser.setPassword(passwordEncoder.encode(request.newPassword()));
         UserResponse userUpdated = UserMapper.toResponse(userRepository.save(currentUser));
@@ -217,7 +253,6 @@ public class UserService implements
         }
 
         saveActionUseCase.save("La contraseña del " + currentUser.getUsername() + " ha sido actualizada por " + performer);
-
 
         return new ChangePasswordResponse(userUpdated, "Password was change successfully", true);
     }
@@ -234,7 +269,7 @@ public class UserService implements
             throw new IllegalArgumentException("Tipo de archivo no permitido. Use JPEG, PNG, WebP o PDF.");
         }
 
-        UserEntity user = userRepository.findById(userId)
+        UserEntity user = userRepository.findActiveById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + userId));
 
         String ext = resolveExtension(file.getOriginalFilename(), mime);

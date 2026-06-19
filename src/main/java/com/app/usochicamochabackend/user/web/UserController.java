@@ -171,4 +171,19 @@ public class UserController {
         UserResponse restored = userService.restoreUser(id);
         return ResponseEntity.ok(restored);
     }
+
+    @PostMapping("/{id}/restore-with-password")
+    @Operation(summary = "Restore a deleted user and optionally update password")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "User restored",
+                    content = @Content(schema = @Schema(implementation = UserResponse.class))),
+            @ApiResponse(responseCode = "404", description = "User not found")
+    })
+    public ResponseEntity<UserResponse> restoreAndUpdateUser(
+            @PathVariable Long id,
+            @org.springframework.web.bind.annotation.RequestBody RestoreUserRequest request
+    ) {
+        UserResponse restored = userService.restoreAndUpdateUser(id, request);
+        return ResponseEntity.ok(restored);
+    }
 }

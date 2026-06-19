@@ -51,7 +51,7 @@ public class FuelLogController {
 
     @GetMapping("/asset/{assetType}/{assetId}")
     @Operation(summary = "Historial de combustible de un activo")
-    @PreAuthorize("hasAnyRole('OPERARIO','SUPERVISOR_OPERATIVO','ADMIN','ACEITE')")
+    @PreAuthorize("hasAnyRole('OPERARIO','SUPERVISOR_OPERATIVO','ADMIN')")
     public ResponseEntity<List<FuelLogResponse>> getByAsset(
             @PathVariable String assetType,
             @PathVariable Long assetId,

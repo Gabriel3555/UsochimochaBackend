@@ -101,4 +101,26 @@ public interface VehicleRepository extends JpaRepository<VehicleEntity, Integer>
     @Modifying
     @Query("UPDATE VehicleEntity v SET v.kilometrajeActual = :km, v.fechaUltimoReporte = :fecha WHERE v.idVehiculo = :id")
     void updateKilometrajeWithDate(@Param("id") Integer id, @Param("km") Integer km, @Param("fecha") java.time.LocalDateTime fecha);
+
+    // ✅ NUEVAS: Queries seguras para vehículos activos
+
+    /**
+     * Buscar vehículo ACTIVO por ID.
+     * Retorna empty si no existe o está eliminado (activo=false).
+     */
+    @Query("SELECT v FROM VehicleEntity v WHERE v.activo = true AND v.idVehiculo = :id")
+    java.util.Optional<VehicleEntity> findActiveById(@Param("id") Integer id);
+
+    /**
+     * Buscar vehículo ACTIVO por placa.
+     * Retorna empty si no existe o está eliminado (activo=false).
+     */
+    @Query("SELECT v FROM VehicleEntity v WHERE v.activo = true AND v.placa = :placa")
+    java.util.Optional<VehicleEntity> findActiveByPlaca(@Param("placa") String placa);
+
+    /**
+     * Buscar vehículo ELIMINADO por ID (para restauración/auditoría).
+     */
+    @Query("SELECT v FROM VehicleEntity v WHERE v.activo = false AND v.idVehiculo = :id")
+    java.util.Optional<VehicleEntity> findDeletedById(@Param("id") Integer id);
 }

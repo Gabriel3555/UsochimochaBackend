@@ -105,7 +105,6 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " hizo una inspeccion a la maquina " + machine.getName());
 
-        // ✅ FASE 3: Publicar evento para actualizar alertas en tiempo real
         try {
             Long kmOHoras = saved.getHourMeter() != null ? saved.getHourMeter().longValue() : 0L;
 

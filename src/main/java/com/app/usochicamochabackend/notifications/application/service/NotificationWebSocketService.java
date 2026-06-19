@@ -46,7 +46,7 @@ public class NotificationWebSocketService {
             // 2. Guardar en BD para auditoría
             saveAlertToDatabase(payload, vehicle.maintenance().estado());
 
-            logger.info("✅ Alerta enviada (WebSocket + BD): {} | {} | {}%",
+            logger.info("Alerta enviada (WebSocket + BD): {} | {} | {}%",
                 vehicle.placa(),
                 vehicle.maintenance().alertColor(),
                 vehicle.maintenance().percentageUsed());
@@ -73,7 +73,7 @@ public class NotificationWebSocketService {
             // 2. Guardar en BD para auditoría
             saveAlertToDatabase(payload, moto.oil().estado());
 
-            logger.info("✅ Alerta enviada (WebSocket + BD): {} | {} | {}%",
+            logger.info("Alerta enviada (WebSocket + BD): {} | {} | {}%",
                 moto.placa(),
                 moto.oil().alertColor(),
                 moto.oil().percentageUsed());
@@ -101,7 +101,7 @@ public class NotificationWebSocketService {
             // 2. Guardar en BD para auditoría
             saveAlertToDatabase(payload, payload.estado());
 
-            logger.info("✅ Alerta enviada (WebSocket + BD): machineId={} | {} | {}%",
+            logger.info("Alerta enviada (WebSocket + BD): machineId={} | {} | {}%",
                 machine.machineId(),
                 payload.colorEstado(),
                 payload.percentageUsed());
@@ -145,7 +145,6 @@ public class NotificationWebSocketService {
             alertRepository.save(alert);
         } catch (Exception e) {
             logger.error("Error guardando alerta en BD para {}: {}", payload.placa(), e.getMessage());
-            // No fallar: WebSocket ya se envió, BD es secundaria
         }
     }
 

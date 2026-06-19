@@ -81,7 +81,6 @@ public class FuelLogService implements CreateFuelLogUseCase, GetFuelHistoryUseCa
     @Override
     @Transactional
     public FuelLogResponse createFuelLog(FuelLogRequest request) {
-        // Idempotency: if mobile sends a syncId we already have, return the existing record
         if (request.syncId() != null && !request.syncId().isBlank()) {
             Optional<FuelLogEntity> existing = fuelLogRepository.findBySyncId(request.syncId());
             if (existing.isPresent()) {
@@ -103,7 +102,6 @@ public class FuelLogService implements CreateFuelLogUseCase, GetFuelHistoryUseCa
             validateMaxQuantity(assetType, request.assetId(), quantityLiters);
         }
 
-        // Find previous reading for continuity check and delta calculation
         FuelLogEntity previous = fuelLogRepository
                 .findFirstByAssetTypeAndAssetIdOrderByFuelDateTimeDesc(assetType, request.assetId())
                 .orElse(null);
@@ -178,7 +176,6 @@ public class FuelLogService implements CreateFuelLogUseCase, GetFuelHistoryUseCa
                     assetType, request.assetId(), totalCostCalculated, request.totalCostActual());
         }
 
-        // Calculate efficiency for every fuel log (no longer depends on isFullTank)
         saved = calculateAndPersistEfficiency(saved);
 
         saveActionUseCase.save("El usuario " + username + " registró carga de combustible para " +
@@ -329,7 +326,6 @@ public class FuelLogService implements CreateFuelLogUseCase, GetFuelHistoryUseCa
     public List<FuelLogResponse> getRanking(LocalDateTime from, LocalDateTime to) {
         List<FuelLogEntity> logs = fetchLogs(from, to);
 
-        // Group by (assetType, assetId) and keep the record with the most consumption
         Map<String, List<FuelLogEntity>> grouped = logs.stream()
                 .collect(Collectors.groupingBy(l -> l.getAssetType().name() + "_" + l.getAssetId()));
 
@@ -348,7 +344,6 @@ public class FuelLogService implements CreateFuelLogUseCase, GetFuelHistoryUseCa
                             .orElseThrow();
                     return toRankingResponse(rep, totalGallons, totalCost, group.size());
                 })
-                // Peor desviación respecto a fábrica primero; sin datos de fábrica al final
                 .sorted(Comparator.comparingDouble(FuelLogService::rankingScore).reversed())
                 .collect(Collectors.toList());
     }
@@ -358,14 +353,14 @@ public class FuelLogService implements CreateFuelLogUseCase, GetFuelHistoryUseCa
     // ──────────────────────────────────────────────────────────────────────────
 
     private FuelLogEntity calculateAndPersistEfficiency(FuelLogEntity saved) {
-        // Busca los 2 últimos registros (sin importar si isFullTank)
+        // Busca los 2 últimos registros
         List<FuelLogEntity> topTwo = fuelLogRepository
                 .findTop2ByAssetTypeAndAssetIdOrderByFuelDateTimeDesc(
                         saved.getAssetType(), saved.getAssetId());
 
         // Necesita al menos 2 registros para calcular eficiencia
         if (topTwo.size() < 2) {
-            log.debug("❌ Eficiencia no calculada para {} id={}: solo {} registros disponibles",
+            log.debug("Eficiencia no calculada para {} id={}: solo {} registros disponibles",
                     saved.getAssetType(), saved.getAssetId(), topTwo.size());
             return saved;
         }
@@ -375,21 +370,21 @@ public class FuelLogService implements CreateFuelLogUseCase, GetFuelHistoryUseCa
 
         // Valida que el registro actual sea el que se acaba de guardar
         if (!current.getId().equals(saved.getId())) {
-            log.debug("❌ Eficiencia no calculada: el registro actual no coincide");
+            log.debug("Eficiencia no calculada: el registro actual no coincide");
             return saved;
         }
 
         // La cantidad de combustible consumido es la cantidad del registro actual
         BigDecimal consumedLiters = saved.getQuantityLiters();
         if (consumedLiters == null || consumedLiters.compareTo(BigDecimal.ZERO) <= 0) {
-            log.debug("❌ Eficiencia no calculada: cantidad <= 0");
+            log.debug("Eficiencia no calculada: cantidad <= 0");
             return saved;
         }
 
         // Convierte a galones (1 galón = 3.785411784 litros)
         BigDecimal consumedGallons = consumedLiters.divide(
                 BigDecimal.valueOf(3.785411784), 4, RoundingMode.HALF_UP);
-        log.debug("📊 Consumo: {} litros = {} galones", consumedLiters, consumedGallons);
+        log.debug("Consumo: {} litros = {} galones", consumedLiters, consumedGallons);
 
         BigDecimal efficiencyValue = null;
         String efficiencyUnit = null;
@@ -398,35 +393,35 @@ public class FuelLogService implements CreateFuelLogUseCase, GetFuelHistoryUseCa
         if (saved.getAssetType() == AssetType.VEHICLE || saved.getAssetType() == AssetType.MOTO) {
             if (current.getOdometerKm() != null && previous.getOdometerKm() != null) {
                 BigDecimal kmDelta = current.getOdometerKm().subtract(previous.getOdometerKm());
-                log.debug("📍 KM: {} - {} = {} km", current.getOdometerKm(), previous.getOdometerKm(), kmDelta);
+                log.debug("KM: {} - {} = {} km", current.getOdometerKm(), previous.getOdometerKm(), kmDelta);
                 if (kmDelta.compareTo(BigDecimal.ZERO) > 0) {
                     efficiencyValue = kmDelta.divide(consumedGallons, 4, RoundingMode.HALF_UP);
                     efficiencyUnit = "KM_PER_GALLON";
-                    log.debug("✅ Eficiencia (VEHÍCULO): {} km / {} gal = {} km/gal",
+                    log.debug("Eficiencia (VEHÍCULO): {} km / {} gal = {} km/gal",
                             kmDelta, consumedGallons, efficiencyValue);
                 }
             } else {
-                log.debug("❌ Eficiencia no calculada: falta odómetro en registros");
+                log.debug("Eficiencia no calculada: falta odómetro en registros");
             }
         }
         // Para máquinas: galones/hora
         else {
             if (current.getHourMeter() != null && previous.getHourMeter() != null) {
                 BigDecimal hourDelta = current.getHourMeter().subtract(previous.getHourMeter());
-                log.debug("⏱️  HORAS: {} - {} = {} horas", current.getHourMeter(), previous.getHourMeter(), hourDelta);
+                log.debug("HORAS: {} - {} = {} horas", current.getHourMeter(), previous.getHourMeter(), hourDelta);
                 if (hourDelta.compareTo(BigDecimal.ZERO) > 0) {
                     efficiencyValue = consumedGallons.divide(hourDelta, 4, RoundingMode.HALF_UP);
                     efficiencyUnit = "GALLON_PER_HOUR";
-                    log.debug("✅ Eficiencia (MÁQUINA): {} gal / {} h = {} gal/h",
+                    log.debug("Eficiencia (MÁQUINA): {} gal / {} h = {} gal/h",
                             consumedGallons, hourDelta, efficiencyValue);
                 }
             } else {
-                log.debug("❌ Eficiencia no calculada: falta horómetro en registros");
+                log.debug("Eficiencia no calculada: falta horómetro en registros");
             }
         }
 
         if (efficiencyValue == null) {
-            log.debug("❌ Eficiencia no calculada: valor nulo");
+            log.debug("Eficiencia no calculada: valor nulo");
             return saved;
         }
 

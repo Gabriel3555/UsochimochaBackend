@@ -18,6 +18,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 
@@ -44,7 +45,7 @@ public class AlertCalculationService {
      *
      * Basado en datos EXISTENTES en BD (ADR-001)
      */
-    @Transactional(readOnly = true)
+    @Transactional(readOnly = false)
     public void calculateAlertsForPlate(String placa, String tipoActivo) {
         log.info("🔔 Calculando alertas para placa: {} (tipo: {})", placa, tipoActivo);
 
@@ -259,37 +260,132 @@ public class AlertCalculationService {
 
         LocalDate threshold = LocalDate.now().plusDays(ALERT_DOCUMENT_DAYS);
         LocalDate today = LocalDate.now();
+        YearMonth mesActual = YearMonth.from(today);
         log.info("🔔 Búsqueda: hoy={}, threshold={}", today, threshold);
 
         var allDocs = documentacionRepository.findAll();
         log.info("🔔 Total documentos en BD: {}", allDocs.size());
 
-        var docsExpiring = allDocs.stream()
+        var docs = allDocs.stream()
             .peek(doc -> log.debug("🔍 Documento: id={}, idVehiculo={}, tipoDocumento={}, vencimiento={}, activo={}",
                 doc.getIdDocumento(), doc.getIdVehiculo(), doc.getTipoDocumento(), doc.getFechaVencimiento(), doc.getActivo()))
             .filter(doc -> idVehiculo.equals(doc.getIdVehiculo()))
             .filter(doc -> Boolean.TRUE.equals(doc.getActivo()))
             .filter(doc -> doc.getFechaVencimiento() != null)
-            // PASO 2 (ADR): Filtrar solo documentos que vencen en < 30 días
-            .filter(doc -> !doc.getFechaVencimiento().isAfter(threshold))
-            .filter(doc -> !doc.getFechaVencimiento().isBefore(today))
-            .peek(doc -> log.info("✅ Documento que vence pronto: {} (vence: {})", doc.getTipoDocumento(), doc.getFechaVencimiento()))
             .toList();
 
-        log.info("🔔 Documentos próximos a vencer para {}: {}", placa, docsExpiring.size());
+        log.info("🔔 Documentos activos para {}: {}", placa, docs.size());
 
-        // PASO 3 (ADR): Crear alerta por cada documento que vence
-        docsExpiring.forEach(doc -> {
-            log.info("🔔 Creando alerta para documento: {} (vence: {})", doc.getTipoDocumento(), doc.getFechaVencimiento());
-            createAlert(
-                placa,
-                "DOCUMENTO_" + doc.getTipoDocumento().toUpperCase(),
-                String.format("Documento %s próximo a vencer", doc.getTipoDocumento()),
-                doc.getFechaVencimiento(),
-                doc.getIdDocumento(),
-                tipoVehiculo
-            );
+        // Crear alertas por cada documento
+        docs.forEach(doc -> {
+            String tipoDoc = doc.getTipoDocumento();
+            LocalDate vencimiento = doc.getFechaVencimiento();
+
+            if ("EXTINTOR".equals(tipoDoc)) {
+                // EXTINTOR: Lógica por MES
+                YearMonth mesVencimiento = YearMonth.from(vencimiento);
+                YearMonth mesAnterior = mesVencimiento.minusMonths(1);
+
+                if (mesActual.equals(mesAnterior)) {
+                    // Próximo a vencer (1 mes de anticipación)
+                    log.info("🔔 EXTINTOR próximo a vencer: {} (vence: {})", tipoDoc, vencimiento);
+                    createAlert(
+                        placa,
+                        "DOCUMENTO_" + tipoDoc.toUpperCase(),
+                        "Documento EXTINTOR próximo a vencer",
+                        vencimiento,
+                        doc.getIdDocumento(),
+                        tipoVehiculo
+                    );
+                } else if (mesActual.isAfter(mesAnterior)) {
+                    // Vencido (estamos en mes de vencimiento o después)
+                    log.info("🔔 EXTINTOR VENCIDO: {} (vence: {})", tipoDoc, vencimiento);
+                    createAlert(
+                        placa,
+                        "DOCUMENTO_" + tipoDoc.toUpperCase(),
+                        "Documento EXTINTOR VENCIDO",
+                        vencimiento,
+                        doc.getIdDocumento(),
+                        tipoVehiculo
+                    );
+                }
+            } else {
+                // OTROS DOCUMENTOS (SOAT, TECNO, etc): Lógica por DÍAS
+                if (vencimiento.isBefore(today)) {
+                    // Vencido (ya pasó la fecha)
+                    log.info("🔔 Documento VENCIDO: {} (vence: {})", tipoDoc, vencimiento);
+                    createAlert(
+                        placa,
+                        "DOCUMENTO_" + tipoDoc.toUpperCase(),
+                        String.format("Documento %s VENCIDO", tipoDoc),
+                        vencimiento,
+                        doc.getIdDocumento(),
+                        tipoVehiculo
+                    );
+                } else if (!vencimiento.isAfter(threshold)) {
+                    // Próximo a vencer (dentro de 30 días)
+                    log.info("✅ Documento próximo a vencer: {} (vence: {})", tipoDoc, vencimiento);
+                    createAlert(
+                        placa,
+                        "DOCUMENTO_" + tipoDoc.toUpperCase(),
+                        String.format("Documento %s próximo a vencer", tipoDoc),
+                        vencimiento,
+                        doc.getIdDocumento(),
+                        tipoVehiculo
+                    );
+                }
+            }
         });
+    }
+
+    /**
+     * Crear alerta de licencia de conducción próxima a vencer
+     */
+    public void createLicenseAlert(String username, String licenseCategory, LocalDate licenseExpiry) {
+        try {
+            if (licenseExpiry == null) {
+                log.debug("No license expiry date for user: {}", username);
+                return;
+            }
+
+            log.info("🔔 Creando alerta de licencia para usuario: {} (vence: {})", username, licenseExpiry);
+
+            // Validar que no exista alerta ACTIVA del mismo tipo
+            var existingAlert = alertRepository.findTopByPlacaAndTipoAlertaAndEstadoOrderByFechaCreacionDesc(
+                username,
+                "DOCUMENTO_LICENCIA",
+                "ACTIVA"
+            );
+
+            if (existingAlert.isPresent()) {
+                log.info("⚠️ Alerta de licencia ya existe para usuario: {}", username);
+                return;
+            }
+
+            String descripcion = String.format("🪪 Licencia de conducción (categoría %s) próxima a vencer",
+                licenseCategory != null ? licenseCategory : "N/A");
+
+            AlertEntity alert = AlertEntity.builder()
+                .placa(username)
+                .tipoAlerta("DOCUMENTO_LICENCIA")
+                .estado("ACTIVA")
+                .descripcion(descripcion)
+                .fechaVencimiento(licenseExpiry)
+                .fechaCreacion(LocalDateTime.now())
+                .tipoMaquinaria("USUARIO")
+                .build();
+
+            alert.calculateColorEstado();
+            alertRepository.save(alert);
+
+            log.info("✅ Alerta de licencia creada para usuario: {} (color: {})", username, alert.getColorEstado());
+
+            // Notificar por WebSocket
+            notificationService.notifyAlert(AlertDTO.fromEntity(alert));
+
+        } catch (Exception e) {
+            log.error("❌ Error creando alerta de licencia: {}", e.getMessage(), e);
+        }
     }
 
     /**
