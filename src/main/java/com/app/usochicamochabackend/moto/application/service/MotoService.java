@@ -12,6 +12,7 @@ import com.app.usochicamochabackend.catalog.infrastructure.repository.UbicacionR
 import com.app.usochicamochabackend.mapper.VehicleMapper;
 import com.app.usochicamochabackend.moto.application.dto.*;
 import com.app.usochicamochabackend.notifications.application.NotificationService;
+import com.app.usochicamochabackend.notifications.application.ImprovedOilChangeAlertService;
 import com.app.usochicamochabackend.moto.application.port.MotoCRUDUseCase;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleRequest;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleResponse;
@@ -53,6 +54,7 @@ public class MotoService implements MotoCRUDUseCase {
     private final InspDetalleMecanicoRepository detalleMecanicoRepository;
     private final DocumentacionYElementosRepository documentacionRepository;
     private final NotificationService notificationService;
+    private final ImprovedOilChangeAlertService oilChangeAlertService;
     private final SaveActionUseCase saveActionUseCase;
 
         /** Retorna las motocicletas activas (tipo = MOTOCICLETA) con su ubicación base y marca */
@@ -195,6 +197,14 @@ public class MotoService implements MotoCRUDUseCase {
                                 .build();
 
                 inspeccionRepository.save(inspeccion);
+
+                // ── Calcular y enviar alerta de cambio de aceite si aplica ─────────────
+                // Se ejecuta DESPUÉS de la transacción en su propia transacción
+                try {
+                        oilChangeAlertService.checkAndNotifyOilChangeAlert(vehiculo.getPlaca());
+                } catch (Exception e) {
+                        log.warn("⚠️ Error al calcular alerta de cambio de aceite para {}: {}", vehiculo.getPlaca(), e.getMessage());
+                }
 
                 // ── 2: insp_detalle_mecanico (Estado Visual + Campos nuevos) ─────────
                 detalleMecanicoRepository.save(

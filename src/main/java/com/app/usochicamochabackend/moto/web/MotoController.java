@@ -31,6 +31,9 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 @Slf4j
 @RestController
@@ -159,9 +162,14 @@ public class MotoController {
     }
 
     @GetMapping("/inspections/reports")
-    @Operation(summary = "Último reporte por placa", description = "Una fila por placa: inspección más reciente (incluso si hay varios registros de vehículo para la misma moto).")
-    public ResponseEntity<List<VehicleInspectionReportDTO>> getMotoInspectionsLatest() {
-        return ResponseEntity.ok(getInspectionsUseCase.getMotoInspectionsLatestPerVehicle());
+    @Operation(summary = "Todas las inspecciones de motos (paginado)", description = "Retorna todas las inspecciones preoperativas de motocicletas con paginación.")
+    public ResponseEntity<Page<VehicleInspectionReportDTO>> getMotoInspectionsLatestPaginated(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        Pageable pageable = PageRequest.of(page, size);
+        Page<VehicleInspectionReportDTO> inspections = getInspectionsUseCase.getMotoInspectionsPaginated(pageable);
+        return ResponseEntity.ok(inspections);
     }
 
     // --- CRUD --- (tipo MOTOCICLETA fijado en MotoService; body compatible con VehicleRequest)
