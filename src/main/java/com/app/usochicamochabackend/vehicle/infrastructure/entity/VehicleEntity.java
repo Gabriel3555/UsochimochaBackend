@@ -31,14 +31,14 @@ public class VehicleEntity {
     @Column(name = "id_marca")
     private Integer idMarca;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "id_marca", insertable = false, updatable = false)
     private MarcaModeloEntity marca;
 
     @Column(name = "id_tipo_vehiculo")
     private Integer idTipoVehiculo;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "id_tipo_vehiculo", insertable = false, updatable = false)
     private TipoVehiculoEntity tipoVehiculo;
 
