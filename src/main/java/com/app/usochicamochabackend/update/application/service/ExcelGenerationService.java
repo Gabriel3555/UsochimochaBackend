@@ -234,15 +234,16 @@ public class ExcelGenerationService {
                     cell.setCellStyle(headerStyle);
                 }
 
-                for (var result : curriculum.results()) {
-                    Row row = sheet.createRow(rowNum++);
-                    int colNum = 0;
+                for (var inspection : curriculum.inspections()) {
+                    for (var result : inspection.results()) {
+                        Row row = sheet.createRow(rowNum++);
+                        int colNum = 0;
 
-                    // Fecha
-                    Cell cell0 = row.createCell(colNum++);
-                    cell0.setCellValue(result.date() != null ? result.date().format(DATETIME_FORMATTER) : "");
+                        // Fecha
+                        Cell cell0 = row.createCell(colNum++);
+                        cell0.setCellValue(inspection.dateStamp() != null ? inspection.dateStamp().format(DATETIME_FORMATTER) : "");
 
-                    row.createCell(colNum++).setCellValue(result.hourMeter());
+                        row.createCell(colNum++).setCellValue(inspection.hourMeter());
 
                     // Descripcion
                     row.createCell(colNum++).setCellValue(result.description());
@@ -276,8 +277,9 @@ public class ExcelGenerationService {
 
                     row.createCell(colNum++).setCellValue(result.labor() != null ? result.labor().observations() : "");
 
-                    for (int i = 0; i < resultsHeaders.length; i++) {
-                        row.getCell(i).setCellStyle(dataStyle);
+                        for (int i = 0; i < resultsHeaders.length; i++) {
+                            row.getCell(i).setCellStyle(dataStyle);
+                        }
                     }
                 }
 
