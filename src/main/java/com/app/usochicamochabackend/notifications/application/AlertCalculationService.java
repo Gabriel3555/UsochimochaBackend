@@ -130,12 +130,53 @@ public class AlertCalculationService {
             LocalDate recommendedNextChange = lastOilChange.getDateStamp().toLocalDate()
                 .plusMonths(ALERT_OIL_CHANGE_MONTHS);
 
+            // Detectar tipo de vehículo (VEHICULO, MOTOCICLETA)
+            String tipoMaquinaria = detectVehicleType(placa);
+
             createAlert(
                 placa,
                 "CAMBIO_ACEITE",
                 String.format("Cambio de aceite recomendado (última vez hace %d días)", daysSinceLast),
-                recommendedNextChange
+                recommendedNextChange,
+                null,
+                tipoMaquinaria
             );
+        }
+    }
+
+    /**
+     * Detecta el tipo de activo basado en la placa
+     * Busca en vehículos primero (VEHICULO/MOTOCICLETA), luego en máquinas (MAQUINARIA)
+     */
+    private String detectVehicleType(String placa) {
+        try {
+            // Buscar en vehículos
+            var vehicle = vehicleRepository.findByPlaca(placa);
+            if (vehicle.isPresent()) {
+                if (vehicle.get().getTipoVehiculo() != null) {
+                    String tipoNombre = vehicle.get().getTipoVehiculo().getNombreTipo();
+                    if ("MOTOCICLETA".equalsIgnoreCase(tipoNombre) || "MOTO".equalsIgnoreCase(tipoNombre)) {
+                        log.debug("🔍 Detectado: {} es MOTOCICLETA", placa);
+                        return "MOTOCICLETA";
+                    }
+                }
+                log.debug("🔍 Detectado: {} es VEHICULO", placa);
+                return "VEHICULO";
+            }
+
+            // Si no es vehículo, podría ser máquina
+            var machine = machineRepository.findByName(placa);
+            if (machine.isPresent()) {
+                log.debug("🔍 Detectado: {} es MAQUINARIA", placa);
+                return "MAQUINARIA";
+            }
+
+            // Default a VEHICULO si no se encuentra
+            log.warn("⚠️ No se encontró activo para placa: {} - defaulteando a VEHICULO", placa);
+            return "VEHICULO";
+        } catch (Exception e) {
+            log.error("❌ Error detectando tipo para placa {}: {}", placa, e.getMessage());
+            return "VEHICULO";
         }
     }
 
@@ -174,7 +215,9 @@ public class AlertCalculationService {
                 String.format("Cambio de %s recomendado (última vez hace %d días)",
                     isMotorOil ? "aceite motor" : "aceite hidráulico",
                     daysSinceLast),
-                recommendedNextChange
+                recommendedNextChange,
+                null,
+                "MAQUINARIA"
             );
         }
     }
@@ -403,6 +446,12 @@ public class AlertCalculationService {
     private void createAlert(String placa, String tipo, String descripcion, LocalDate vencimiento, Integer documentoId, String tipoMaquinaria) {
         log.info("🔔 Creando/Actualizando alerta para {} - {} - {} (tipoMaquinaria: {})", placa, tipo, descripcion, tipoMaquinaria);
 
+        // Si tipoMaquinaria no se especifica, detectar automáticamente
+        if (tipoMaquinaria == null || "DOCUMENTO".equals(tipoMaquinaria)) {
+            tipoMaquinaria = detectVehicleType(placa);
+            log.info("🔍 Detectado tipoMaquinaria para {}: {}", placa, tipoMaquinaria);
+        }
+
         // PASO 3 (ADR): Validar que no exista alerta ACTIVA del mismo tipo
         var existingAlert = alertRepository.findTopByPlacaAndTipoAlertaAndEstadoOrderByFechaCreacionDesc(
             placa,
@@ -417,6 +466,7 @@ public class AlertCalculationService {
             log.info("📝 Actualizando alerta existente para {} - {}", placa, tipo);
             alert.setDescripcion(descripcion);
             alert.setFechaVencimiento(vencimiento);
+            alert.setTipoMaquinaria(tipoMaquinaria);
         } else {
             // CREAR nueva alerta
             alert = AlertEntity.builder()
@@ -427,7 +477,7 @@ public class AlertCalculationService {
                 .fechaVencimiento(vencimiento)
                 .fechaCreacion(LocalDateTime.now())
                 .documentoId(documentoId != null ? documentoId.longValue() : null)
-                .tipoMaquinaria(tipoMaquinaria != null ? tipoMaquinaria : "DOCUMENTO")
+                .tipoMaquinaria(tipoMaquinaria)
                 .build();
             log.info("✨ Creando nueva alerta para {} - {}", placa, tipo);
         }

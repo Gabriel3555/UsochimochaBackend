@@ -1,11 +1,13 @@
 package com.app.usochicamochabackend.notifications.web;
 
+import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
 import com.app.usochicamochabackend.notifications.application.AlertSchedulerService;
 import com.app.usochicamochabackend.notifications.application.dto.AlertDTO;
 import com.app.usochicamochabackend.notifications.infrastructure.entity.AlertEntity;
 import com.app.usochicamochabackend.notifications.infrastructure.entity.OilChangeAlertEntity;
 import com.app.usochicamochabackend.notifications.infrastructure.repository.AlertRepository;
 import com.app.usochicamochabackend.notifications.infrastructure.repository.OilChangeAlertRepository;
+import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -33,6 +35,8 @@ public class AlertController {
     private final AlertRepository alertRepository;
     private final OilChangeAlertRepository oilChangeAlertRepository;
     private final AlertSchedulerService alertSchedulerService;
+    private final VehicleRepository vehicleRepository;
+    private final MachineRepository machineRepository;
 
     /**
      * Obtener todas las alertas activas con paginación y filtros
@@ -48,6 +52,9 @@ public class AlertController {
             @RequestParam(required = false) String placa
     ) {
         log.info("🔔 GET /alerts - Listando alertas (page={}, size={})", page, size);
+
+        // Cache local para evitar búsquedas repetidas
+        Map<String, String> typeCache = new java.util.HashMap<>();
 
         // Obtener todas las alertas y filtrar en memoria (simple pero funcional)
         List<AlertEntity> allAlerts = alertRepository.findAll();
@@ -65,7 +72,7 @@ public class AlertController {
         int start = page * size;
         int end = Math.min(start + size, totalElements);
         List<AlertDTO> content = filtered.subList(start, end).stream()
-                .map(AlertDTO::fromEntity)
+                .map(alert -> enrichAlertDTO(alert, typeCache))
                 .collect(Collectors.toList());
 
         Page<AlertDTO> pageResult = new PageImpl<>(content, PageRequest.of(page, size), totalElements);
@@ -81,6 +88,74 @@ public class AlertController {
     }
 
     /**
+     * Enriquece AlertDTO rellenando tipoMaquinaria si es NULL o "DOCUMENTO"
+     * Usa cache para evitar búsquedas repetidas
+     */
+    private AlertDTO enrichAlertDTO(AlertEntity entity, Map<String, String> typeCache) {
+        AlertDTO dto = AlertDTO.fromEntity(entity);
+        // Reemplazar si es NULL, vacío, o "DOCUMENTO" (valor incorrecto de antes)
+        if (dto.getTipoMaquinaria() == null || dto.getTipoMaquinaria().isEmpty() || "DOCUMENTO".equals(dto.getTipoMaquinaria())) {
+            String placa = dto.getPlaca();
+            // Buscar en cache primero
+            String tipoDetectado = typeCache.getOrDefault(placa, null);
+            if (tipoDetectado == null) {
+                // No está en cache, detectar ahora
+                tipoDetectado = detectEntityType(placa);
+                typeCache.put(placa, tipoDetectado);
+            }
+            dto.setTipoMaquinaria(tipoDetectado);
+            log.debug("🔍 Detectado tipo para {}: {}", placa, tipoDetectado);
+        }
+        return dto;
+    }
+
+    /**
+     * Sobrecarga para backward compatibility (sin cache)
+     */
+    private AlertDTO enrichAlertDTO(AlertEntity entity) {
+        return enrichAlertDTO(entity, new java.util.HashMap<>());
+    }
+
+    /**
+     * Detecta si una placa es VEHICULO, MOTOCICLETA o MAQUINARIA
+     */
+    private String detectEntityType(String placa) {
+        if (placa == null || placa.isEmpty()) {
+            return "VEHICULO";
+        }
+
+        try {
+            // Buscar en vehículos PRIMERO (la mayoría de alertas)
+            var vehicle = vehicleRepository.findByPlaca(placa);
+            if (vehicle.isPresent()) {
+                if (vehicle.get().getTipoVehiculo() != null) {
+                    String tipoNombre = vehicle.get().getTipoVehiculo().getNombreTipo();
+                    if ("MOTOCICLETA".equalsIgnoreCase(tipoNombre) || "MOTO".equalsIgnoreCase(tipoNombre)) {
+                        log.debug("🔍 {} detectado como MOTOCICLETA", placa);
+                        return "MOTOCICLETA";
+                    }
+                }
+                log.debug("🔍 {} detectado como VEHICULO", placa);
+                return "VEHICULO";
+            }
+
+            // Buscar en máquinas (por nombre o ID)
+            var machine = machineRepository.findByName(placa);
+            if (machine.isPresent()) {
+                log.debug("🔍 {} detectado como MAQUINARIA (por nombre)", placa);
+                return "MAQUINARIA";
+            }
+
+            // Si no existe, asumir VEHICULO por default
+            log.warn("⚠️ No se encontró {} en vehículos ni máquinas - defaulteando a VEHICULO", placa);
+            return "VEHICULO";
+        } catch (Exception e) {
+            log.warn("⚠️ Error detectando tipo para placa {}: {}", placa, e.getMessage());
+            return "VEHICULO";
+        }
+    }
+
+    /**
      * Obtener alertas de una placa específica
      * GET /api/v1/alerts/placa/ABC123
      */
@@ -90,7 +165,7 @@ public class AlertController {
         log.info("🔔 GET /alerts/placa/{} - Listando alertas para placa", placa);
 
         List<AlertDTO> alerts = alertRepository.findByPlacaOrderByFechaCreacionDesc(placa).stream()
-                .map(AlertDTO::fromEntity)
+                .map(this::enrichAlertDTO)
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(alerts);
@@ -112,7 +187,7 @@ public class AlertController {
                 log.warn("⚠️ Alerta no encontrada: {}", id);
                 return ResponseEntity.notFound().build();
             }
-            return ResponseEntity.ok(AlertDTO.fromEntity(alert.get()));
+            return ResponseEntity.ok(enrichAlertDTO(alert.get()));
         } catch (NumberFormatException e) {
             log.warn("⚠️ ID no es un número: {}", id);
             return ResponseEntity.notFound().build();
@@ -260,7 +335,7 @@ public class AlertController {
         log.info("🔔 GET /alerts/criticas - Obteniendo alertas críticas (ROJO)");
 
         List<AlertDTO> alertas = alertRepository.findAlertasVencidas().stream()
-                .map(AlertDTO::fromEntity)
+                .map(this::enrichAlertDTO)
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(alertas);
@@ -277,7 +352,7 @@ public class AlertController {
 
         LocalDate threshold = LocalDate.now().plusDays(30);
         List<AlertDTO> alertas = alertRepository.findAlertasProximasAVencer(threshold).stream()
-                .map(AlertDTO::fromEntity)
+                .map(this::enrichAlertDTO)
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(alertas);

@@ -25,6 +25,7 @@ public class AlertDTO {
     private String colorEstado;
     private Long createdByUserId;
     private Long documentoId;
+    private String tipoMaquinaria;  // VEHICULO, MOTOCICLETA, MAQUINARIA, USUARIO
 
     /**
      * Convierte una AlertEntity a AlertDTO
@@ -41,6 +42,7 @@ public class AlertDTO {
             .colorEstado(entity.getColorEstado())
             .createdByUserId(entity.getCreatedByUser() != null ? entity.getCreatedByUser().getId() : null)
             .documentoId(entity.getDocumentoId())
+            .tipoMaquinaria(entity.getTipoMaquinaria())
             .build();
     }
 
