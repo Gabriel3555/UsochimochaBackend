@@ -23,6 +23,7 @@ public class AlertSchedulerService {
     private final DocumentacionYElementosRepository documentacionRepository;
     private final UserRepositoryJpa userRepository;
     private final AlertCalculationService alertCalculationService;
+    private final ImprovedOilChangeAlertService improvedOilChangeAlertService;
     private final VehicleRepository vehicleRepository;
     private final MachineRepository machineRepository;
 
@@ -95,9 +96,17 @@ public class AlertSchedulerService {
      */
     public void calculatePreventiveAlerts() {
         log.info("🔔 === INICIANDO calculatePreventiveAlerts ===");
+
+        // 1️⃣ PRIMERO: Calcular alertas de cambio de aceite para todos los activos (inicio paralelo)
+        try {
+            improvedOilChangeAlertService.calculateAllOilChangeAlerts();
+        } catch (Exception e) {
+            log.error("❌ Error calculando alertas de cambio de aceite: {}", e.getMessage(), e);
+        }
+
         Set<String> allPlacas = new HashSet<>();
 
-        // Obtener todas las placas de vehículos activos (incluyendo motos)
+        // 2️⃣ Obtener todas las placas de vehículos activos (incluyendo motos)
         vehicleRepository.findAllActiveVehiclesWithDocuments().stream()
                 .forEach(v -> allPlacas.add(v.getPlaca()));
 
@@ -119,7 +128,7 @@ public class AlertSchedulerService {
             }
         }
 
-        // Crear alertas para licencias de usuarios próximas a vencer
+        // 3️⃣ Crear alertas para licencias de usuarios próximas a vencer
         LocalDate threshold = LocalDate.now().plusDays(30);
         var usersWithLicense = userRepository.findAll().stream()
                 .filter(user -> Boolean.TRUE.equals(user.getStatus())

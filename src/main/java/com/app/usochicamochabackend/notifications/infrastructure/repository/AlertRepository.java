@@ -79,4 +79,9 @@ public interface AlertRepository extends JpaRepository<AlertEntity, Long> {
      * Busca una alerta por su UUID
      */
     Optional<AlertEntity> findByUuid(String uuid);
+
+    /**
+     * Busca alertas de cambio de aceite GREEN y BLUE
+     */
+    List<AlertEntity> findByTipoAlertaAndColorEstadoIn(String tipoAlerta, List<String> colores);
 }
