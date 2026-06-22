@@ -133,7 +133,6 @@ class MotoE2ETest {
                 "Prueba E2E terminada",
                 "Vigente",
                 "Vigente",
-                "Vigente",
                 "N/A",
                 "Bueno",
                 "Bueno",

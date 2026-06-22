@@ -97,7 +97,7 @@ class MotoControllerTest {
     void saveInspeccion_ShouldReturnId() throws Exception {
         InspeccionMotoRequest request = new InspeccionMotoRequest(
                 1, 5000, "BUENO", "Todo ok",
-                "Vigente", "Vigente", "Vigente", "N/A",
+                "Vigente", "Vigente", "N/A",
                 "Bueno", "Bueno", "Bueno",
                 1);
 
