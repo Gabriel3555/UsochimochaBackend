@@ -1,6 +1,8 @@
 package com.app.usochicamochabackend.vehicleinspection.application.port;
 
 import com.app.usochicamochabackend.vehicleinspection.application.dto.VehicleInspectionReportDTO;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import java.util.List;
 
 public interface GetVehicleInspectionsUseCase {
@@ -17,4 +19,7 @@ public interface GetVehicleInspectionsUseCase {
 
     /** Todas las inspecciones de motos, más recientes primero (historial). */
     List<VehicleInspectionReportDTO> getMotoInspectionsHistory();
+
+    /** Todas las inspecciones de motos paginadas. */
+    Page<VehicleInspectionReportDTO> getMotoInspectionsPaginated(Pageable pageable);
 }

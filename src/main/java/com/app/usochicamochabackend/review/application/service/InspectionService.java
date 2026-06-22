@@ -274,36 +274,13 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
 
     @Override
     public Page<InspectionFormResponse> getAllInspectionsWithoutImages(Pageable pageable) {
-        // Obtener todas las inspecciones y deduplicar por máquina (solo la más reciente)
-        List<InspectionEntity> allInspections = inspectionRepository.findAll();
-
-        // Deduplicar: usar Map con machineId como clave, filtrando solo la más reciente por máquina
-        Map<Long, InspectionEntity> latestByMachine = new java.util.LinkedHashMap<>();
-        for (InspectionEntity inspection : allInspections) {
-            if (inspection.getMachine() != null) {
-                Long machineId = inspection.getMachine().getId();
-                InspectionEntity current = latestByMachine.get(machineId);
-                if (current == null || inspection.getDateStamp().isAfter(current.getDateStamp())) {
-                    latestByMachine.put(machineId, inspection);
-                }
-            }
-        }
-
-        // Convertir a lista, ordenar por fecha descendente, y paginar
-        List<InspectionEntity> deduplicated = latestByMachine.values().stream()
-                .sorted(java.util.Comparator.comparing(InspectionEntity::getDateStamp).reversed())
-                .toList();
-
-        int start = (int) pageable.getOffset();
-        int end = Math.min(start + pageable.getPageSize(), deduplicated.size());
-        List<InspectionFormResponse> content = deduplicated.subList(start, end).stream()
-                .map(InspectionMapper::toDto)
-                .toList();
+        Page<InspectionEntity> inspectionsPage = inspectionRepository.findAll(pageable);
+        Page<InspectionFormResponse> result = inspectionsPage.map(InspectionMapper::toDto);
 
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha observado todas las inspecciones el dia " + LocalDateTime.now());
 
-        return new org.springframework.data.domain.PageImpl<>(content, pageable, deduplicated.size());
+        return result;
     }
 
     @Override

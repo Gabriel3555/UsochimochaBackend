@@ -134,10 +134,10 @@ public class VehiculoInspectionController {
 
         @GetMapping("/reports/latest")
         @Operation(
-                        summary = "Última inspección por vehículo (excluye motos)",
-                        description = "Una sola fila por placa — la inspección más reciente para cada vehículo no-moto.")
+                        summary = "Todas las inspecciones de vehículos (excluye motos)",
+                        description = "Retorna todas las inspecciones preoperativas de vehículos no-moto, ordenadas por fecha descendente.")
         @ApiResponses(value = {
-                        @ApiResponse(responseCode = "200", description = "Lista deduplicada por vehículo"),
+                        @ApiResponse(responseCode = "200", description = "Lista completa de inspecciones"),
                         @ApiResponse(responseCode = "401", description = "No autorizado")
         })
         public ResponseEntity<java.util.List<VehicleInspectionReportDTO>> getLatestVehicleReports() {

@@ -7,6 +7,7 @@ import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
 import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleRepository;
 import com.app.usochicamochabackend.vehicleinspection.application.dto.*;
 import com.app.usochicamochabackend.notifications.application.NotificationService;
+import com.app.usochicamochabackend.notifications.application.ImprovedOilChangeAlertService;
 import com.app.usochicamochabackend.vehicleinspection.application.port.CreateVehiculoInspectionUseCase;
 import com.app.usochicamochabackend.vehicleinspection.application.port.GetVehicleInspectionsUseCase;
 import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.*;
@@ -17,6 +18,7 @@ import com.app.usochicamochabackend.vehicleinspection.infrastructure.repository.
 import com.app.usochicamochabackend.vehicleinspection.infrastructure.repository.InspDetalleSaludRepository;
 import com.app.usochicamochabackend.vehicleinspection.infrastructure.repository.InspPreOperativaRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -36,10 +38,14 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class VehiculoInspectionService implements CreateVehiculoInspectionUseCase, GetVehicleInspectionsUseCase {
 
     private final InspPreOperativaRepository inspPreOperativaRepository;
@@ -53,6 +59,7 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
     private final VehicleRepository vehicleRepository;
     private final VehicleDocumentStorageService vehicleDocumentStorageService;
     private final NotificationService notificationService;
+    private final ImprovedOilChangeAlertService oilChangeAlertService;
 
     /**
      * POST — Guarda la inspección pre-operativa en las 5 tablas de inspección
@@ -99,6 +106,7 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
 
         // ── 3: insp_detalle_documentos ────────────────────────────────────────
         // Check visual del inspector (Vigente / Próximo a Vencer / Vencido)
+        // Nota: checkLicencia viene en el DTO pero no se guarda en BD (solo SOAT, TECNO, EXTINTOR)
         detalleDocumentosRepository.save(
                 InspDetalleDocumentosEntity.builder()
                         .idInspeccion(idInspeccion)
@@ -138,16 +146,32 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
                     idVehiculo,
                     req.kilometrajeReportado(),
                     LocalDateTime.now());
+            vehicleRepository.flush(); // Sincronizar cambios con BD antes de calcular alertas
         } else {
             // Si no hay kilometraje, actualizar solo la fecha del último reporte
             vehicle.setFechaUltimoReporte(LocalDateTime.now());
             vehicleRepository.save(vehicle);
+            vehicleRepository.flush();
         }
 
-        String tipoNombre = (vehicle.getTipoVehiculo() != null && vehicle.getTipoVehiculo().getNombreTipo() != null)
-                ? vehicle.getTipoVehiculo().getNombreTipo().toUpperCase(Locale.ROOT)
-                : "";
+        // ── Determinar evento de notificación dentro de la transacción ────────
+        // Acceder a la relación lazy ANTES de que la transacción termine
+        String tipoNombre = "";
+        if (vehicle.getTipoVehiculo() != null && vehicle.getTipoVehiculo().getNombreTipo() != null) {
+            tipoNombre = vehicle.getTipoVehiculo().getNombreTipo().toUpperCase(Locale.ROOT);
+        }
         String updateEvent = tipoNombre.contains("MOTO") ? "moto-inspections-updated" : "vehicle-inspections-updated";
+
+        // ── Calcular y enviar alerta de cambio de aceite si aplica ─────────────
+        // Se ejecuta DESPUÉS de la transacción en su propia transacción
+        // La placa ya está normalizada
+        try {
+            oilChangeAlertService.checkAndNotifyOilChangeAlert(placaNorm);
+        } catch (Exception e) {
+            log.warn("⚠️ Error al calcular alerta de cambio de aceite para {}: {}", placaNorm, e.getMessage());
+        }
+
+        // La notificación se envía después de que la transacción termina, pero el valor ya está extraído
         notificationService.notifyDataUpdate(updateEvent);
 
         return new VehiculoInspectionResponse(idInspeccion, "Inspección guardada exitosamente");
@@ -168,6 +192,7 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
         String u = inspector.username();
         upsertDocumentIfPresent(idVehiculo, "SOAT", req.fechaVencSoat(), null, u);
         upsertDocumentIfPresent(idVehiculo, "TECNOMECANICA", req.fechaVencTecno(), null, u);
+        upsertDocumentIfPresent(idVehiculo, "LICENCIA", req.fechaVencLicencia(), null, u);
 
         LocalDate extintorFecha = parseExtintorMonth(req.vigenciaExtintor());
         if (extintorFecha != null) {
@@ -242,16 +267,9 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
     public List<VehicleInspectionReportDTO> getInspectionsByType(Integer typeId) {
         List<InspPreOperativaEntity> inspections = inspPreOperativaRepository.findAllByVehicleType(typeId).stream()
                 .filter(VehiculoInspectionService::isActiveVehicleForDashboard)
-                .toList();
-        // Dedup: la query ya viene DESC, putIfAbsent conserva solo la más reciente por vehículo
-        Map<String, InspPreOperativaEntity> latestByKey = new LinkedHashMap<>();
-        for (InspPreOperativaEntity row : inspections) {
-            latestByKey.putIfAbsent(dedupeKeyVehicleReport(row), row);
-        }
-        List<InspPreOperativaEntity> latestRows = latestByKey.values().stream()
                 .sorted(Comparator.comparing(InspPreOperativaEntity::getFechaRegistro).reversed())
                 .toList();
-        return mapToReportDTO(latestRows);
+        return mapToReportDTO(inspections);
     }
 
     private static String dedupeKeyVehicleReport(InspPreOperativaEntity row) {
@@ -273,14 +291,9 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
     public List<VehicleInspectionReportDTO> getLatestVehicleInspectionsPerVehicle() {
         List<InspPreOperativaEntity> ordered = inspPreOperativaRepository.findAllNonMoto().stream()
                 .filter(VehiculoInspectionService::isActiveVehicleForDashboard)
-                .toList();
-        Map<String, InspPreOperativaEntity> latestByKey = new LinkedHashMap<>();
-        for (InspPreOperativaEntity row : ordered) {
-            latestByKey.putIfAbsent(dedupeKeyVehicleReport(row), row);
-        }
-        return mapToReportDTO(latestByKey.values().stream()
                 .sorted(Comparator.comparing(InspPreOperativaEntity::getFechaRegistro).reversed())
-                .toList());
+                .toList();
+        return mapToReportDTO(ordered);
     }
 
     private List<InspPreOperativaEntity> listMotoInspectionEntitiesNewestFirst() {
@@ -297,16 +310,7 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
     @Override
     public List<VehicleInspectionReportDTO> getMotoInspectionsLatestPerVehicle() {
         List<InspPreOperativaEntity> ordered = listMotoInspectionEntitiesNewestFirst();
-        // Una fila por placa: si existen varios id_vehiculo duplicados para la misma moto,
-        // la lista ordenada DESC + putIfAbsent por placa deja solo la inspección más reciente.
-        Map<String, InspPreOperativaEntity> latestByKey = new LinkedHashMap<>();
-        for (InspPreOperativaEntity row : ordered) {
-            latestByKey.putIfAbsent(dedupeKeyMotoReport(row), row);
-        }
-        var latestRows = latestByKey.values().stream()
-                .sorted(Comparator.comparing(InspPreOperativaEntity::getFechaRegistro).reversed())
-                .toList();
-        return mapToReportDTO(latestRows);
+        return mapToReportDTO(ordered);
     }
 
     private static String dedupeKeyMotoReport(InspPreOperativaEntity row) {
@@ -708,5 +712,16 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
         if (value == null)
             return null;
         return value ? "Si" : "No";
+    }
+
+    public Page<VehicleInspectionReportDTO> getMotoInspectionsPaginated(Pageable pageable) {
+        List<InspPreOperativaEntity> allMotoInspections = listMotoInspectionEntitiesNewestFirst();
+        List<VehicleInspectionReportDTO> reportDTOs = mapToReportDTO(allMotoInspections);
+
+        int start = (int) pageable.getOffset();
+        int end = Math.min(start + pageable.getPageSize(), reportDTOs.size());
+        List<VehicleInspectionReportDTO> pageContent = reportDTOs.subList(start, end);
+
+        return new PageImpl<>(pageContent, pageable, reportDTOs.size());
     }
 }
