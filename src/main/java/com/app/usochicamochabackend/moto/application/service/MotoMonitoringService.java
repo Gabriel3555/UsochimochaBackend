@@ -13,6 +13,7 @@ import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.Insp
 import com.app.usochicamochabackend.vehicleinspection.infrastructure.repository.InspPreOperativaRepository;
 import com.app.usochicamochabackend.update.infrastructure.repository.VehicleOilChangeRepository;
 import com.app.usochicamochabackend.update.application.service.OilStatusCalculator;
+import com.app.usochicamochabackend.notifications.application.ImprovedOilChangeAlertService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,6 +38,7 @@ public class MotoMonitoringService implements MotoMonitoringUseCase {
     private final UbicacionRepository ubicacionRepository;
     private final DocumentStatusCalculator documentStatusCalculator;
     private final OilStatusCalculator oilStatusCalculator;
+    private final ImprovedOilChangeAlertService improvedOilChangeAlertService;
 
     @Override
     public List<MotoMonitoringDTO> getConsolidatedMonitoring() {
@@ -44,6 +46,13 @@ public class MotoMonitoringService implements MotoMonitoringUseCase {
         long startTime = System.currentTimeMillis();
 
         try {
+            // Calcular alertas de cambio de aceite para motos
+            try {
+                improvedOilChangeAlertService.calculateAllOilChangeAlerts();
+            } catch (Exception e) {
+                logger.warn("⚠️ Error calculando alertas de cambio de aceite al cargar consolidado: {}", e.getMessage());
+            }
+
             List<VehicleEntity> motos = vehicleRepository.findAllByTipoName("MOTOCICLETA");
             logger.debug("Se obtuvieron {} motocicletas", motos.size());
 
