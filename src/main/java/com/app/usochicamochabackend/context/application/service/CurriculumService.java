@@ -3,6 +3,7 @@ package com.app.usochicamochabackend.context.application.service;
 import com.app.usochicamochabackend.actions.application.port.SaveActionUseCase;
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.context.application.dto.MachineCurriculumDTO;
+import com.app.usochicamochabackend.context.application.dto.MachineInspectionRecordDTO;
 import com.app.usochicamochabackend.context.application.port.GetMachineCurriculumUseCase;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.machine.application.dto.MachineResponse;
@@ -20,15 +21,18 @@ import com.app.usochicamochabackend.performance.infrastructure.entity.ResultEnti
 import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
 import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CurriculumService implements GetMachineCurriculumUseCase {
@@ -41,26 +45,49 @@ public class CurriculumService implements GetMachineCurriculumUseCase {
 
     @Override
     public MachineCurriculumDTO getMachineCurriculum(Long machineId) {
+        log.info("🔍 getMachineCurriculum called for machineId: {}", machineId);
+
         MachineEntity machine = machineRepository.findById(machineId)
                 .orElseThrow(() -> new ResourceNotFoundException("Machine not found"));
 
         List<InspectionEntity> inspectionEntities = inspectionRepository.findByMachineId(machineId);
+        log.info("📊 Total inspections found for machineId {}: {}", machineId, inspectionEntities.size());
+
         if (inspectionEntities.isEmpty()) {
             throw new ResourceNotFoundException("No inspections found");
         }
 
-        // Obtener solo la inspección más reciente para evitar duplicados
-        InspectionEntity latestInspection = inspectionEntities.stream()
-                .max(java.util.Comparator.comparing(InspectionEntity::getDateStamp))
-                .orElseThrow(() -> new ResourceNotFoundException("No inspections found"));
+        // Retornar todas las inspecciones ordenadas por fecha descendente
+        List<MachineInspectionRecordDTO> inspectionRecords = inspectionEntities.stream()
+                .sorted(Comparator.comparing(InspectionEntity::getDateStamp).reversed())
+                .map(inspection -> {
+                    List<ResultDTO> resultDTOS = inspection.getOrders().stream()
+                            .map(OrderEntity::getResult)
+                            .filter(Objects::nonNull)
+                            .map(ResultMapper::toResponseResult)
+                            .toList();
 
-        List<ResultEntity> resultEntities = latestInspection.getOrders().stream()
-                .map(OrderEntity::getResult)
-                .filter(Objects::nonNull)
+                    return new MachineInspectionRecordDTO(
+                            inspection.getId(),
+                            inspection.getDateStamp(),
+                            inspection.getHourMeter(),
+                            inspection.getLeakStatus(),
+                            inspection.getBrakeStatus(),
+                            inspection.getBeltsPulleysStatus(),
+                            inspection.getTireLanesStatus(),
+                            inspection.getCarIgnitionStatus(),
+                            inspection.getElectricalStatus(),
+                            inspection.getMechanicalStatus(),
+                            inspection.getTemperatureStatus(),
+                            inspection.getOilStatus(),
+                            inspection.getHydraulicStatus(),
+                            inspection.getCoolantStatus(),
+                            inspection.getStructuralStatus(),
+                            inspection.getObservations(),
+                            resultDTOS
+                    );
+                })
                 .toList();
-
-        // acá cada DTO ya tiene su totalPrice gracias al mapper
-        List<ResultDTO> resultDTOS = ResultMapper.toResponseList(resultEntities);
 
         try {
             Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -77,9 +104,7 @@ public class CurriculumService implements GetMachineCurriculumUseCase {
             saveActionUseCase.save("Usuario anonymous ha observado el curriculum de la maquina " + machine.getName());
         }
 
-        
-
-        return new MachineCurriculumDTO(MachineMapper.toResponse(machine), resultDTOS);
+        return new MachineCurriculumDTO(MachineMapper.toResponse(machine), inspectionRecords);
     }
 
 }
