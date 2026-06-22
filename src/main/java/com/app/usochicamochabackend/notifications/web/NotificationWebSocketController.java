@@ -68,12 +68,8 @@ public class NotificationWebSocketController {
         new Thread(() -> {
             try {
                 Thread.sleep(1000);
-                log.info("📸 [SNAPSHOT] Enviando alertas de cambio de aceite...");
+                log.info("📸 [SNAPSHOT] Calculando y enviando TODAS las alertas...");
                 sendOilChangeAlertsSnapshot();
-
-                Thread.sleep(500);
-                log.info("📸 [SNAPSHOT] Calculando alertas de documentos...");
-                alertSchedulerService.calculatePreventiveAlerts();
 
                 log.info("✅ [SNAPSHOT] Todas las alertas enviadas");
             } catch (InterruptedException e) {
@@ -85,45 +81,12 @@ public class NotificationWebSocketController {
 
     private void sendOilChangeAlertsSnapshot() {
         try {
-            log.info("📸 [SNAPSHOT] Enviando alertas de cambio de aceite...");
+            log.info("📸 [SNAPSHOT] Iniciando cálculo y envío de alertas de cambio de aceite...");
 
-            // Vehículos
-            vehicleMonitoringService.getConsolidatedMonitoring().forEach(vehicle -> {
-                if (vehicle.maintenance() != null &&
-                    ("YELLOW".equals(vehicle.maintenance().alertColor()) ||
-                     "RED".equals(vehicle.maintenance().alertColor()))) {
-                    notificationWebSocketService.broadcastOilChangeAlert(vehicle);
-                    log.debug("📸 [SNAPSHOT] Enviada alerta vehículo: {}", vehicle.placa());
-                }
-            });
+            // Calcular alertas para todos los activos
+            alertSchedulerService.calculatePreventiveAlerts();
 
-            // Motos
-            motoMonitoringService.getConsolidatedMonitoring().forEach(moto -> {
-                if (moto.oil() != null &&
-                    ("YELLOW".equals(moto.oil().alertColor()) ||
-                     "RED".equals(moto.oil().alertColor()))) {
-                    notificationWebSocketService.broadcastOilChangeAlert(moto);
-                    log.debug("📸 [SNAPSHOT] Enviada alerta moto: {}", moto.placa());
-                }
-            });
-
-            // Máquinas - enviar alertas de aceite de motor y aceite hidráulico
-            machineMonitoringService.getConsolidatedMonitoring().forEach(machine -> {
-                boolean hasMotorAlert = machine.motorOilInfo() != null &&
-                    ("YELLOW".equals(machine.motorOilInfo().alertColor()) ||
-                     "RED".equals(machine.motorOilInfo().alertColor()));
-
-                boolean hasHydraulicAlert = machine.hydraulicOilInfo() != null &&
-                    ("YELLOW".equals(machine.hydraulicOilInfo().alertColor()) ||
-                     "RED".equals(machine.hydraulicOilInfo().alertColor()));
-
-                if (hasMotorAlert || hasHydraulicAlert) {
-                    notificationWebSocketService.broadcastOilChangeAlert(machine);
-                    log.debug("📸 [SNAPSHOT] Enviada alerta máquina: {}", machine.machineName());
-                }
-            });
-
-            log.info("✅ [SNAPSHOT] Snapshot de alertas completado");
+            log.info("✅ [SNAPSHOT] Snapshot de alertas de cambio de aceite completado");
         } catch (Exception e) {
             log.error("❌ [SNAPSHOT] Error enviando snapshot de alertas", e);
         }
