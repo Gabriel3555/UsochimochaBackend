@@ -31,8 +31,7 @@ public record OilChangeAlertPayload(
     ) {
         if (vehicle.maintenance() == null) return null;
 
-        String descripcion = String.format("🚗 Vehículo (%s) - %s",
-            vehicle.placa(),
+        String descripcion = String.format("%s Cambio de aceite recomendado",
             vehicle.maintenance().alertMessage());
 
         return new OilChangeAlertPayload(
@@ -54,8 +53,7 @@ public record OilChangeAlertPayload(
     ) {
         if (moto.oil() == null) return null;
 
-        String descripcion = String.format("🏍️ Motocicleta (%s) - %s",
-            moto.placa(),
+        String descripcion = String.format("%s Cambio de aceite recomendado",
             moto.oil().alertMessage());
 
         return new OilChangeAlertPayload(
@@ -80,25 +78,26 @@ public record OilChangeAlertPayload(
 
         String criticalColor = "GREEN";
         var criticalInfo = motorInfo;
+        String oilType = "motor";
 
         if (motorInfo != null && isCritical(motorInfo.alertColor(), criticalColor)) {
             criticalColor = motorInfo.alertColor();
             criticalInfo = motorInfo;
+            oilType = "motor";
         }
         if (hydraulicInfo != null && isCritical(hydraulicInfo.alertColor(), criticalColor)) {
             criticalColor = hydraulicInfo.alertColor();
             criticalInfo = hydraulicInfo;
+            oilType = "hidráulico";
         }
 
         if (criticalInfo == null) return null;
 
-        String descripcion = String.format("⚙️ Máquina (%s) - %s [HORAS]",
-            machine.machineName(),
-            criticalInfo.alertMessage());
+        String descripcion = String.format("Cambio de aceite %s recomendado", oilType);
 
         return new OilChangeAlertPayload(
             UUID.randomUUID().toString(),
-            String.valueOf(machine.machineId()),
+            machine.machineName(),
             "MAQUINARIA",
             "CAMBIO_ACEITE",
             descripcion,
