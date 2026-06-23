@@ -1,0 +1,452 @@
+package com.app.usochicamochabackend.notifications.application;
+
+import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
+import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
+import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
+import com.app.usochicamochabackend.notifications.application.dto.PreventiveAlertDTO;
+import com.app.usochicamochabackend.notifications.infrastructure.entity.PreventiveAlertEntity;
+import com.app.usochicamochabackend.notifications.infrastructure.repository.PreventiveAlertRepository;
+import com.app.usochicamochabackend.shared.calculator.DocumentAlertCalculator;
+import com.app.usochicamochabackend.shared.calculator.OilChangeMachineAlertCalculator;
+import com.app.usochicamochabackend.shared.calculator.OilChangeVehicleAlertCalculator;
+import com.app.usochicamochabackend.update.infrastructure.entity.OilChangeEntity;
+import com.app.usochicamochabackend.update.infrastructure.entity.OilChangeRequirementEntity;
+import com.app.usochicamochabackend.update.infrastructure.repository.OilChangeRepository;
+import com.app.usochicamochabackend.update.infrastructure.repository.VehicleOilChangeRepository;
+import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
+import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleRepository;
+import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.DocumentacionYElementosEntity;
+import com.app.usochicamochabackend.vehicleinspection.infrastructure.repository.DocumentacionYElementosRepository;
+import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Optional;
+
+@Service
+@RequiredArgsConstructor
+@Slf4j
+public class PreventiveAlertCalculationService {
+
+    private final PreventiveAlertRepository alertRepository;
+    private final VehicleRepository vehicleRepository;
+    private final MachineRepository machineRepository;
+    private final DocumentacionYElementosRepository documentacionRepository;
+    private final UserRepositoryJpa userRepository;
+    private final VehicleOilChangeRepository vehicleOilChangeRepository;
+    private final OilChangeRepository machineOilChangeRepository;
+    private final NotificationService notificationService;
+    private final InspectionRepository inspectionRepository;
+
+    /**
+     * FUNCIÓN ÚNICA: Calcula TODAS las alertas preventivas del sistema.
+     * Se ejecuta por scheduler diariamente a las 07:00.
+     *
+     * Pasos:
+     * 1. Limpiar alertas VERDES (no deben guardarse)
+     * 2. Calcular alertas de DOCUMENTOS
+     * 3. Calcular alertas de CAMBIO ACEITE (vehículos)
+     * 4. Calcular alertas de CAMBIO ACEITE (maquinaria)
+     * 5. Calcular alertas de LICENCIA (usuarios)
+     */
+    @Transactional
+    public void calculateAndEmitAlerts() {
+        log.info("🔔 === INICIANDO CÁLCULO DE ALERTAS PREVENTIVAS ===");
+
+        try {
+            cleanupGreenAlerts();
+            calculateDocumentAlerts();
+            calculateOilChangeVehicleAlerts();
+            calculateOilChangeMachineAlerts();
+            calculateLicenseAlerts();
+            log.info("✅ === ALERTAS CALCULADAS EXITOSAMENTE ===");
+        } catch (Exception e) {
+            log.error("❌ Error calculando alertas: {}", e.getMessage(), e);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // TIPO 1: DOCUMENTOS (SOAT, TECNOMECANICA, EXTINTOR para vehículos)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private void calculateDocumentAlerts() {
+        log.info("📄 Calculando alertas de DOCUMENTOS...");
+
+        var allDocs = documentacionRepository.findAll().stream()
+            .filter(doc -> Boolean.TRUE.equals(doc.getActivo()))
+            .filter(doc -> doc.getFechaVencimiento() != null)
+            .toList();
+
+        log.info("📄 Total documentos activos con fecha de vencimiento: {}", allDocs.size());
+
+        var allDocsCount = documentacionRepository.findAll().size();
+        log.info("📄 Total documentos en BD (sin filtros): {}", allDocsCount);
+
+        for (var doc : allDocs) {
+            try {
+                log.debug("📄 Procesando documento: tipo={}, vencimiento={}, activo={}",
+                    doc.getTipoDocumento(), doc.getFechaVencimiento(), doc.getActivo());
+
+                // Usar DocumentAlertCalculator
+                var result = DocumentAlertCalculator.calculateDocumentAlert(
+                    doc.getTipoDocumento(),      // "SOAT", "TECNOMECANICA", "EXTINTOR"
+                    doc.getFechaVencimiento()
+                );
+
+                log.debug("📄 Resultado: color={}, dias={}", result.colorEstado, result.diasRestantes);
+
+                // Si es VERDE, no guardar
+                if ("VERDE".equals(result.colorEstado)) {
+                    log.debug("📄 Alerta VERDE - no se guarda");
+                    continue;
+                }
+
+                // Obtener tipo de vehículo para assetType
+                String assetType = "VEHICULO";
+                if (doc.getVehiculo() != null && doc.getVehiculo().getTipoVehiculo() != null) {
+                    if ("MOTOCICLETA".equalsIgnoreCase(doc.getVehiculo().getTipoVehiculo().getNombreTipo())) {
+                        assetType = "MOTOCICLETA";
+                    }
+                }
+
+                // Guardar o actualizar en BD (usar placa del vehículo, no ID)
+                String assetId = doc.getVehiculo() != null ? doc.getVehiculo().getPlaca() : doc.getIdVehiculo().toString();
+                log.info("📄 Guardando alerta: assetId={}, tipo={}, color={}, descripcion={}",
+                    assetId, doc.getTipoDocumento(), result.colorEstado, result.descripcion);
+
+                saveOrUpdateAlert(
+                    assetId,
+                    assetType,
+                    "DOCUMENTO",
+                    doc.getTipoDocumento(),
+                    result.colorEstado,
+                    result.descripcion,
+                    doc.getFechaVencimiento(),
+                    "DIAS",
+                    result.diasRestantes.doubleValue(),
+                    null
+                );
+            } catch (Exception e) {
+                log.error("❌ Error procesando documento {}: {}", doc.getIdDocumento(), e.getMessage(), e);
+            }
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // TIPO 2: CAMBIO ACEITE VEHÍCULOS/MOTOS (por KILOMETRAJE)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private void calculateOilChangeVehicleAlerts() {
+        log.info("🛢️ Calculando alertas de CAMBIO DE ACEITE (vehículos por KM)...");
+
+        var vehicles = vehicleRepository.findAll().stream()
+            .filter(v -> Boolean.TRUE.equals(v.getActivo()))
+            .toList();
+
+        log.debug("Total vehículos activos: {}", vehicles.size());
+
+        for (var vehicle : vehicles) {
+            try {
+                // Obtener último cambio de aceite usando VehicleOilChangeRepository
+                var lastChange = vehicleOilChangeRepository
+                    .findFirstByVehicleIdVehiculoOrderByDateStampDesc(vehicle.getIdVehiculo());
+
+                String assetType = "VEHICULO";
+                if (vehicle.getTipoVehiculo() != null &&
+                    "MOTOCICLETA".equalsIgnoreCase(vehicle.getTipoVehiculo().getNombreTipo())) {
+                    assetType = "MOTOCICLETA";
+                }
+
+                if (lastChange.isEmpty()) {
+                    // Sin historial = alerta VERDE de "PRIMER CAMBIO" (informativo)
+                    saveOrUpdateAlert(
+                        vehicle.getPlaca(),
+                        assetType,
+                        "OIL_CHANGE_VEHICLE",
+                        null,
+                        "VERDE",
+                        "ℹ️ PRIMER CAMBIO DE ACEITE RECOMENDADO",
+                        null,
+                        "KILOMETROS",
+                        0.0,
+                        100.0
+                    );
+                    continue;
+                }
+
+                var lastChangeRecord = lastChange.get();
+                Integer kmActual = vehicle.getKilometrajeActual();
+                Integer intervalKm = lastChangeRecord.getIntervalKm();
+
+                if (kmActual == null || intervalKm == null || intervalKm <= 0) {
+                    continue;
+                }
+
+                // Usar OilChangeVehicleAlertCalculator
+                var result = OilChangeVehicleAlertCalculator.calculateOilChangeAlert(
+                    kmActual,
+                    lastChangeRecord.getKmAtChange(),
+                    intervalKm
+                );
+
+                // Si es VERDE, no guardar
+                if ("VERDE".equals(result.colorEstado)) {
+                    alertRepository.deleteActiveAlertForAsset(
+                        vehicle.getPlaca(),
+                        "OIL_CHANGE_VEHICLE"
+                    );
+                    continue;
+                }
+
+                // Guardar AMARILLO o ROJO
+                saveOrUpdateAlert(
+                    vehicle.getPlaca(),
+                    assetType,
+                    "OIL_CHANGE_VEHICLE",
+                    null,
+                    result.colorEstado,
+                    result.descripcion,
+                    null,
+                    "KILOMETROS",
+                    result.kmRemaining.doubleValue(),
+                    result.percentageUsed
+                );
+            } catch (Exception e) {
+                log.warn("⚠️ Error procesando vehículo {}: {}", vehicle.getPlaca(), e.getMessage());
+            }
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // TIPO 3: CAMBIO ACEITE MAQUINARIA (por HORÓMETRO)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private void calculateOilChangeMachineAlerts() {
+        log.info("🛢️ Calculando alertas de CAMBIO DE ACEITE (maquinaria por HORAS)...");
+
+        var machines = machineRepository.findAll().stream()
+            .filter(m -> Boolean.TRUE.equals(m.getStatus()))
+            .toList();
+
+        log.debug("Total máquinas activas: {}", machines.size());
+
+        for (var machine : machines) {
+            try {
+                // MOTOR OIL
+                calculateMachineOilAlert(machine, true);
+                // HYDRAULIC OIL
+                calculateMachineOilAlert(machine, false);
+            } catch (Exception e) {
+                log.warn("⚠️ Error procesando máquina {}: {}", machine.getName(), e.getMessage());
+            }
+        }
+    }
+
+    private void calculateMachineOilAlert(MachineEntity machine, boolean isMotorOil) {
+        String oilType = isMotorOil ? "MOTOR" : "HYDRAULIC";
+        log.info("🛢️ Procesando máquina {} - Tipo de aceite: {}", machine.getName(), oilType);
+
+        // IMPORTANTE: Usar el horómetro de la ÚLTIMA INSPECCIÓN (como lo hace MachineMonitoringService)
+        var lastInspection = inspectionRepository.getLastInspection(machine.getId());
+        Integer horometroActual = (lastInspection != null && lastInspection.getHourMeter() != null)
+            ? lastInspection.getHourMeter().intValue()
+            : (machine.getHorometroActual() != null ? machine.getHorometroActual() : 0);
+
+        log.info("🛢️ {} - Horómetro actual: {} (from inspection: {})",
+            machine.getName(), horometroActual, lastInspection != null);
+
+        // Obtener último cambio usando OilChangeRepository
+        var lastChange = isMotorOil
+            ? machineOilChangeRepository.getLastMotorOilChangeByMachineId(machine.getId())
+            : machineOilChangeRepository.getLastHydraulicOilChangeByMachineId(machine.getId());
+
+        log.info("🛢️ {} - Último cambio {}: {}", machine.getName(), oilType, lastChange != null ? "ENCONTRADO" : "NO ENCONTRADO");
+
+        if (lastChange == null || lastChange.getHourStamp() == null) {
+            log.info("🛢️ {} - Sin historial, creando alerta de PRIMER CAMBIO", machine.getName());
+            // Sin historial = alerta VERDE de "PRIMER CAMBIO" (informativo)
+            saveOrUpdateAlert(
+                machine.getName(),
+                "MAQUINARIA",
+                "OIL_CHANGE_MACHINE",
+                oilType,
+                "VERDE",
+                "ℹ️ PRIMER CAMBIO DE ACEITE " + oilType + " RECOMENDADO",
+                null,
+                "HORAS",
+                0.0,
+                100.0
+            );
+            return;
+        }
+
+        Integer hourStamp = lastChange.getHourStamp();
+        Integer intervalHours = lastChange.getAverageHoursChange();
+
+        log.info("🛢️ {} - intervalHours: {}", machine.getName(), intervalHours);
+
+        if (intervalHours == null || intervalHours <= 0) {
+            log.info("🛢️ {} - Intervalo inválido, creando alerta de PRIMER CAMBIO", machine.getName());
+            // Intervalo inválido = alerta VERDE (informativo)
+            saveOrUpdateAlert(
+                machine.getName(),
+                "MAQUINARIA",
+                "OIL_CHANGE_MACHINE",
+                oilType,
+                "VERDE",
+                "ℹ️ PRIMER CAMBIO DE ACEITE " + oilType + " RECOMENDADO",
+                null,
+                "HORAS",
+                0.0,
+                100.0
+            );
+            return;
+        }
+
+        // Usar OilChangeMachineAlertCalculator
+        var result = OilChangeMachineAlertCalculator.calculateOilChangeAlert(
+            horometroActual,
+            hourStamp,
+            intervalHours,
+            oilType
+        );
+
+        log.info("🛢️ {} - Resultado: color={}, porcentaje={:.1f}%, horas restantes={}",
+            machine.getName(), result.colorEstado, result.percentageUsed, result.horasRemaining);
+
+        // Si es VERDE, no guardar
+        if ("VERDE".equals(result.colorEstado)) {
+            log.debug("🛢️ {} - Alerta VERDE, eliminando si existe", machine.getName());
+            alertRepository.deleteActiveAlertForAsset(
+                machine.getName(),
+                "OIL_CHANGE_MACHINE"
+            );
+            return;
+        }
+
+        // Guardar AMARILLO o ROJO
+        log.info("🛢️ {} - Guardando alerta {}: {}", machine.getName(), result.colorEstado, result.descripcion);
+        saveOrUpdateAlert(
+            machine.getName(),
+            "MAQUINARIA",
+            "OIL_CHANGE_MACHINE",
+            oilType,
+            result.colorEstado,
+            result.descripcion,
+            null,
+            "HORAS",
+            result.horasRemaining.doubleValue(),
+            result.percentageUsed
+        );
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // BONUS: LICENCIA DE CONDUCCIÓN (usuarios)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private void calculateLicenseAlerts() {
+        log.info("🪪 Calculando alertas de LICENCIA DE CONDUCCIÓN...");
+
+        LocalDate threshold = LocalDate.now().plusDays(45);
+        var usersWithExpiry = userRepository.findAll().stream()
+            .filter(u -> Boolean.TRUE.equals(u.getStatus()))
+            .filter(u -> u.getLicenseExpiry() != null)
+            .filter(u -> !u.getLicenseExpiry().isAfter(threshold))
+            .filter(u -> !u.getLicenseExpiry().isBefore(LocalDate.now()))
+            .toList();
+
+        log.debug("Usuarios con licencia próxima a vencer: {}", usersWithExpiry.size());
+
+        for (var user : usersWithExpiry) {
+            try {
+                var result = DocumentAlertCalculator.calculateDocumentAlert(
+                    "LICENCIA",
+                    user.getLicenseExpiry()
+                );
+
+                if ("VERDE".equals(result.colorEstado)) {
+                    continue;
+                }
+
+                saveOrUpdateAlert(
+                    user.getUsername(),
+                    "USUARIO",
+                    "DOCUMENTO",
+                    "LICENCIA",
+                    result.colorEstado,
+                    "🪪 Licencia de conducción próxima a vencer",
+                    user.getLicenseExpiry(),
+                    "DIAS",
+                    result.diasRestantes.doubleValue(),
+                    null
+                );
+            } catch (Exception e) {
+                log.warn("⚠️ Error procesando licencia de usuario {}: {}", user.getUsername(), e.getMessage());
+            }
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // GUARDAR O ACTUALIZAR ALERTA
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private void saveOrUpdateAlert(
+        String assetId,
+        String assetType,
+        String alertType,
+        String alertSubtype,
+        String colorEstado,
+        String descripcion,
+        LocalDate fechaVencimiento,
+        String metricType,
+        Double metricValue,
+        Double percentageUsed
+    ) {
+        // Buscar si ya existe alerta activa
+        var existing = alertRepository.findActiveAlertForAsset(assetId, alertType, alertSubtype);
+
+        PreventiveAlertEntity alert;
+        if (existing.isPresent()) {
+            alert = existing.get();
+            alert.setColorEstado(colorEstado);
+            alert.setDescripcion(descripcion);
+            alert.setMetricValue(metricValue);
+            alert.setPercentageUsed(percentageUsed);
+            alert.setFechaActualizacion(LocalDateTime.now());
+            log.debug("📝 Actualizando alerta: {} - {}", assetId, alertType);
+        } else {
+            alert = PreventiveAlertEntity.builder()
+                .assetId(assetId)
+                .assetType(assetType)
+                .alertType(alertType)
+                .alertSubtype(alertSubtype)
+                .colorEstado(colorEstado)
+                .estado("ACTIVA")
+                .descripcion(descripcion)
+                .fechaVencimiento(fechaVencimiento)
+                .metricType(metricType)
+                .metricValue(metricValue)
+                .percentageUsed(percentageUsed)
+                .fechaCreacion(LocalDateTime.now())
+                .status(true)
+                .build();
+            log.debug("✨ Creando nueva alerta: {} - {}", assetId, alertType);
+        }
+
+        alertRepository.save(alert);
+        notificationService.notifyPreventiveAlert(PreventiveAlertDTO.fromEntity(alert));
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // HELPERS
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private void cleanupGreenAlerts() {
+        alertRepository.deleteGreenAlerts();
+        log.debug("🧹 Alertas VERDES limpiadas");
+    }
+}
