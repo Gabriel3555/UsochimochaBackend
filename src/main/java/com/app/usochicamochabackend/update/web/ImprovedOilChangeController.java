@@ -77,6 +77,9 @@ public class ImprovedOilChangeController {
         log.info("🛢️ Creando cambio de aceite para máquina: {}", dto.machineId());
 
         try {
+            var machine = machineRepository.findById(dto.machineId())
+                    .orElseThrow(() -> new IllegalArgumentException("Máquina no encontrada"));
+
             OilType oilType = OilType.valueOf(dto.oilType());
             OilChangeRequirementEntity requirement = requirementRepository.findById(dto.requirementId())
                     .orElseThrow(() -> new IllegalArgumentException("Requisito no encontrado"));
@@ -84,6 +87,7 @@ public class ImprovedOilChangeController {
             int percentageUsed = 0;
 
             OilChangeEntity entity = OilChangeEntity.builder()
+                    .machine(machine)
                     .hourStamp(dto.hourStamp())
                     .oilType(oilType)
                     .quantity(dto.quantity())
@@ -95,7 +99,8 @@ public class ImprovedOilChangeController {
                     .build();
 
             OilChangeEntity saved = oilChangeRepository.save(entity);
-            log.info("✅ Cambio de aceite de maquinaria creado con ID: {}", saved.getId());
+            log.info("✅ Cambio de aceite de maquinaria creado con ID: {}, máquina: {}, oilType: {}",
+                    saved.getId(), machine.getName(), oilType);
 
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(MachineOilChangeResponseDTO.fromEntity(saved));
@@ -116,16 +121,32 @@ public class ImprovedOilChangeController {
             @RequestParam(defaultValue = "true") Boolean motorOil,
             @RequestParam(defaultValue = "false") Boolean hydraulicOil,
             @RequestParam(defaultValue = "50") Double quantity) {
-        log.info("🛢️ Creando cambio de aceite simplificado para máquina ID: {}, horas: {}", machineId, hourStamp);
+        log.info("🛢️ Creando cambio de aceite simplificado para máquina ID: {}, horas: {}, motorOil: {}, hydraulicOil: {}", machineId, hourStamp, motorOil, hydraulicOil);
 
         try {
             var machine = machineRepository.findById(machineId)
                     .orElseThrow(() -> new IllegalArgumentException("Máquina no encontrada"));
 
+            // Determinar oilType basado en los parámetros
+            OilType oilType = null;
+            if (Boolean.TRUE.equals(motorOil)) {
+                oilType = OilType.MOTOR;
+                log.info("🛢️ Tipo de aceite determinado: MOTOR");
+            } else if (Boolean.TRUE.equals(hydraulicOil)) {
+                oilType = OilType.HYDRAULIC;
+                log.info("🛢️ Tipo de aceite determinado: HYDRAULIC");
+            }
+
+            if (oilType == null) {
+                log.warn("⚠️ Ni motorOil ni hydraulicOil están en true, usando MOTOR por defecto");
+                oilType = OilType.MOTOR;
+            }
+
             OilChangeEntity entity = OilChangeEntity.builder()
                     .machine(machine)
                     .hourStamp(hourStamp)
                     .averageHoursChange(averageHoursChange)
+                    .oilType(oilType)
                     .motorOil(motorOil)
                     .hydraulicOil(hydraulicOil)
                     .quantity(quantity)
@@ -133,7 +154,7 @@ public class ImprovedOilChangeController {
                     .build();
 
             OilChangeEntity saved = oilChangeRepository.save(entity);
-            log.info("✅ Cambio de aceite simplificado creado con ID: {}", saved.getId());
+            log.info("✅ Cambio de aceite simplificado creado con ID: {}, oilType: {}", saved.getId(), oilType);
 
             return ResponseEntity.status(HttpStatus.CREATED).body(saved);
 
