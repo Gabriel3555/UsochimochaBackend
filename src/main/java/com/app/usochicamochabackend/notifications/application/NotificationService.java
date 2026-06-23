@@ -147,16 +147,15 @@ public class NotificationService {
     }
 
     /**
-     * Send preventive alert notification via WebSocket
-     * Used by AlertCalculationService to notify about preventive alerts
-     * Reutiliza el canal /topic/alerts que ya existe en el frontend
+     * Send preventive alert notification via WebSocket (FASE 2: Sistema nuevo de alertas)
+     * Emite por el tema /topic/alerts para que el frontend las reciba en tiempo real
      */
-    public void notifyAlert(Object alertData) {
+    public void notifyPreventiveAlert(Object alertData) {
         if (alertData != null) {
             log.info("📢 Enviando alerta preventiva: {}", alertData);
-            // Enviar SOLO por topic unificado para que aparezca como ALERTA PREVENTIVA
-            messagingTemplate.convertAndSend("/topic/alerts/unified", alertData);
+            messagingTemplate.convertAndSend("/topic/alerts", alertData);
             recordNotificationStats("preventive-alert");
         }
     }
+
 }

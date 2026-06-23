@@ -9,7 +9,6 @@ import com.app.usochicamochabackend.shared.calculator.OilChangeAlertCalculator;
 import com.app.usochicamochabackend.shared.dto.AlertStatus;
 import com.app.usochicamochabackend.update.infrastructure.entity.OilChangeEntity;
 import com.app.usochicamochabackend.update.infrastructure.repository.OilChangeRepository;
-import com.app.usochicamochabackend.notifications.application.ImprovedOilChangeAlertService;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,7 +35,6 @@ public class MachineMonitoringService {
     private final MachineRepository machineRepository;
     private final OilChangeRepository oilChangeRepository;
     private final InspectionRepository inspectionRepository;
-    private final ImprovedOilChangeAlertService improvedOilChangeAlertService;
 
     /**
      * Obtiene consolidado de aceite de TODAS las máquinas.
@@ -44,13 +42,6 @@ public class MachineMonitoringService {
     public List<MachineMonitoringDTO> getConsolidatedMonitoring() {
         logger.info("Obteniendo consolidado de cambios de aceite para todas las máquinas");
         try {
-            // Calcular alertas de cambio de aceite para máquinas
-            try {
-                improvedOilChangeAlertService.calculateAllOilChangeAlerts();
-            } catch (Exception e) {
-                logger.warn("⚠️ Error calculando alertas de cambio de aceite al cargar consolidado: {}", e.getMessage());
-            }
-
             List<MachineEntity> machines = machineRepository.findAll();
             List<MachineMonitoringDTO> result = new ArrayList<>();
 

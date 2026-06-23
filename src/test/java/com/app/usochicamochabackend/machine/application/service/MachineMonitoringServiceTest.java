@@ -6,7 +6,6 @@ import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRep
 import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
 import com.app.usochicamochabackend.update.infrastructure.entity.OilChangeEntity;
 import com.app.usochicamochabackend.update.infrastructure.repository.OilChangeRepository;
-import com.app.usochicamochabackend.notifications.application.ImprovedOilChangeAlertService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -32,14 +31,11 @@ class MachineMonitoringServiceTest {
     @Mock
     private InspectionRepository inspectionRepository;
 
-    @Mock
-    private ImprovedOilChangeAlertService improvedOilChangeAlertService;
-
     private MachineMonitoringService machineMonitoringService;
 
     @BeforeEach
     void setUp() {
-        machineMonitoringService = new MachineMonitoringService(machineRepository, oilChangeRepository, inspectionRepository, improvedOilChangeAlertService);
+        machineMonitoringService = new MachineMonitoringService(machineRepository, oilChangeRepository, inspectionRepository);
     }
 
     @Test

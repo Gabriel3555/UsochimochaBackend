@@ -7,7 +7,6 @@ import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
 import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleRepository;
 import com.app.usochicamochabackend.vehicleinspection.application.dto.*;
 import com.app.usochicamochabackend.notifications.application.NotificationService;
-import com.app.usochicamochabackend.notifications.application.ImprovedOilChangeAlertService;
 import com.app.usochicamochabackend.vehicleinspection.application.port.CreateVehiculoInspectionUseCase;
 import com.app.usochicamochabackend.vehicleinspection.application.port.GetVehicleInspectionsUseCase;
 import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.*;
@@ -59,7 +58,6 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
     private final VehicleRepository vehicleRepository;
     private final VehicleDocumentStorageService vehicleDocumentStorageService;
     private final NotificationService notificationService;
-    private final ImprovedOilChangeAlertService oilChangeAlertService;
 
     /**
      * POST — Guarda la inspección pre-operativa en las 5 tablas de inspección
@@ -162,16 +160,7 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
         }
         String updateEvent = tipoNombre.contains("MOTO") ? "moto-inspections-updated" : "vehicle-inspections-updated";
 
-        // ── Calcular y enviar alerta de cambio de aceite si aplica ─────────────
-        // Se ejecuta DESPUÉS de la transacción en su propia transacción
-        // La placa ya está normalizada
-        try {
-            oilChangeAlertService.checkAndNotifyOilChangeAlert(placaNorm);
-        } catch (Exception e) {
-            log.warn("⚠️ Error al calcular alerta de cambio de aceite para {}: {}", placaNorm, e.getMessage());
-        }
-
-        // La notificación se envía después de que la transacción termina, pero el valor ya está extraído
+        // TODO: Calcular y enviar alerta de cambio de aceite si aplica (Phase 2)
         notificationService.notifyDataUpdate(updateEvent);
 
         return new VehiculoInspectionResponse(idInspeccion, "Inspección guardada exitosamente");

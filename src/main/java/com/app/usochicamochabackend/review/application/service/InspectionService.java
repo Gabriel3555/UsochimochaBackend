@@ -10,7 +10,6 @@ import com.app.usochicamochabackend.mapper.ImagesMapper;
 import com.app.usochicamochabackend.mapper.InspectionMapper;
 import com.app.usochicamochabackend.mapper.MachineMapper;
 import com.app.usochicamochabackend.notifications.application.NotificationService;
-import com.app.usochicamochabackend.notifications.application.ImprovedOilChangeAlertService;
 import com.app.usochicamochabackend.shared.event.InspectionCompletedEvent;
 import com.app.usochicamochabackend.review.application.dto.*;
 import com.app.usochicamochabackend.review.application.port.*;
@@ -54,7 +53,6 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
     private final ImageRepository imageRepository;
     private final SaveActionUseCase saveActionUseCase;
     private final ApplicationEventPublisher eventPublisher;
-    private final ImprovedOilChangeAlertService improvedOilChangeAlertService;
 
     @Override
     public InspectionFormResponse createInspectionOnlyData(InspectionFormRequest request) {
@@ -300,15 +298,6 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " corrigió el horómetro de la máquina " + last.getMachine().getName() + " a " + newHourMeter);
 
-        // Recalcular alertas de cambio de aceite después de actualizar horómetro
-        try {
-            MachineEntity machine = last.getMachine();
-            log.info("🔄 Recalculando alertas de cambio de aceite para máquina: {} con nuevo horómetro: {}", machine.getName(), newHourMeter);
-            improvedOilChangeAlertService.checkOilChangeAlertForMachineByHours(machine.getId(), machine.getName(), true);
-            improvedOilChangeAlertService.checkOilChangeAlertForMachineByHours(machine.getId(), machine.getName(), false);
-            log.info("✅ Alertas recalculadas para máquina: {}", machine.getName());
-        } catch (Exception e) {
-            log.warn("⚠️ Error recalculando alertas de cambio de aceite para máquina {}: {}", last.getMachine().getName(), e.getMessage());
-        }
+        // TODO: Recalcular alertas de cambio de aceite después de actualizar horómetro (Phase 2)
     }
 }
