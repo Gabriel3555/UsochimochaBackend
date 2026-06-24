@@ -102,6 +102,9 @@ public class ResultMapper {
         BigDecimal sparePrice = sparePart != null ? sparePart.price() : BigDecimal.ZERO;
 
         String timeSpent = formatTimeSpent(entity.getHoursSpent(), entity.getMinutesSpent());
+        if (timeSpent == null && entity.getTimeSpent() != null && !entity.getTimeSpent().isBlank()) {
+            timeSpent = entity.getTimeSpent();
+        }
 
         return new ResultDTO(
                 entity.getId(),
