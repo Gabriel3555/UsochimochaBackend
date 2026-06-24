@@ -45,11 +45,17 @@ public class OrderMapper {
         Integer hoursSpent = null;
         Integer minutesSpent = null;
         String suppliers = null;
+        String timeSpent = null;
         if (entity.getResult() != null) {
             hoursSpent = entity.getResult().getHoursSpent();
             minutesSpent = entity.getResult().getMinutesSpent();
             if (entity.getResult().getSparePart() != null) {
                 suppliers = entity.getResult().getSparePart().getSupplier();
+            }
+            timeSpent = formatTimeSpent(hoursSpent, minutesSpent);
+            if (timeSpent == null) {
+                String legacy = entity.getResult().getTimeSpent();
+                if (legacy != null && !legacy.isBlank()) timeSpent = legacy;
             }
         }
 
@@ -65,7 +71,8 @@ public class OrderMapper {
                 entity.getConsecutive(),
                 hoursSpent,
                 minutesSpent,
-                suppliers
+                suppliers,
+                timeSpent
         );
     }
 
@@ -73,6 +80,16 @@ public class OrderMapper {
         if (entity == null) return null;
 
         return entity.stream().map(OrderMapper::toDtoWithoutInspection).toList();
+    }
+
+    private static String formatTimeSpent(Integer hours, Integer minutes) {
+        if (hours == null && minutes == null) return null;
+        int h = hours != null ? hours : 0;
+        int m = minutes != null ? minutes : 0;
+        if (h == 0 && m == 0) return null;
+        if (h == 0) return m + "m";
+        if (m == 0) return h + "h";
+        return h + "h " + m + "m";
     }
 
     public static OrderWithVehicleDTO toVehicleOrderDTO(OrderEntity entity) {

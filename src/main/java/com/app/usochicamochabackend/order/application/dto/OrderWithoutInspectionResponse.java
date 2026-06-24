@@ -16,5 +16,6 @@ public record OrderWithoutInspectionResponse(
         String consecutive,
         Integer hoursSpent,
         Integer minutesSpent,
-        String suppliers
+        String suppliers,
+        String timeSpent
 ) {}
