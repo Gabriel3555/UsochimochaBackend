@@ -1,0 +1,84 @@
+name: CI/CD Backend
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ──────────────────────────────────────────────────────────────
+  # CI: corre en TODAS las ramas y en PRs hacia main
+  # ──────────────────────────────────────────────────────────────
+  test:
+    name: Tests (Java 17)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Ejecutar tests unitarios
+        run: mvn test --no-transfer-progress -Dspring.profiles.active=test
+
+      - name: Subir reporte de cobertura JaCoCo
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: target/site/jacoco/
+          retention-days: 7
+
+  # ──────────────────────────────────────────────────────────────
+  # CD: solo cuando se hace merge/push a main
+  # ──────────────────────────────────────────────────────────────
+  build-and-deploy:
+    name: Build & Deploy
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Construir JAR
+        run: mvn clean package --no-transfer-progress -DskipTests
+
+      - name: Copiar JAR al VPS
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "target/usochicamocha-backend.jar"
+          target: "/opt/usochicamocha/"
+          strip_components: 1
+
+      - name: Reiniciar servicio en VPS
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            sudo systemctl stop usochicamocha-backend
+            sudo systemctl start usochicamocha-backend
+            sleep 5
+            sudo systemctl is-active --quiet usochicamocha-backend \
+              && echo "Servicio activo correctamente" \
+              || (sudo journalctl -u usochicamocha-backend --no-pager -n 30 && exit 1)

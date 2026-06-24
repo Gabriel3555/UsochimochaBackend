@@ -1,10 +1,18 @@
-FROM eclipse-temurin:21-jdk-alpine
+FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
 
-# Copiar el JAR desde la raíz del proyecto
-COPY UsochicamochaBacken-0.0.1-SNAPSHOT.jar app.jar
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
-# Puerto en el que Spring Boot corre por defecto
+COPY target/*.jar app.jar
+
+RUN chown appuser:appgroup app.jar
+
+USER appuser
+
+# El perfil por defecto de esta imagen es siempre prod.
+# Cualquier otro perfil requiere sobreescribir explícitamente esta variable.
+ENV SPRING_PROFILES_ACTIVE=prod
+
 EXPOSE 8080
 
 ENTRYPOINT ["java", "-jar", "app.jar"]

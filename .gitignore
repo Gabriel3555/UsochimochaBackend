@@ -44,4 +44,9 @@ scripts/*.sql
 ### Runtime uploads (documentos vehículo, etc.) ###
 /uploads/**
 
-### Runtime uploads folder root glob (safety)backend.log
+### Runtime uploads folder root glob (safety)
+backend.log
+
+### Artifacts que no deben subirse al repo ###
+/*.jar
+*.log
