@@ -33,6 +33,11 @@ public class ExcelGenerationService {
     private static String formatExecutionTime(Object orderResponse) {
         if (orderResponse == null) return "—";
         try {
+            try {
+                String ts = (String) orderResponse.getClass().getMethod("timeSpent").invoke(orderResponse);
+                if (ts != null && !ts.isBlank()) return ts;
+            } catch (NoSuchMethodException ignored) {}
+
             Integer hours = (Integer) orderResponse.getClass().getMethod("hoursSpent").invoke(orderResponse);
             Integer minutes = (Integer) orderResponse.getClass().getMethod("minutesSpent").invoke(orderResponse);
 
