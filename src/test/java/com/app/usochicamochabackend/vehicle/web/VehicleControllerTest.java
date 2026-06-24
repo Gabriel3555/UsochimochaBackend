@@ -3,7 +3,7 @@ package com.app.usochicamochabackend.vehicle.web;
 import com.app.usochicamochabackend.auth.utils.JwtUtils;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleRequest;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleResponse;
-import com.app.usochicamochabackend.vehicle.application.port.VehicleUseCase;
+import com.app.usochicamochabackend.vehicle.application.service.VehicleService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,7 +36,7 @@ class VehicleControllerTest {
     private MockMvc mockMvc;
 
     @MockBean
-    private VehicleUseCase vehicleUseCase;
+    private VehicleService vehicleService;
 
     @MockBean
     private JwtUtils jwtUtils;
@@ -55,7 +55,7 @@ class VehicleControllerTest {
     @Test
     @WithMockUser
     void getAllVehicles_DebeRetornar200ConLista() throws Exception {
-        when(vehicleUseCase.findAllVehicles()).thenReturn(List.of(RESPONSE_MOCK));
+        when(vehicleService.findAllVehicles()).thenReturn(List.of(RESPONSE_MOCK));
 
         mockMvc.perform(get("/api/v1/vehicle"))
                 .andExpect(status().isOk())
@@ -68,7 +68,7 @@ class VehicleControllerTest {
     @Test
     @WithMockUser
     void getByPlaca_CuandoExiste_DebeRetornar200() throws Exception {
-        when(vehicleUseCase.findByPlaca("ABC123")).thenReturn(RESPONSE_MOCK);
+        when(vehicleService.findByPlaca("ABC123")).thenReturn(RESPONSE_MOCK);
 
         mockMvc.perform(get("/api/v1/vehicle/ABC123"))
                 .andExpect(status().isOk())
@@ -78,7 +78,7 @@ class VehicleControllerTest {
     @Test
     @WithMockUser
     void getByPlaca_CuandoNoExiste_DebeRetornar404() throws Exception {
-        when(vehicleUseCase.findByPlaca("NOEXISTE"))
+        when(vehicleService.findByPlaca("NOEXISTE"))
                 .thenThrow(new ResponseStatusException(NOT_FOUND, "Vehículo no encontrado con placa: NOEXISTE"));
 
         mockMvc.perform(get("/api/v1/vehicle/NOEXISTE"))
@@ -90,7 +90,7 @@ class VehicleControllerTest {
     @Test
     @WithMockUser
     void createVehicle_ConDatosValidos_DebeRetornar201() throws Exception {
-        when(vehicleUseCase.createVehicle(any())).thenReturn(RESPONSE_MOCK);
+        when(vehicleService.createVehicle(any())).thenReturn(RESPONSE_MOCK);
 
         mockMvc.perform(post("/api/v1/vehicle")
                         .with(csrf())
@@ -103,7 +103,7 @@ class VehicleControllerTest {
     @Test
     @WithMockUser
     void createVehicle_PlacaDuplicada_DebeRetornar400() throws Exception {
-        when(vehicleUseCase.createVehicle(any()))
+        when(vehicleService.createVehicle(any()))
                 .thenThrow(new ResponseStatusException(BAD_REQUEST, "Ya existe un vehículo con esta placa"));
 
         mockMvc.perform(post("/api/v1/vehicle")
@@ -142,7 +142,7 @@ class VehicleControllerTest {
     @Test
     @WithMockUser
     void updateVehicle_ConDatosValidos_DebeRetornar200() throws Exception {
-        when(vehicleUseCase.updateVehicle(eq(1), any())).thenReturn(RESPONSE_MOCK);
+        when(vehicleService.updateVehicle(eq(1), any())).thenReturn(RESPONSE_MOCK);
 
         mockMvc.perform(put("/api/v1/vehicle/1")
                         .with(csrf())
@@ -155,7 +155,7 @@ class VehicleControllerTest {
     @Test
     @WithMockUser
     void updateVehicle_CuandoNoExiste_DebeRetornar404() throws Exception {
-        when(vehicleUseCase.updateVehicle(eq(99), any()))
+        when(vehicleService.updateVehicle(eq(99), any()))
                 .thenThrow(new ResponseStatusException(NOT_FOUND, "Vehículo no encontrado"));
 
         mockMvc.perform(put("/api/v1/vehicle/99")
@@ -170,7 +170,7 @@ class VehicleControllerTest {
     @Test
     @WithMockUser
     void deleteVehicle_CuandoExiste_DebeRetornar204() throws Exception {
-        doNothing().when(vehicleUseCase).deleteVehicle(1);
+        doNothing().when(vehicleService).deleteVehicle(1);
 
         mockMvc.perform(delete("/api/v1/vehicle/1").with(csrf()))
                 .andExpect(status().isNoContent());
@@ -180,7 +180,7 @@ class VehicleControllerTest {
     @WithMockUser
     void deleteVehicle_CuandoNoExiste_DebeRetornar404() throws Exception {
         doThrow(new ResponseStatusException(NOT_FOUND, "Vehículo no encontrado"))
-                .when(vehicleUseCase).deleteVehicle(99);
+                .when(vehicleService).deleteVehicle(99);
 
         mockMvc.perform(delete("/api/v1/vehicle/99").with(csrf()))
                 .andExpect(status().isNotFound());

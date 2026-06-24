@@ -29,6 +29,9 @@ class VehicleServiceTest {
     @Mock
     private UbicacionRepository ubicacionRepository;
 
+    @Mock
+    private com.app.usochicamochabackend.actions.application.port.SaveActionUseCase saveActionUseCase;
+
     @InjectMocks
     private VehicleService vehicleService;
 
@@ -73,7 +76,7 @@ class VehicleServiceTest {
         entity.setBelongsTo("Distrito");
         entity.setActivo(true);
 
-        when(vehicleRepository.findVehicleDetailByPlaca("ABC123")).thenReturn(Optional.of(entity));
+        when(vehicleRepository.findActiveByPlaca("ABC123")).thenReturn(Optional.of(entity));
 
         VehicleResponse result = vehicleService.findByPlaca("ABC123");
 
@@ -82,7 +85,7 @@ class VehicleServiceTest {
 
     @Test
     void findByPlaca_CuandoNoExiste_DebeLanzarNotFound() {
-        when(vehicleRepository.findVehicleDetailByPlaca("NOEXISTE")).thenReturn(Optional.empty());
+        when(vehicleRepository.findActiveByPlaca("NOEXISTE")).thenReturn(Optional.empty());
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                 () -> vehicleService.findByPlaca("NOEXISTE"));
@@ -94,7 +97,9 @@ class VehicleServiceTest {
 
     @Test
     void createVehicle_CuandoPlacaDuplicada_DebeLanzarBadRequest() {
-        when(vehicleRepository.findByPlaca("ABC123")).thenReturn(Optional.of(new VehicleEntity()));
+        VehicleEntity existing = new VehicleEntity();
+        existing.setActivo(true);
+        when(vehicleRepository.findByPlaca("ABC123")).thenReturn(Optional.of(existing));
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                 () -> vehicleService.createVehicle(requestValido));
@@ -133,7 +138,7 @@ class VehicleServiceTest {
             e.setIdVehiculo(5);
             return e;
         });
-        when(vehicleRepository.findVehicleDetailByPlaca("ABC123")).thenReturn(Optional.of(entity));
+        when(vehicleRepository.findActiveByPlaca("ABC123")).thenReturn(Optional.of(entity));
 
         VehicleResponse result = vehicleService.createVehicle(requestValido);
 
@@ -146,7 +151,7 @@ class VehicleServiceTest {
 
     @Test
     void updateVehicle_CuandoVehiculoNoExiste_DebeLanzarNotFound() {
-        when(vehicleRepository.findById(99)).thenReturn(Optional.empty());
+        when(vehicleRepository.findActiveById(99)).thenReturn(Optional.empty());
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                 () -> vehicleService.updateVehicle(99, requestValido));
@@ -164,7 +169,7 @@ class VehicleServiceTest {
         otro.setIdVehiculo(2);
         otro.setPlaca("ABC123");
 
-        when(vehicleRepository.findById(1)).thenReturn(Optional.of(existente));
+        when(vehicleRepository.findActiveById(1)).thenReturn(Optional.of(existente));
         when(vehicleRepository.findByPlaca("ABC123")).thenReturn(Optional.of(otro));
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,

@@ -60,15 +60,24 @@ class DocumentAlertCalculatorTest {
     }
 
     @Test
-    @DisplayName("EXTINTOR: Debe retornar ROJO si está en mes y medio antes")
+    @DisplayName("EXTINTOR: Debe retornar AMARILLO si vence el próximo mes")
     void testExtintorProximo() {
-        // Si estamos en junio 2026, extintor vencimiento julio 2026 = mes y medio antes
         LocalDate hoy = LocalDate.now();
         LocalDate extintorProximo = hoy.plusMonths(1);
         var result = DocumentAlertCalculator.calculateDocumentAlert("EXTINTOR", extintorProximo);
 
-        // Debería ser ROJO en la lógica de mes y medio
-        assertTrue("ROJO".equals(result.colorEstado) || "VERDE".equals(result.colorEstado));
+        // Un mes antes del vencimiento = AMARILLO según la lógica del calculador
+        assertEquals("AMARILLO", result.colorEstado);
+    }
+
+    @Test
+    @DisplayName("EXTINTOR: Debe retornar VERDE si vence en más de un mes")
+    void testExtintorEnBuenEstado() {
+        LocalDate hoy = LocalDate.now();
+        LocalDate extintorLejos = hoy.plusMonths(3);
+        var result = DocumentAlertCalculator.calculateDocumentAlert("EXTINTOR", extintorLejos);
+
+        assertEquals("VERDE", result.colorEstado);
     }
 
     @Test

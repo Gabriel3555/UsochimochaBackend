@@ -3,6 +3,7 @@ package com.app.usochicamochabackend.moto.web;
 import com.app.usochicamochabackend.auth.utils.JwtUtils;
 import com.app.usochicamochabackend.moto.application.dto.*;
 import com.app.usochicamochabackend.update.application.service.ExcelGenerationService;
+import com.app.usochicamochabackend.update.application.service.VehicleOilChangeService;
 import com.app.usochicamochabackend.moto.application.port.MotoMonitoringUseCase;
 import com.app.usochicamochabackend.moto.application.service.MotoService;
 import com.app.usochicamochabackend.vehicleinspection.application.port.GetVehicleInspectionsUseCase;
@@ -47,6 +48,9 @@ class MotoControllerTest {
 
     @MockBean
     private ExcelGenerationService excelGenerationService;
+
+    @MockBean
+    private VehicleOilChangeService vehicleOilChangeService;
 
     @Autowired
     private ObjectMapper objectMapper;
