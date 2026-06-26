@@ -4,7 +4,7 @@
 -- 2. Cambio de aceite vehículos (por kilometraje)
 -- 3. Cambio de aceite maquinaria (por horómetro)
 
-CREATE TABLE preventive_alerts (
+CREATE TABLE IF NOT EXISTS preventive_alerts (
     id BIGSERIAL PRIMARY KEY,
     asset_id VARCHAR(50) NOT NULL,
     asset_type VARCHAR(20) NOT NULL,
@@ -25,15 +25,15 @@ CREATE TABLE preventive_alerts (
 );
 
 -- Índices (específicos para preventive_alerts)
-CREATE INDEX idx_preventive_asset_id ON preventive_alerts(asset_id);
-CREATE INDEX idx_preventive_asset_type ON preventive_alerts(asset_type);
-CREATE INDEX idx_preventive_alert_type ON preventive_alerts(alert_type);
-CREATE INDEX idx_preventive_color_estado ON preventive_alerts(color_estado);
-CREATE INDEX idx_preventive_estado ON preventive_alerts(estado);
-CREATE INDEX idx_preventive_fecha_vencimiento ON preventive_alerts(fecha_vencimiento);
-CREATE INDEX idx_preventive_asset_type_estado ON preventive_alerts(asset_type, estado);
+CREATE INDEX IF NOT EXISTS idx_preventive_asset_id ON preventive_alerts(asset_id);
+CREATE INDEX IF NOT EXISTS idx_preventive_asset_type ON preventive_alerts(asset_type);
+CREATE INDEX IF NOT EXISTS idx_preventive_alert_type ON preventive_alerts(alert_type);
+CREATE INDEX IF NOT EXISTS idx_preventive_color_estado ON preventive_alerts(color_estado);
+CREATE INDEX IF NOT EXISTS idx_preventive_estado ON preventive_alerts(estado);
+CREATE INDEX IF NOT EXISTS idx_preventive_fecha_vencimiento ON preventive_alerts(fecha_vencimiento);
+CREATE INDEX IF NOT EXISTS idx_preventive_asset_type_estado ON preventive_alerts(asset_type, estado);
 
 -- Índice único para alertas activas: una alerta por activo/tipo
-CREATE UNIQUE INDEX idx_preventive_active_alert_unique
+CREATE UNIQUE INDEX IF NOT EXISTS idx_preventive_active_alert_unique
   ON preventive_alerts(asset_id, alert_type, alert_subtype, estado)
   WHERE status = true;
