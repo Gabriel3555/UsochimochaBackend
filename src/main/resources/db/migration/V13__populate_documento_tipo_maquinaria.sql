@@ -1,6 +1,3 @@
--- Populate tipo_maquinaria for document alerts
--- Set default value for existing document alerts
-UPDATE alerts
-SET tipo_maquinaria = 'DOCUMENTO'
-WHERE tipo_alerta LIKE 'DOCUMENTO_%'
-  AND tipo_maquinaria IS NULL;
+-- V13: La tabla 'alerts' (legado) fue reemplazada por 'preventive_alerts' (V15).
+-- No-op: preserva la secuencia de versiones. Seguro en BD nueva o existente.
+DO $$ BEGIN END $$;
