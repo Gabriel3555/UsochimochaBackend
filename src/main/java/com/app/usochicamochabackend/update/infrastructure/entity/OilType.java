@@ -7,7 +7,10 @@ package com.app.usochicamochabackend.update.infrastructure.entity;
  */
 public enum OilType {
     MOTOR("Aceite Motor"),
-    HYDRAULIC("Aceite Hidráulico");
+    HYDRAULIC("Aceite Hidráulico"),
+    MINERAL("Aceite Mineral"),
+    SEMI_SYNTHETIC("Aceite Semicintético"),
+    SYNTHETIC("Aceite Sintético");
 
     private final String displayName;
 
@@ -44,8 +47,12 @@ public enum OilType {
             return HYDRAULIC;
         }
 
+        if (normalized.equals("MINERAL")) return MINERAL;
+        if (normalized.equals("SEMISYNTHETIC") || normalized.contains("SEMI")) return SEMI_SYNTHETIC;
+        if (normalized.equals("SYNTHETIC") || normalized.equals("SINTETICO") || normalized.contains("SINT")) return SYNTHETIC;
+
         // Si no coincide, lanzar error descriptivo
         throw new IllegalArgumentException(
-                "Tipo de aceite no válido: '" + value + "'. Debe ser uno de: MOTOR, HYDRAULIC");
+                "Tipo de aceite no válido: '" + value + "'. Debe ser uno de: MOTOR, HYDRAULIC, MINERAL, SEMI_SYNTHETIC, SYNTHETIC");
     }
 }
