@@ -7,24 +7,24 @@
 
 -- ── Catálogos (sin dependencias) ────────────────────────────
 
-CREATE TABLE cat_marcas_modelos (
+CREATE TABLE IF NOT EXISTS cat_marcas_modelos (
     id_marca    SERIAL PRIMARY KEY,
     descripcion VARCHAR(255)
 );
 
-CREATE TABLE cat_tipos_vehiculo (
+CREATE TABLE IF NOT EXISTS cat_tipos_vehiculo (
     id_tipo_vehiculo SERIAL PRIMARY KEY,
     nombre_tipo      VARCHAR(255),
     activo           BOOLEAN
 );
 
-CREATE TABLE cat_ubicaciones (
+CREATE TABLE IF NOT EXISTS cat_ubicaciones (
     id_ubicacion     SERIAL PRIMARY KEY,
     nombre_ubicacion VARCHAR(255),
     activo           BOOLEAN
 );
 
-CREATE TABLE cat_areas (
+CREATE TABLE IF NOT EXISTS cat_areas (
     id_area     SERIAL PRIMARY KEY,
     nombre_area VARCHAR(255) UNIQUE,
     activo      BOOLEAN
@@ -32,7 +32,7 @@ CREATE TABLE cat_areas (
 
 -- ── Usuarios ────────────────────────────────────────────────
 
-CREATE TABLE users (
+CREATE TABLE IF NOT EXISTS users (
     id                   BIGSERIAL PRIMARY KEY,
     full_name            VARCHAR(255),
     status               BOOLEAN DEFAULT TRUE,
@@ -47,7 +47,7 @@ CREATE TABLE users (
 
 -- ── Vehículos ───────────────────────────────────────────────
 
-CREATE TABLE vehiculos (
+CREATE TABLE IF NOT EXISTS vehiculos (
     id_vehiculo                      SERIAL PRIMARY KEY,
     placa                            VARCHAR(255),
     id_marca                         INTEGER,
@@ -64,7 +64,7 @@ CREATE TABLE vehiculos (
 
 -- ── Máquinas ────────────────────────────────────────────────
 
-CREATE TABLE machines (
+CREATE TABLE IF NOT EXISTS machines (
     id                              BIGSERIAL PRIMARY KEY,
     name                            VARCHAR(255),
     model                           VARCHAR(255),
@@ -82,7 +82,7 @@ CREATE TABLE machines (
 
 -- ── Marcas de aceite / insumos ──────────────────────────────
 
-CREATE TABLE brands (
+CREATE TABLE IF NOT EXISTS brands (
     id     BIGSERIAL PRIMARY KEY,
     type   VARCHAR(255),
     name   VARCHAR(255),
@@ -91,7 +91,7 @@ CREATE TABLE brands (
 
 -- ── Repuestos ───────────────────────────────────────────────
 
-CREATE TABLE spare_parts (
+CREATE TABLE IF NOT EXISTS spare_parts (
     id       BIGSERIAL PRIMARY KEY,
     ref      VARCHAR(255),
     name     VARCHAR(255),
@@ -102,7 +102,7 @@ CREATE TABLE spare_parts (
 
 -- ── Mano de obra ────────────────────────────────────────────
 
-CREATE TABLE labor_force (
+CREATE TABLE IF NOT EXISTS labor_force (
     id           BIGSERIAL PRIMARY KEY,
     date         TIMESTAMP,
     price        NUMERIC(19,2),
@@ -114,7 +114,7 @@ CREATE TABLE labor_force (
 
 -- ── Resultados de órdenes ───────────────────────────────────
 
-CREATE TABLE results (
+CREATE TABLE IF NOT EXISTS results (
     id             BIGSERIAL PRIMARY KEY,
     date           TIMESTAMP,
     description    VARCHAR(255),
@@ -127,7 +127,7 @@ CREATE TABLE results (
 
 -- ── Inspecciones de maquinaria ──────────────────────────────
 
-CREATE TABLE inspections (
+CREATE TABLE IF NOT EXISTS inspections (
     id                              BIGSERIAL PRIMARY KEY,
     uuid                            VARCHAR(255),
     is_unexpected                   BOOLEAN,
@@ -153,7 +153,7 @@ CREATE TABLE inspections (
     user_id                         BIGINT
 );
 
-CREATE TABLE images (
+CREATE TABLE IF NOT EXISTS images (
     id            BIGSERIAL PRIMARY KEY,
     url           VARCHAR(255),
     inspection_id BIGINT
@@ -161,12 +161,12 @@ CREATE TABLE images (
 
 -- ── Órdenes de trabajo ──────────────────────────────────────
 
-CREATE TABLE order_counters (
+CREATE TABLE IF NOT EXISTS order_counters (
     module_code VARCHAR(5) PRIMARY KEY,
     last_value  INTEGER NOT NULL DEFAULT 0
 );
 
-CREATE TABLE orders (
+CREATE TABLE IF NOT EXISTS orders (
     id                    BIGSERIAL PRIMARY KEY,
     status                VARCHAR(255),
     date                  TIMESTAMP,
@@ -182,7 +182,7 @@ CREATE TABLE orders (
 
 -- ── Auditoría ───────────────────────────────────────────────
 
-CREATE TABLE actions_auditory (
+CREATE TABLE IF NOT EXISTS actions_auditory (
     id          BIGSERIAL PRIMARY KEY,
     details     VARCHAR(255),
     perfomer_id BIGINT
@@ -190,7 +190,7 @@ CREATE TABLE actions_auditory (
 
 -- ── Documentación de vehículos ──────────────────────────────
 
-CREATE TABLE documentacion_y_elementos (
+CREATE TABLE IF NOT EXISTS documentacion_y_elementos (
     id_documento   SERIAL PRIMARY KEY,
     id_vehiculo    INTEGER,
     tipo_documento VARCHAR(50),
@@ -207,7 +207,7 @@ CREATE TABLE documentacion_y_elementos (
 
 -- ── Inspección pre-operativa de vehículos ───────────────────
 
-CREATE TABLE inspeccion_pre_operativa (
+CREATE TABLE IF NOT EXISTS inspeccion_pre_operativa (
     id_inspeccion        BIGSERIAL PRIMARY KEY,
     fecha_registro       TIMESTAMP,
     id_vehiculo          INTEGER,
@@ -219,7 +219,7 @@ CREATE TABLE inspeccion_pre_operativa (
     id_ubicacion         INTEGER
 );
 
-CREATE TABLE insp_detalle_mecanico (
+CREATE TABLE IF NOT EXISTS insp_detalle_mecanico (
     id_mecanico       BIGSERIAL PRIMARY KEY,
     id_inspeccion     BIGINT,
     nivel_aceite      VARCHAR(20),
@@ -231,7 +231,7 @@ CREATE TABLE insp_detalle_mecanico (
     limpieza_general  VARCHAR(20)
 );
 
-CREATE TABLE insp_detalle_documentos (
+CREATE TABLE IF NOT EXISTS insp_detalle_documentos (
     id_doc_check  BIGSERIAL PRIMARY KEY,
     id_inspeccion BIGINT,
     check_soat    VARCHAR(20),
@@ -240,7 +240,7 @@ CREATE TABLE insp_detalle_documentos (
     check_extintor VARCHAR(20)
 );
 
-CREATE TABLE insp_detalle_elementos (
+CREATE TABLE IF NOT EXISTS insp_detalle_elementos (
     id_elementos         BIGSERIAL PRIMARY KEY,
     id_inspeccion        BIGINT,
     tiene_botiquin       BOOLEAN,
@@ -250,7 +250,7 @@ CREATE TABLE insp_detalle_elementos (
     tiene_gato_hidraulico VARCHAR(50)
 );
 
-CREATE TABLE insp_detalle_salud (
+CREATE TABLE IF NOT EXISTS insp_detalle_salud (
     id_salud                  BIGSERIAL PRIMARY KEY,
     id_inspeccion             BIGINT,
     salud_fisica              BOOLEAN,
@@ -263,7 +263,7 @@ CREATE TABLE insp_detalle_salud (
 
 -- ── Mantenimientos ──────────────────────────────────────────
 
-CREATE TABLE mantenimientos (
+CREATE TABLE IF NOT EXISTS mantenimientos (
     id                      BIGSERIAL PRIMARY KEY,
     fecha                   TIMESTAMP NOT NULL,
     id_vehiculo             INTEGER,
@@ -278,7 +278,7 @@ CREATE TABLE mantenimientos (
 
 -- ── Cambios de aceite ───────────────────────────────────────
 
-CREATE TABLE oil_changes (
+CREATE TABLE IF NOT EXISTS oil_changes (
     id                   BIGSERIAL PRIMARY KEY,
     date_stamp           TIMESTAMP,
     hydraulic_oil        BOOLEAN,
@@ -290,7 +290,7 @@ CREATE TABLE oil_changes (
     machine_id           BIGINT
 );
 
-CREATE TABLE vehicle_oil_changes (
+CREATE TABLE IF NOT EXISTS vehicle_oil_changes (
     id                BIGSERIAL PRIMARY KEY,
     date_stamp        TIMESTAMP,
     oil_type          VARCHAR(255),
@@ -308,13 +308,13 @@ CREATE TABLE vehicle_oil_changes (
 
 -- ── Combustible ─────────────────────────────────────────────
 
-CREATE TABLE fuel_stations (
+CREATE TABLE IF NOT EXISTS fuel_stations (
     id     BIGSERIAL PRIMARY KEY,
     name   VARCHAR(150) NOT NULL,
     status BOOLEAN NOT NULL DEFAULT TRUE
 );
 
-CREATE TABLE fuel_asset_config (
+CREATE TABLE IF NOT EXISTS fuel_asset_config (
     id                  BIGSERIAL PRIMARY KEY,
     asset_type          VARCHAR(10)  NOT NULL,
     asset_id            BIGINT       NOT NULL,
@@ -325,7 +325,7 @@ CREATE TABLE fuel_asset_config (
     UNIQUE (asset_type, asset_id)
 );
 
-CREATE TABLE fuel_logs (
+CREATE TABLE IF NOT EXISTS fuel_logs (
     id                     BIGSERIAL PRIMARY KEY,
     sync_id                VARCHAR(36) UNIQUE,
     asset_type             VARCHAR(10)  NOT NULL,
@@ -363,7 +363,7 @@ CREATE TABLE fuel_logs (
     created_at             TIMESTAMP    NOT NULL
 );
 
-CREATE TABLE fuel_stats_monthly (
+CREATE TABLE IF NOT EXISTS fuel_stats_monthly (
     id            BIGSERIAL PRIMARY KEY,
     year_month    VARCHAR(7)  NOT NULL,
     asset_type    VARCHAR(10) NOT NULL,
@@ -376,4 +376,42 @@ CREATE TABLE fuel_stats_monthly (
     UNIQUE (year_month, asset_type, fuel_type)
 );
 
-CREATE INDEX idx_fuel_stats_year_month_asset ON fuel_stats_monthly (year_month, asset_type);
+CREATE INDEX IF NOT EXISTS idx_fuel_stats_year_month_asset ON fuel_stats_monthly (year_month, asset_type);
+
+-- ── Columnas nuevas en tablas que pueden existir en BD de producción antigua ──
+-- Estas sentencias son seguras: no hacen nada si la columna ya existe.
+
+-- orders: columnas de consecutivo y tipo de orden (nuevas funcionalidades)
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS consecutive    VARCHAR(20);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_type     VARCHAR(50);
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS maintenance_type VARCHAR(30);
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'orders'::regclass AND contype = 'u' AND conname LIKE '%consecutive%'
+    ) THEN
+        ALTER TABLE orders ADD CONSTRAINT orders_consecutive_unique UNIQUE (consecutive);
+    END IF;
+END$$;
+
+-- vehiculos: columnas de rendimiento de combustible
+ALTER TABLE vehiculos ADD COLUMN IF NOT EXISTS fuel_tank_capacity_gallons       NUMERIC(8,3);
+ALTER TABLE vehiculos ADD COLUMN IF NOT EXISTS factory_efficiency_km_per_gallon NUMERIC(8,2);
+ALTER TABLE vehiculos ADD COLUMN IF NOT EXISTS factory_efficiency_unit           VARCHAR(30);
+
+-- machines: columnas de rendimiento de combustible y horómetro
+ALTER TABLE machines ADD COLUMN IF NOT EXISTS fuel_tank_capacity_gallons      NUMERIC(8,3);
+ALTER TABLE machines ADD COLUMN IF NOT EXISTS factory_efficiency_gal_per_hour NUMERIC(8,2);
+ALTER TABLE machines ADD COLUMN IF NOT EXISTS factory_efficiency_unit          VARCHAR(30);
+ALTER TABLE machines ADD COLUMN IF NOT EXISTS horometro_actual                 INTEGER;
+
+-- oil_changes: columna de horómetro en el momento del cambio
+ALTER TABLE oil_changes ADD COLUMN IF NOT EXISTS hour_stamp INTEGER;
+
+-- results: columnas de tiempo detallado (horas/minutos)
+ALTER TABLE results ADD COLUMN IF NOT EXISTS hours_spent   INTEGER;
+ALTER TABLE results ADD COLUMN IF NOT EXISTS minutes_spent INTEGER;
+
+-- spare_parts: columna de proveedor
+ALTER TABLE spare_parts ADD COLUMN IF NOT EXISTS supplier VARCHAR(200);
