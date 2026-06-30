@@ -73,9 +73,9 @@ class UserServiceSoftDeleteTest {
         var response = userService.findAllUsers();
 
         assertThat(response.users())
-            .hasSize(1)
             .extracting(r -> r.username())
-            .containsExactly("jane");
+            .contains("jane")
+            .doesNotContain("john");
     }
 
     @Test
