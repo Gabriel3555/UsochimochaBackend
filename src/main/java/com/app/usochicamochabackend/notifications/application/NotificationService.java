@@ -22,7 +22,6 @@ public class NotificationService {
      */
     public void notifyInspection(String inspectionData) {
         if (inspectionData != null) {
-            log.debug("Sending inspection WebSocket notification: {}", inspectionData);
             webSocketHandler.broadcastInspection(inspectionData);
             recordNotificationStats("inspection");
         }
@@ -33,7 +32,6 @@ public class NotificationService {
      */
     public void notifyOilChange(String oilChangeData) {
         if (oilChangeData != null) {
-            log.debug("Sending oil change WebSocket notification: {}", oilChangeData);
             webSocketHandler.broadcastOilChange(oilChangeData);
             recordNotificationStats("oil-change");
         }
@@ -44,7 +42,6 @@ public class NotificationService {
      */
     public void notifyUser(String username, String notification) {
         if (notification != null && username != null) {
-            log.debug("Sending user-specific WebSocket notification to {}: {}", username, notification);
             webSocketHandler.sendToUser(username, notification);
             recordNotificationStats("user-specific");
         }
@@ -55,7 +52,6 @@ public class NotificationService {
      */
     public void notifyConnectionStatus(String status) {
         if (status != null) {
-            log.debug("Sending connection status: {}", status);
             webSocketHandler.sendConnectionStatus(status);
             recordNotificationStats("connection-status");
         }
@@ -80,7 +76,6 @@ public class NotificationService {
      */
     public void resetNotificationStats() {
         notificationStats.clear();
-        log.debug("Notification statistics reset");
     }
 
     /**
@@ -88,7 +83,6 @@ public class NotificationService {
      */
     public void notifySoatRunt(String soatRuntData) {
         if (soatRuntData != null) {
-            log.debug("Sending SOAT/RUNT WebSocket notification: {}", soatRuntData);
             webSocketHandler.broadcastSoatRuntNotification(soatRuntData);
             recordNotificationStats("soat-runt");
         }
@@ -99,7 +93,6 @@ public class NotificationService {
      */
     public void notifySoatRuntStreamStatus(String status) {
         if (status != null) {
-            log.debug("Sending SOAT/RUNT stream status WebSocket notification: {}", status);
             webSocketHandler.broadcastSoatRuntStreamStatus(status);
             recordNotificationStats("soat-runt-stream");
         }
@@ -110,7 +103,6 @@ public class NotificationService {
      */
     public void notifyDataUpdate(String message) {
         if (message != null) {
-            log.debug("Sending data update WebSocket notification: {}", message);
             webSocketHandler.broadcastDataUpdate(message);
             recordNotificationStats("data-update");
         }
@@ -118,7 +110,6 @@ public class NotificationService {
 
     public void notifyFuelAnomaly(String anomalyData) {
         if (anomalyData != null) {
-            log.debug("Sending fuel anomaly WebSocket notification: {}", anomalyData);
             webSocketHandler.broadcastFuelAnomaly(anomalyData);
             recordNotificationStats("fuel-anomaly");
         }
@@ -129,7 +120,6 @@ public class NotificationService {
      */
     public void notifySoatRuntUser(String username, String soatRuntData) {
         if (soatRuntData != null && username != null) {
-            log.debug("Sending SOAT/RUNT WebSocket notification to user {}: {}", username, soatRuntData);
             webSocketHandler.sendSoatRuntToUser(username, soatRuntData);
             recordNotificationStats("soat-runt-user");
         }
@@ -140,7 +130,6 @@ public class NotificationService {
      */
     public void notifyDocumentExpiry(String message) {
         if (message != null) {
-            log.info("Sending document expiry alert WebSocket notification: {}", message);
             webSocketHandler.broadcastDataUpdate(message);
             recordNotificationStats("document-expiry");
         }
@@ -152,7 +141,6 @@ public class NotificationService {
      */
     public void notifyPreventiveAlert(Object alertData) {
         if (alertData != null) {
-            log.info("📢 Enviando alerta preventiva: {}", alertData);
             messagingTemplate.convertAndSend("/topic/alerts", alertData);
             recordNotificationStats("preventive-alert");
         }

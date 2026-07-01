@@ -55,7 +55,6 @@ public class PreventiveAlertCalculationService {
      */
     @Transactional
     public void calculateAndEmitAlerts() {
-        log.info("🔔 === INICIANDO CÁLCULO DE ALERTAS PREVENTIVAS ===");
 
         try {
             cleanupGreenAlerts();
@@ -63,7 +62,6 @@ public class PreventiveAlertCalculationService {
             calculateOilChangeVehicleAlerts();
             calculateOilChangeMachineAlerts();
             calculateLicenseAlerts();
-            log.info("✅ === ALERTAS CALCULADAS EXITOSAMENTE ===");
         } catch (Exception e) {
             log.error("❌ Error calculando alertas: {}", e.getMessage(), e);
         }
@@ -74,22 +72,16 @@ public class PreventiveAlertCalculationService {
     // ─────────────────────────────────────────────────────────────────────────
 
     private void calculateDocumentAlerts() {
-        log.info("📄 Calculando alertas de DOCUMENTOS...");
-
         var allDocs = documentacionRepository.findAll().stream()
             .filter(doc -> Boolean.TRUE.equals(doc.getActivo()))
             .filter(doc -> doc.getFechaVencimiento() != null)
             .toList();
 
-        log.info("📄 Total documentos activos con fecha de vencimiento: {}", allDocs.size());
 
         var allDocsCount = documentacionRepository.findAll().size();
-        log.info("📄 Total documentos en BD (sin filtros): {}", allDocsCount);
 
         for (var doc : allDocs) {
             try {
-                log.debug("📄 Procesando documento: tipo={}, vencimiento={}, activo={}",
-                    doc.getTipoDocumento(), doc.getFechaVencimiento(), doc.getActivo());
 
                 // Usar DocumentAlertCalculator
                 var result = DocumentAlertCalculator.calculateDocumentAlert(
@@ -97,11 +89,9 @@ public class PreventiveAlertCalculationService {
                     doc.getFechaVencimiento()
                 );
 
-                log.debug("📄 Resultado: color={}, dias={}", result.colorEstado, result.diasRestantes);
 
                 // Si es VERDE, no guardar
                 if ("VERDE".equals(result.colorEstado)) {
-                    log.debug("📄 Alerta VERDE - no se guarda");
                     continue;
                 }
 
@@ -115,8 +105,6 @@ public class PreventiveAlertCalculationService {
 
                 // Guardar o actualizar en BD (usar placa del vehículo, no ID)
                 String assetId = doc.getVehiculo() != null ? doc.getVehiculo().getPlaca() : doc.getIdVehiculo().toString();
-                log.info("📄 Guardando alerta: assetId={}, tipo={}, color={}, descripcion={}",
-                    assetId, doc.getTipoDocumento(), result.colorEstado, result.descripcion);
 
                 saveOrUpdateAlert(
                     assetId,
@@ -141,13 +129,11 @@ public class PreventiveAlertCalculationService {
     // ─────────────────────────────────────────────────────────────────────────
 
     private void calculateOilChangeVehicleAlerts() {
-        log.info("🛢️ Calculando alertas de CAMBIO DE ACEITE (vehículos por KM)...");
 
         var vehicles = vehicleRepository.findAll().stream()
             .filter(v -> Boolean.TRUE.equals(v.getActivo()))
             .toList();
 
-        log.debug("Total vehículos activos: {}", vehicles.size());
 
         for (var vehicle : vehicles) {
             try {
@@ -169,7 +155,7 @@ public class PreventiveAlertCalculationService {
                         "OIL_CHANGE_VEHICLE",
                         null,
                         "VERDE",
-                        "ℹ️ PRIMER CAMBIO DE ACEITE RECOMENDADO",
+                        "PRIMER CAMBIO DE ACEITE RECOMENDADO",
                         null,
                         "KILOMETROS",
                         0.0,
@@ -226,13 +212,10 @@ public class PreventiveAlertCalculationService {
     // ─────────────────────────────────────────────────────────────────────────
 
     private void calculateOilChangeMachineAlerts() {
-        log.info("🛢️ Calculando alertas de CAMBIO DE ACEITE (maquinaria por HORAS)...");
 
         var machines = machineRepository.findAll().stream()
             .filter(m -> Boolean.TRUE.equals(m.getStatus()))
             .toList();
-
-        log.debug("Total máquinas activas: {}", machines.size());
 
         for (var machine : machines) {
             try {
@@ -248,7 +231,6 @@ public class PreventiveAlertCalculationService {
 
     private void calculateMachineOilAlert(MachineEntity machine, boolean isMotorOil) {
         String oilType = isMotorOil ? "MOTOR" : "HYDRAULIC";
-        log.info("🛢️ Procesando máquina {} - Tipo de aceite: {}", machine.getName(), oilType);
 
         // IMPORTANTE: Usar el horómetro de la ÚLTIMA INSPECCIÓN (como lo hace MachineMonitoringService)
         var lastInspection = inspectionRepository.getLastInspection(machine.getId());
@@ -256,18 +238,13 @@ public class PreventiveAlertCalculationService {
             ? lastInspection.getHourMeter().intValue()
             : (machine.getHorometroActual() != null ? machine.getHorometroActual() : 0);
 
-        log.info("🛢️ {} - Horómetro actual: {} (from inspection: {})",
-            machine.getName(), horometroActual, lastInspection != null);
-
         // Obtener último cambio usando OilChangeRepository
         var lastChange = isMotorOil
             ? machineOilChangeRepository.getLastMotorOilChangeByMachineId(machine.getId())
             : machineOilChangeRepository.getLastHydraulicOilChangeByMachineId(machine.getId());
 
-        log.info("🛢️ {} - Último cambio {}: {}", machine.getName(), oilType, lastChange != null ? "ENCONTRADO" : "NO ENCONTRADO");
 
         if (lastChange == null || lastChange.getHourStamp() == null) {
-            log.info("🛢️ {} - Sin historial, creando alerta de PRIMER CAMBIO", machine.getName());
             // Sin historial = alerta VERDE de "PRIMER CAMBIO" (informativo)
             saveOrUpdateAlert(
                 machine.getName(),
@@ -287,10 +264,7 @@ public class PreventiveAlertCalculationService {
         Integer hourStamp = lastChange.getHourStamp();
         Integer intervalHours = lastChange.getAverageHoursChange();
 
-        log.info("🛢️ {} - intervalHours: {}", machine.getName(), intervalHours);
-
         if (intervalHours == null || intervalHours <= 0) {
-            log.info("🛢️ {} - Intervalo inválido, creando alerta de PRIMER CAMBIO", machine.getName());
             // Intervalo inválido = alerta VERDE (informativo)
             saveOrUpdateAlert(
                 machine.getName(),
@@ -315,12 +289,8 @@ public class PreventiveAlertCalculationService {
             oilType
         );
 
-        log.info("🛢️ {} - Resultado: color={}, porcentaje={:.1f}%, horas restantes={}",
-            machine.getName(), result.colorEstado, result.percentageUsed, result.horasRemaining);
-
         // Si es VERDE, no guardar
         if ("VERDE".equals(result.colorEstado)) {
-            log.debug("🛢️ {} - Alerta VERDE, eliminando si existe", machine.getName());
             alertRepository.deleteActiveAlertForAsset(
                 machine.getName(),
                 "OIL_CHANGE_MACHINE"
@@ -329,7 +299,6 @@ public class PreventiveAlertCalculationService {
         }
 
         // Guardar AMARILLO o ROJO
-        log.info("🛢️ {} - Guardando alerta {}: {}", machine.getName(), result.colorEstado, result.descripcion);
         saveOrUpdateAlert(
             machine.getName(),
             "MAQUINARIA",
@@ -349,7 +318,6 @@ public class PreventiveAlertCalculationService {
     // ─────────────────────────────────────────────────────────────────────────
 
     private void calculateLicenseAlerts() {
-        log.info("🪪 Calculando alertas de LICENCIA DE CONDUCCIÓN...");
 
         LocalDate threshold = LocalDate.now().plusDays(45);
         var usersWithExpiry = userRepository.findAll().stream()
@@ -359,7 +327,6 @@ public class PreventiveAlertCalculationService {
             .filter(u -> !u.getLicenseExpiry().isBefore(LocalDate.now()))
             .toList();
 
-        log.debug("Usuarios con licencia próxima a vencer: {}", usersWithExpiry.size());
 
         for (var user : usersWithExpiry) {
             try {
@@ -417,7 +384,6 @@ public class PreventiveAlertCalculationService {
             alert.setMetricValue(metricValue);
             alert.setPercentageUsed(percentageUsed);
             alert.setFechaActualizacion(LocalDateTime.now());
-            log.debug("📝 Actualizando alerta: {} - {}", assetId, alertType);
         } else {
             alert = PreventiveAlertEntity.builder()
                 .assetId(assetId)
@@ -434,7 +400,6 @@ public class PreventiveAlertCalculationService {
                 .fechaCreacion(LocalDateTime.now())
                 .status(true)
                 .build();
-            log.debug("✨ Creando nueva alerta: {} - {}", assetId, alertType);
         }
 
         alertRepository.save(alert);
@@ -447,6 +412,5 @@ public class PreventiveAlertCalculationService {
 
     private void cleanupGreenAlerts() {
         alertRepository.deleteGreenAlerts();
-        log.debug("🧹 Alertas VERDES limpiadas");
     }
 }
