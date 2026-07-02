@@ -37,10 +37,10 @@ jobs:
           retention-days: 7
 
   # ──────────────────────────────────────────────────────────────
-  # CD: solo cuando se hace merge/push a main
+  # CD: solo cuando se hace merge/push a main → despliega a PRODUCCIÓN
   # ──────────────────────────────────────────────────────────────
   build-and-deploy:
-    name: Build & Deploy
+    name: Build & Deploy (PROD)
     needs: test
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
@@ -82,3 +82,50 @@ jobs:
             sudo systemctl is-active --quiet usochicamocha-backend \
               && echo "Servicio activo correctamente" \
               || (sudo journalctl -u usochicamocha-backend --no-pager -n 30 && exit 1)
+
+  # ──────────────────────────────────────────────────────────────
+  # CD: solo cuando se hace push a test → despliega a TEST/QA
+  # ──────────────────────────────────────────────────────────────
+  deploy-test:
+    name: Build & Deploy (TEST)
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/test' && github.event_name == 'push'
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar Java 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Construir JAR
+        run: mvn clean package --no-transfer-progress -DskipTests
+
+      - name: Copiar JAR al VPS (entorno TEST)
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "target/usochicamocha-backend.jar"
+          target: "/opt/usochicamocha/test-back/"
+          strip_components: 1
+
+      - name: Renombrar JAR y reiniciar servicio TEST
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            mv /opt/usochicamocha/test-back/usochicamocha-backend.jar /opt/usochicamocha/test-back/api-test.jar
+            sudo systemctl restart usochicamocha-backend-test
+            sleep 5
+            sudo systemctl is-active --quiet usochicamocha-backend-test \
+              && echo "Servicio TEST activo correctamente" \
+              || (sudo journalctl -u usochicamocha-backend-test --no-pager -n 30 && exit 1)
