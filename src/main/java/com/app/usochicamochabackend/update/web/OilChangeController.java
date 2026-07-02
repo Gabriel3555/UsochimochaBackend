@@ -30,7 +30,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/oil-changes")
+@RequestMapping({"/api/oil-changes", "/api/v1/oil-changes"})
 @RequiredArgsConstructor
 @Tag(name = "Oil Changes", description = "Operations related to motor and hydraulic oil changes")
 public class OilChangeController {

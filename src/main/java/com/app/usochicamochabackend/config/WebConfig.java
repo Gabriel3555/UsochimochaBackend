@@ -22,7 +22,6 @@ public class WebConfig implements WebMvcConfigurer {
                         "http://localhost:3000",
                         "https://usochicamocha.co",
                         "https://web.usochicamocha.co",
-                        "http://front-test.usochicamocha.co",
                         "https://front-test.usochicamocha.co"
                         )
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
