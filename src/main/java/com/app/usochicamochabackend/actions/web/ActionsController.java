@@ -21,7 +21,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api/actions")
+@RequestMapping({"/api/actions", "/api/v1/actions"})
 @RequiredArgsConstructor
 public class ActionsController {
 
