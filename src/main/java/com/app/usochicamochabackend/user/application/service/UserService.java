@@ -168,7 +168,10 @@ public class UserService implements
     @Override
     public UsersResponse findAllUsers() {
         List<UserEntity> userEntities = userRepository.findAllActive();
-        return UserMapper.toResponse(userEntities);
+        List<UserResponse> resolved = UserMapper.toResponse(userEntities).users().stream()
+                .map(this::resolveUserResponse)
+                .toList();
+        return new UsersResponse(resolved);
     }
 
     @Override
