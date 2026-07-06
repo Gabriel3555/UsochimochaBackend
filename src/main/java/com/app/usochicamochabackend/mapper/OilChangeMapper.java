@@ -27,6 +27,7 @@ public final class OilChangeMapper {
         entity.setBrand(brandEntity);
         entity.setQuantity(request.quantity());
         entity.setHourMeter(request.currentHourMeter());
+        entity.setHourStamp(request.currentHourMeter().intValue());
         entity.setAverageHoursChange(request.averageHoursChange());
         entity.setMachine(machine);
 
@@ -57,6 +58,7 @@ public final class OilChangeMapper {
         entity.setBrand(brandEntity);
         entity.setQuantity(request.quantity());
         entity.setHourMeter(request.currentHourMeter());
+        entity.setHourStamp(request.currentHourMeter().intValue());
         entity.setAverageHoursChange(request.averageHoursChange());
         entity.setMachine(machine);
 
