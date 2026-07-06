@@ -451,14 +451,10 @@ public class ExcelGenerationService {
             dataStyle.setBorderLeft(BorderStyle.THIN);
 
             String[] headers = {
-                "Área", "Placa", "Km Actual", "Fecha Último Reporte", "Días sin Reporte",
-                // Aceite
-                "Tipo Aceite", "Fecha Últ. Cambio Aceite", "Km Últ. Cambio Aceite",
-                "Km Próximo Cambio Aceite", "Km Restantes Aceite", "Estado Aceite",
-                // SOAT
-                "Vencimiento SOAT", "Días Restantes SOAT", "Estado SOAT",
-                // Tecno
-                "Vencimiento Tecnomecánica", "Días Restantes Tecno", "Estado Tecnomecánica"
+                "Pertenece a", "Placa", "Km Actual", "Días sin Reporte", "Fecha Último Reporte",
+                // Aceite Motor (igual al consolidado en pantalla)
+                "Marca", "Cant.", "Intervalo", "Fecha Últ. Cambio", "Km Últ. Cambio",
+                "Próximo Cambio", "Días desde Cambio", "Km Restantes", "Filtro Aire", "Estado"
             };
 
             Row headerRow = sheet.createRow(0);
@@ -476,26 +472,20 @@ public class ExcelGenerationService {
                 row.createCell(c++).setCellValue(dto.area() != null ? dto.area() : "");
                 row.createCell(c++).setCellValue(dto.placa() != null ? dto.placa() : "");
                 row.createCell(c++).setCellValue(dto.kmActual() != null ? dto.kmActual() : 0);
-                row.createCell(c++).setCellValue(dto.fechaUltimoReporte() != null ? dto.fechaUltimoReporte().format(DATETIME_FORMATTER) : "");
                 row.createCell(c++).setCellValue(dto.diasUltimoReporte() != null ? dto.diasUltimoReporte() : 0);
+                row.createCell(c++).setCellValue(dto.fechaUltimoReporte() != null ? dto.fechaUltimoReporte().format(DATETIME_FORMATTER) : "");
 
                 VehicleMonitoringDTO.OilStatus oil = dto.maintenance();
+                row.createCell(c++).setCellValue(oil != null && oil.brandName() != null ? oil.brandName() : "");
+                row.createCell(c++).setCellValue(oil != null && oil.quantity() != null ? oil.quantity() : 0);
+                row.createCell(c++).setCellValue(oil != null && oil.intervalKm() != null ? oil.intervalKm() : 0);
                 row.createCell(c++).setCellValue(oil != null && oil.fechaUltimoCambio() != null ? oil.fechaUltimoCambio().format(DATE_FORMATTER) : "");
                 row.createCell(c++).setCellValue(oil != null && oil.kmCambio() != null ? oil.kmCambio() : 0);
                 row.createCell(c++).setCellValue(oil != null && oil.kmProximoCambio() != null ? oil.kmProximoCambio() : 0);
+                row.createCell(c++).setCellValue(oil != null && oil.diasDesdeUltimoCambio() != null ? oil.diasDesdeUltimoCambio() : 0);
                 row.createCell(c++).setCellValue(oil != null && oil.kmParaProximo() != null ? oil.kmParaProximo() : 0);
                 row.createCell(c++).setCellValue(oil != null && oil.filtroAire() != null ? (oil.filtroAire() ? "Sí" : "No") : "");
                 row.createCell(c++).setCellValue(oil != null && oil.estado() != null ? oil.estado() : "");
-
-                VehicleMonitoringDTO.DocumentStatus soat = dto.soat();
-                row.createCell(c++).setCellValue(soat != null && soat.fechaVencimiento() != null ? soat.fechaVencimiento().format(DATE_FORMATTER) : "");
-                row.createCell(c++).setCellValue(soat != null && soat.diasRestantes() != null ? soat.diasRestantes() : 0);
-                row.createCell(c++).setCellValue(soat != null && soat.estado() != null ? soat.estado() : "");
-
-                VehicleMonitoringDTO.DocumentStatus tecno = dto.tecno();
-                row.createCell(c++).setCellValue(tecno != null && tecno.fechaVencimiento() != null ? tecno.fechaVencimiento().format(DATE_FORMATTER) : "");
-                row.createCell(c++).setCellValue(tecno != null && tecno.diasRestantes() != null ? tecno.diasRestantes() : 0);
-                row.createCell(c++).setCellValue(tecno != null && tecno.estado() != null ? tecno.estado() : "");
 
                 for (int i = 0; i < headers.length; i++) {
                     row.getCell(i).setCellStyle(dataStyle);
@@ -540,16 +530,10 @@ public class ExcelGenerationService {
             dataStyle.setBorderLeft(BorderStyle.THIN);
 
             String[] headers = {
-                "Departamento", "Ubicación Base", "Placa",
-                "Km Actual", "Estado Moto", "Novedad Actual",
-                "Fecha Último Reporte", "Días sin Reporte",
-                // Aceite
-                "Fecha Últ. Cambio Aceite", "Km Cambio Aceite", "Km Próximo Cambio Aceite",
-                "Km Restantes Aceite", "Filtro Aire", "Estado Aceite",
-                // SOAT
-                "Vencimiento SOAT", "Días Restantes SOAT", "Estado SOAT",
-                // Tecno
-                "Vencimiento Tecnomecánica", "Días Restantes Tecno", "Estado Tecnomecánica"
+                "Pertenece a", "Placa", "Km Actual", "Días sin Reporte", "Fecha Último Reporte",
+                // Aceite Motor (igual al consolidado en pantalla)
+                "Marca", "Cant.", "Intervalo", "Fecha Últ. Cambio", "Km Últ. Cambio",
+                "Próximo Cambio", "Días desde Cambio", "Km Restantes", "Filtro Aire", "Estado"
             };
 
             Row headerRow = sheet.createRow(0);
@@ -565,31 +549,22 @@ public class ExcelGenerationService {
                 int c = 0;
 
                 row.createCell(c++).setCellValue(dto.departamento() != null ? dto.departamento() : "");
-                row.createCell(c++).setCellValue(dto.ubicacionBase() != null ? dto.ubicacionBase() : "");
                 row.createCell(c++).setCellValue(dto.placa() != null ? dto.placa() : "");
                 row.createCell(c++).setCellValue(dto.kmActual() != null ? dto.kmActual() : 0);
-                row.createCell(c++).setCellValue(dto.estadoMoto() != null ? dto.estadoMoto() : "");
-                row.createCell(c++).setCellValue(dto.novedadActual() != null ? dto.novedadActual() : "");
-                row.createCell(c++).setCellValue(dto.fechaUltimoReporte() != null ? dto.fechaUltimoReporte().format(DATETIME_FORMATTER) : "");
                 row.createCell(c++).setCellValue(dto.diasUltimoReporte() != null ? dto.diasUltimoReporte() : 0);
+                row.createCell(c++).setCellValue(dto.fechaUltimoReporte() != null ? dto.fechaUltimoReporte().format(DATETIME_FORMATTER) : "");
 
                 MotoMonitoringDTO.OilStatus oil = dto.oil();
+                row.createCell(c++).setCellValue(oil != null && oil.brandName() != null ? oil.brandName() : "");
+                row.createCell(c++).setCellValue(oil != null && oil.quantity() != null ? oil.quantity() : 0);
+                row.createCell(c++).setCellValue(oil != null && oil.intervalKm() != null ? oil.intervalKm() : 0);
                 row.createCell(c++).setCellValue(oil != null && oil.fechaUltimoCambio() != null ? oil.fechaUltimoCambio().format(DATE_FORMATTER) : "");
                 row.createCell(c++).setCellValue(oil != null && oil.kmCambio() != null ? oil.kmCambio() : 0);
                 row.createCell(c++).setCellValue(oil != null && oil.kmProximoCambio() != null ? oil.kmProximoCambio() : 0);
+                row.createCell(c++).setCellValue(oil != null && oil.diasDesdeUltimoCambio() != null ? oil.diasDesdeUltimoCambio() : 0);
                 row.createCell(c++).setCellValue(oil != null && oil.kmParaProximo() != null ? oil.kmParaProximo() : 0);
                 row.createCell(c++).setCellValue(oil != null && oil.filtroAire() != null ? (oil.filtroAire() ? "Sí" : "No") : "");
                 row.createCell(c++).setCellValue(oil != null && oil.estado() != null ? oil.estado() : "");
-
-                MotoMonitoringDTO.DocumentStatus soat = dto.soat();
-                row.createCell(c++).setCellValue(soat != null && soat.fechaVencimiento() != null ? soat.fechaVencimiento().format(DATE_FORMATTER) : "");
-                row.createCell(c++).setCellValue(soat != null && soat.diasRestantes() != null ? soat.diasRestantes() : 0);
-                row.createCell(c++).setCellValue(soat != null && soat.estado() != null ? soat.estado() : "");
-
-                MotoMonitoringDTO.DocumentStatus tecno = dto.tecno();
-                row.createCell(c++).setCellValue(tecno != null && tecno.fechaVencimiento() != null ? tecno.fechaVencimiento().format(DATE_FORMATTER) : "");
-                row.createCell(c++).setCellValue(tecno != null && tecno.diasRestantes() != null ? tecno.diasRestantes() : 0);
-                row.createCell(c++).setCellValue(tecno != null && tecno.estado() != null ? tecno.estado() : "");
 
                 for (int i = 0; i < headers.length; i++) {
                     row.getCell(i).setCellStyle(dataStyle);
