@@ -3,9 +3,6 @@ package com.app.usochicamochabackend.notifications.application;
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
 import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
-import com.app.usochicamochabackend.notifications.application.dto.PreventiveAlertDTO;
-import com.app.usochicamochabackend.notifications.infrastructure.entity.PreventiveAlertEntity;
-import com.app.usochicamochabackend.notifications.infrastructure.repository.PreventiveAlertRepository;
 import com.app.usochicamochabackend.shared.calculator.DocumentAlertCalculator;
 import com.app.usochicamochabackend.shared.calculator.OilChangeMachineAlertCalculator;
 import com.app.usochicamochabackend.shared.calculator.OilChangeVehicleAlertCalculator;
@@ -24,7 +21,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.Optional;
 
 @Service
@@ -32,15 +28,14 @@ import java.util.Optional;
 @Slf4j
 public class PreventiveAlertCalculationService {
 
-    private final PreventiveAlertRepository alertRepository;
     private final VehicleRepository vehicleRepository;
     private final MachineRepository machineRepository;
     private final DocumentacionYElementosRepository documentacionRepository;
     private final UserRepositoryJpa userRepository;
     private final VehicleOilChangeRepository vehicleOilChangeRepository;
     private final OilChangeRepository machineOilChangeRepository;
-    private final NotificationService notificationService;
     private final InspectionRepository inspectionRepository;
+    private final PreventiveAlertPersistenceService preventiveAlertPersistenceService;
 
     /**
      * FUNCIÓN ÚNICA: Calcula TODAS las alertas preventivas del sistema.
@@ -53,7 +48,12 @@ public class PreventiveAlertCalculationService {
      * 4. Calcular alertas de CAMBIO ACEITE (maquinaria)
      * 5. Calcular alertas de LICENCIA (usuarios)
      */
-    @Transactional
+    /**
+     * Solo lectura: todas las escrituras de alertas se hacen en transacciones propias
+     * (REQUIRES_NEW) vía {@link PreventiveAlertPersistenceService}, para que un registro
+     * que falle al guardarse no revierta el lote completo calculado en este ciclo.
+     */
+    @Transactional(readOnly = true)
     public void calculateAndEmitAlerts() {
 
         try {
@@ -106,7 +106,7 @@ public class PreventiveAlertCalculationService {
                 // Guardar o actualizar en BD (usar placa del vehículo, no ID)
                 String assetId = doc.getVehiculo() != null ? doc.getVehiculo().getPlaca() : doc.getIdVehiculo().toString();
 
-                saveOrUpdateAlert(
+                preventiveAlertPersistenceService.saveOrUpdateAlert(
                     assetId,
                     assetType,
                     "DOCUMENTO",
@@ -149,7 +149,7 @@ public class PreventiveAlertCalculationService {
 
                 if (lastChange.isEmpty()) {
                     // Sin historial = alerta VERDE de "PRIMER CAMBIO" (informativo)
-                    saveOrUpdateAlert(
+                    preventiveAlertPersistenceService.saveOrUpdateAlert(
                         vehicle.getPlaca(),
                         assetType,
                         "OIL_CHANGE_VEHICLE",
@@ -181,7 +181,7 @@ public class PreventiveAlertCalculationService {
 
                 // Si es VERDE, no guardar
                 if ("VERDE".equals(result.colorEstado)) {
-                    alertRepository.deleteActiveAlertForAsset(
+                    preventiveAlertPersistenceService.deleteActiveAlertForAsset(
                         vehicle.getPlaca(),
                         "OIL_CHANGE_VEHICLE"
                     );
@@ -189,7 +189,7 @@ public class PreventiveAlertCalculationService {
                 }
 
                 // Guardar AMARILLO o ROJO
-                saveOrUpdateAlert(
+                preventiveAlertPersistenceService.saveOrUpdateAlert(
                     vehicle.getPlaca(),
                     assetType,
                     "OIL_CHANGE_VEHICLE",
@@ -246,7 +246,7 @@ public class PreventiveAlertCalculationService {
 
         if (lastChange == null || lastChange.getHourStamp() == null) {
             // Sin historial = alerta VERDE de "PRIMER CAMBIO" (informativo)
-            saveOrUpdateAlert(
+            preventiveAlertPersistenceService.saveOrUpdateAlert(
                 machine.getName(),
                 "MAQUINARIA",
                 "OIL_CHANGE_MACHINE",
@@ -266,7 +266,7 @@ public class PreventiveAlertCalculationService {
 
         if (intervalHours == null || intervalHours <= 0) {
             // Intervalo inválido = alerta VERDE (informativo)
-            saveOrUpdateAlert(
+            preventiveAlertPersistenceService.saveOrUpdateAlert(
                 machine.getName(),
                 "MAQUINARIA",
                 "OIL_CHANGE_MACHINE",
@@ -291,7 +291,7 @@ public class PreventiveAlertCalculationService {
 
         // Si es VERDE, no guardar
         if ("VERDE".equals(result.colorEstado)) {
-            alertRepository.deleteActiveAlertForAsset(
+            preventiveAlertPersistenceService.deleteActiveAlertForAsset(
                 machine.getName(),
                 "OIL_CHANGE_MACHINE"
             );
@@ -299,7 +299,7 @@ public class PreventiveAlertCalculationService {
         }
 
         // Guardar AMARILLO o ROJO
-        saveOrUpdateAlert(
+        preventiveAlertPersistenceService.saveOrUpdateAlert(
             machine.getName(),
             "MAQUINARIA",
             "OIL_CHANGE_MACHINE",
@@ -339,7 +339,7 @@ public class PreventiveAlertCalculationService {
                     continue;
                 }
 
-                saveOrUpdateAlert(
+                preventiveAlertPersistenceService.saveOrUpdateAlert(
                     user.getUsername(),
                     "USUARIO",
                     "DOCUMENTO",
@@ -358,59 +358,10 @@ public class PreventiveAlertCalculationService {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // GUARDAR O ACTUALIZAR ALERTA
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private void saveOrUpdateAlert(
-        String assetId,
-        String assetType,
-        String alertType,
-        String alertSubtype,
-        String colorEstado,
-        String descripcion,
-        LocalDate fechaVencimiento,
-        String metricType,
-        Double metricValue,
-        Double percentageUsed
-    ) {
-        // Buscar si ya existe alerta activa
-        var existing = alertRepository.findActiveAlertForAsset(assetId, alertType, alertSubtype);
-
-        PreventiveAlertEntity alert;
-        if (existing.isPresent()) {
-            alert = existing.get();
-            alert.setColorEstado(colorEstado);
-            alert.setDescripcion(descripcion);
-            alert.setMetricValue(metricValue);
-            alert.setPercentageUsed(percentageUsed);
-            alert.setFechaActualizacion(LocalDateTime.now());
-        } else {
-            alert = PreventiveAlertEntity.builder()
-                .assetId(assetId)
-                .assetType(assetType)
-                .alertType(alertType)
-                .alertSubtype(alertSubtype)
-                .colorEstado(colorEstado)
-                .estado("ACTIVA")
-                .descripcion(descripcion)
-                .fechaVencimiento(fechaVencimiento)
-                .metricType(metricType)
-                .metricValue(metricValue)
-                .percentageUsed(percentageUsed)
-                .fechaCreacion(LocalDateTime.now())
-                .status(true)
-                .build();
-        }
-
-        alertRepository.save(alert);
-        notificationService.notifyPreventiveAlert(PreventiveAlertDTO.fromEntity(alert));
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
     // HELPERS
     // ─────────────────────────────────────────────────────────────────────────
 
     private void cleanupGreenAlerts() {
-        alertRepository.deleteGreenAlerts();
+        preventiveAlertPersistenceService.cleanupGreenAlerts();
     }
 }
