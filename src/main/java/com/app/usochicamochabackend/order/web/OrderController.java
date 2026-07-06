@@ -149,14 +149,24 @@ public class OrderController {
         return ResponseEntity.ok().headers(headers).body(excelData);
     }
 
-    @Operation(summary = "Exportar órdenes de vehículos y motos a Excel")
+    @Operation(summary = "Exportar órdenes de vehículos y motos a Excel",
+            description = "Por defecto exporta ambos. Con `soloMotos=true` exporta únicamente las órdenes cuyo tipo de vehículo es MOTOCICLETA.")
     @GetMapping("/vehicle/export")
-    public ResponseEntity<byte[]> exportVehicleOrders() throws IOException {
+    public ResponseEntity<byte[]> exportVehicleOrders(
+            @RequestParam(defaultValue = "false") boolean soloMotos) throws IOException {
         List<OrderWithVehicleDTO> orders = getAllVehicleOrdersUseCase.getAllVehicleOrders(Pageable.unpaged()).getContent();
+
+        if (soloMotos) {
+            orders = orders.stream()
+                    .filter(o -> o.vehicle() != null
+                            && "MOTOCICLETA".equalsIgnoreCase(o.vehicle().tipoVehiculo()))
+                    .toList();
+        }
+
         byte[] excelData = excelGenerationService.generateVehicleOrdersExcel(orders);
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
-        headers.setContentDispositionFormData("attachment", "ordenes_vehiculos_motos.xlsx");
+        headers.setContentDispositionFormData("attachment", soloMotos ? "ordenes_motos.xlsx" : "ordenes_vehiculos_motos.xlsx");
         return ResponseEntity.ok().headers(headers).body(excelData);
     }
 }
