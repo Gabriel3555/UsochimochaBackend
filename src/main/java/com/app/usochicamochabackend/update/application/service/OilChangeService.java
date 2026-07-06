@@ -159,7 +159,7 @@ public class OilChangeService implements
 
         OilChangeEntity oilLastChange = oilChangeRepository.getLastHydraulicOilChangeByMachineId(machineId);
 
-        if (oilLastChange == null) return null;
+        if (oilLastChange == null || oilLastChange.getAverageHoursChange() == null || oilLastChange.getHourMeter() == null) return null;
 
         int averageChangeHours = oilLastChange.getAverageHoursChange();
         double hourMeterLastUpdate = oilLastChange.getHourMeter();
@@ -231,7 +231,7 @@ public class OilChangeService implements
 
         OilChangeEntity oilLastChange = oilChangeRepository.getLastMotorOilChangeByMachineId(machineId);
 
-        if (oilLastChange == null) return null;
+        if (oilLastChange == null || oilLastChange.getAverageHoursChange() == null || oilLastChange.getHourMeter() == null) return null;
 
         int averageChangeHours = oilLastChange.getAverageHoursChange();
         

@@ -9,6 +9,7 @@ import com.app.usochicamochabackend.update.application.dto.PerformChangeMotorOil
 import com.app.usochicamochabackend.update.application.dto.PerformChangeMotorOilResponse;
 import com.app.usochicamochabackend.update.infrastructure.entity.BrandEntity;
 import com.app.usochicamochabackend.update.infrastructure.entity.OilChangeEntity;
+import com.app.usochicamochabackend.update.infrastructure.entity.OilType;
 import com.app.usochicamochabackend.update.infrastructure.repository.BrandRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -21,6 +22,7 @@ public final class OilChangeMapper {
         BrandEntity brandEntity = brandRepository.findBrandEntityById(request.brandId());
 
         entity.setMotorOil(true);
+        entity.setOilType(OilType.MOTOR);
         entity.setDateStamp(request.dateTime());
         entity.setBrand(brandEntity);
         entity.setQuantity(request.quantity());
@@ -50,6 +52,7 @@ public final class OilChangeMapper {
         BrandEntity brandEntity = brandRepository.findBrandEntityById(request.brandId());
 
         entity.setHydraulicOil(true);
+        entity.setOilType(OilType.HYDRAULIC);
         entity.setDateStamp(request.dateTime());
         entity.setBrand(brandEntity);
         entity.setQuantity(request.quantity());

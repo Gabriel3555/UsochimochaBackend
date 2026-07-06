@@ -60,8 +60,6 @@ public class SecurityConfig {
                     http.requestMatchers(HttpMethod.POST, "/api/oil-changes/hydraulic", "/api/v1/oil-changes/hydraulic").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
                     http.requestMatchers(HttpMethod.POST, "/api/v1/vehicle/oil-change").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
                     http.requestMatchers(HttpMethod.POST, "/api/v1/moto/*/oil-change").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
-                    http.requestMatchers(HttpMethod.POST, "/api/v1/improved-oil-changes/vehicle").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
-                    http.requestMatchers(HttpMethod.POST, "/api/v1/improved-oil-changes/machine").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
                     http.requestMatchers(HttpMethod.POST, "/api/oil-changes/**", "/api/v1/oil-changes/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
                     http.requestMatchers(HttpMethod.GET, "/api/oil-changes/**", "/api/v1/oil-changes/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
                     http.requestMatchers(HttpMethod.PUT, "/api/oil-changes/**", "/api/v1/oil-changes/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
