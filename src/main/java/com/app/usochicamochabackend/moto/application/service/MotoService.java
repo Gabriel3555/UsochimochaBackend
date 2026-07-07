@@ -313,6 +313,9 @@ public class MotoService implements MotoCRUDUseCase {
                 .belongsTo(req.belongsTo())
                 .ubicacionBase(ubiBase)
                 .activo(req.activo() != null ? req.activo() : Boolean.TRUE)
+                .fuelTankCapacityGallons(req.fuelTankCapacityGallons())
+                .factoryEfficiencyKmPerGallon(req.factoryEfficiencyKmPerGallon())
+                .factoryEfficiencyUnit(req.factoryEfficiencyUnit())
                 .build();
         vehicleRepository.save(entity);
 
@@ -366,6 +369,15 @@ public class MotoService implements MotoCRUDUseCase {
                 ? ubicacionRepository.getReferenceById(req.idUbicacionBase())
                 : null);
         entity.setActivo(req.activo() != null ? req.activo() : entity.getActivo());
+        if (req.fuelTankCapacityGallons() != null) {
+            entity.setFuelTankCapacityGallons(req.fuelTankCapacityGallons());
+        }
+        if (req.factoryEfficiencyKmPerGallon() != null) {
+            entity.setFactoryEfficiencyKmPerGallon(req.factoryEfficiencyKmPerGallon());
+        }
+        if (req.factoryEfficiencyUnit() != null) {
+            entity.setFactoryEfficiencyUnit(req.factoryEfficiencyUnit());
+        }
         vehicleRepository.save(entity);
         return VehicleMapper.toResponse(
                 vehicleRepository.findById(entity.getIdVehiculo()).orElse(entity));
