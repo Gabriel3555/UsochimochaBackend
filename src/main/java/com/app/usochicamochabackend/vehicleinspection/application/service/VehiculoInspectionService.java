@@ -573,6 +573,7 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
             throw new IllegalArgumentException("Vehículo no encontrado: id=" + idVehiculo);
         }
         return documentacionRepository.findByIdVehiculoOrderByIdDocumentoDesc(idVehiculo).stream()
+                .filter(row -> !isLicenciaTipo(row.getTipoDocumento()))
                 .map(row -> new DocumentoVehiculoVersionDTO(
                         row.getIdDocumento(),
                         row.getTipoDocumento(),
@@ -584,6 +585,15 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
                         row.getActivo() == null || Boolean.TRUE.equals(row.getActivo()),
                         calcularEstado(row.getFechaVencimiento())))
                 .toList();
+    }
+
+    /**
+     * La licencia de conducción se ligó a vehículos antes de migrarse a usuarios (ver {@code UserService}).
+     * Filtra esos registros legacy de {@code documentacion_y_elementos} para que no reaparezcan en el
+     * historial del vehículo.
+     */
+    private static boolean isLicenciaTipo(String tipoDocumento) {
+        return tipoDocumento != null && tipoDocumento.trim().toUpperCase(java.util.Locale.ROOT).startsWith("LICENCIA");
     }
 
     /**
