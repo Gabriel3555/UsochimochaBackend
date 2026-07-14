@@ -142,9 +142,9 @@ public class SecurityConfig {
 
                     // 9. Alertas preventivas (web + móvil: OPERARIO, SUPERVISOR_OPERATIVO y ADMIN pueden verlas
                     http.requestMatchers(HttpMethod.GET, "/api/v1/alerts/debug/**").hasRole("ADMIN");
-                    http.requestMatchers(HttpMethod.GET, "/api/v1/alerts/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
-                    http.requestMatchers(HttpMethod.POST, "/api/v1/alerts/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
-                    http.requestMatchers(HttpMethod.DELETE, "/api/v1/alerts/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/alerts/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/alerts/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers(HttpMethod.DELETE, "/api/v1/alerts/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
 
                     // 10. Mantenimiento (lecturas: SUPERVISOR_OPERATIVO; creación: SUPERVISOR_OPERATIVO)
                     http.requestMatchers(HttpMethod.GET, "/api/v1/maintenance/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
