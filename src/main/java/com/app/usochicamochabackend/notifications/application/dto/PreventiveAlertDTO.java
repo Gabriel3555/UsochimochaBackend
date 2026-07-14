@@ -74,6 +74,15 @@ public record PreventiveAlertDTO(
         );
     }
 
+    /** Copia este DTO con otro {@code estado} (ej. "RESUELTA"), sin mutar la entidad de origen. */
+    public PreventiveAlertDTO withEstado(String newEstado) {
+        return new PreventiveAlertDTO(
+            id, assetId, placa, assetType, tipoMaquinaria, alertType, tipoAlerta, alertSubtype,
+            colorEstado, newEstado, descripcion, fechaVencimiento, metricType, metricValue,
+            percentageUsed, fechaCreacion, type, category, icon, priority, daysRemaining
+        );
+    }
+
     private static String buildTipoAlerta(String alertType, String alertSubtype) {
         if ("DOCUMENTO".equals(alertType)) {
             return "DOCUMENTO_" + (alertSubtype != null ? alertSubtype : "GENERAL");

@@ -10,6 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 /**
  * Escribe alertas preventivas en su propia transacción (REQUIRES_NEW), separada de la
@@ -72,12 +73,32 @@ public class PreventiveAlertPersistenceService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void deleteActiveAlertForAsset(String assetId, String alertType) {
+        var existing = alertRepository.findActiveAlertForAsset(assetId, alertType, null);
         alertRepository.deleteActiveAlertForAsset(assetId, alertType);
+        notifyResolvedIfPresent(existing);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void deleteActiveAlertForAssetAndSubtype(String assetId, String alertType, String alertSubtype) {
+        var existing = alertRepository.findActiveAlertForAsset(assetId, alertType, alertSubtype);
         alertRepository.deleteActiveAlertForAssetAndSubtype(assetId, alertType, alertSubtype);
+        notifyResolvedIfPresent(existing);
+    }
+
+    /**
+     * Avisa por WebSocket que una alerta se resolvió, para que el frontend la quite del store
+     * en vivo (sin esto, la alerta se borra en BD pero el navegador nunca se entera y queda
+     * visible hasta que el usuario recarga la página).
+     *
+     * OJO: no mutar la entidad gestionada por JPA aquí. El borrado de arriba es un bulk
+     * @Modifying DELETE que no sincroniza el contexto de persistencia; si se llama
+     * alert.setEstado(...) sobre la entidad ya cargada, Hibernate la marca "sucia" y, al
+     * hacer flush al terminar la transacción, intenta reescribirla — chocando con el DELETE
+     * que ya se ejecutó en la misma transacción. Por eso se arma el DTO aparte con withEstado().
+     */
+    private void notifyResolvedIfPresent(Optional<PreventiveAlertEntity> existing) {
+        existing.ifPresent(alert ->
+            notificationService.notifyPreventiveAlert(PreventiveAlertDTO.fromEntity(alert).withEstado("RESUELTA")));
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
