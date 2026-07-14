@@ -85,18 +85,18 @@ class AlertsControllerTest {
     }
 
     @Test
-    @DisplayName("POST /api/v1/alerts/calculate: SUPERVISOR_OPERATIVO NO puede (solo ADMIN)")
+    @DisplayName("POST /api/v1/alerts/calculate: SUPERVISOR_OPERATIVO también puede (hace lo mismo que /refresh)")
     @WithMockUser(roles = "SUPERVISOR_OPERATIVO")
-    void calculateAlerts_SupervisorOperativo_Devuelve403() throws Exception {
+    void calculateAlerts_SupervisorOperativo_Devuelve200() throws Exception {
         when(alertRepository.count()).thenReturn(0L);
         when(alertRepository.findByStatus(anyBoolean(), any())).thenReturn(Page.empty());
 
         mockMvc.perform(post("/api/v1/alerts/calculate").with(csrf()))
-                .andExpect(status().isForbidden());
+                .andExpect(status().isOk());
     }
 
     @Test
-    @DisplayName("POST /api/v1/alerts/calculate: ADMIN sí puede")
+    @DisplayName("POST /api/v1/alerts/calculate: ADMIN también puede")
     @WithMockUser(roles = "ADMIN")
     void calculateAlerts_Admin_Devuelve200() throws Exception {
         when(alertRepository.count()).thenReturn(0L);
@@ -104,5 +104,13 @@ class AlertsControllerTest {
 
         mockMvc.perform(post("/api/v1/alerts/calculate").with(csrf()))
                 .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("GET /api/v1/alerts/debug/oil-changes: SUPERVISOR_OPERATIVO NO puede (solo ADMIN, es diagnóstico)")
+    @WithMockUser(roles = "SUPERVISOR_OPERATIVO")
+    void debugOilChanges_SupervisorOperativo_Devuelve403() throws Exception {
+        mockMvc.perform(get("/api/v1/alerts/debug/oil-changes"))
+                .andExpect(status().isForbidden());
     }
 }

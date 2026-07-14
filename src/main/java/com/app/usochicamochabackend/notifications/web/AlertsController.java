@@ -208,15 +208,16 @@ public class AlertsController {
     }
 
     /**
-     * POST /api/v1/alerts/calculate - Dispara manualmente el cálculo de alertas (TESTING/ADMIN)
-     * Esto es útil en desarrollo para verificar que el sistema funciona sin esperar al scheduler.
+     * POST /api/v1/alerts/calculate - Dispara manualmente el cálculo de alertas
+     * Hace exactamente lo mismo que /refresh (calculateAndEmitAlerts()); no es una operación
+     * sensible ni distinta, así que tiene los mismos roles permitidos.
      *
      * @return Mensaje indicando que el cálculo fue completado
      */
     @PostMapping("/calculate")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SUPERVISOR_OPERATIVO', 'OPERARIO')")
     public ResponseEntity<CalculationResultDTO> manuallyCalculateAlerts() {
-        log.info("🔄 [ADMIN] Disparando cálculo manual de alertas...");
+        log.info("🔄 Disparando cálculo manual de alertas...");
 
         try {
             long startTime = System.currentTimeMillis();
