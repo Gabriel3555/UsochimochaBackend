@@ -8,6 +8,8 @@ import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.exception.UserSoftDeletedConflictException;
 import com.app.usochicamochabackend.mapper.UserMapper;
 import com.app.usochicamochabackend.notifications.application.NotificationService;
+import com.app.usochicamochabackend.notifications.application.PreventiveAlertCalculationService;
+import com.app.usochicamochabackend.notifications.application.PreventiveAlertPersistenceService;
 import com.app.usochicamochabackend.user.application.dto.*;
 import com.app.usochicamochabackend.user.application.port.*;
 import lombok.RequiredArgsConstructor;
@@ -53,6 +55,8 @@ public class UserService implements
     private final PasswordEncoder passwordEncoder;
     private final SaveActionUseCase saveActionUseCase;
     private final NotificationService notificationService;
+    private final PreventiveAlertCalculationService preventiveAlertCalculationService;
+    private final PreventiveAlertPersistenceService preventiveAlertPersistenceService;
 
     @Value("${app.storage.uploads-root:uploads}")
     private String uploadsRoot;
@@ -101,6 +105,11 @@ public class UserService implements
             saveActionUseCase.save("El usuario " + userSaved.getUsername() + " ha sido creado");
         }
 
+        if (userSaved.getLicenseExpiry() != null) {
+            userRepository.flush();
+            preventiveAlertCalculationService.calculateAndEmitAlerts();
+        }
+
         return new CreateUserResponse(user.getId(), userSaved.getFullName(), userSaved.getUsername(), userSaved.getEmail(), userSaved.getRole(), userSaved.getStatus(), "User created successfully");
     }
 
@@ -111,6 +120,10 @@ public class UserService implements
                 .orElseThrow(() -> new ResourceNotFoundException("User not found with id: " + id));
         user.setStatus(false);
         userRepository.save(user);
+
+        // El usuario deshabilitado ya no debe mostrar alertas de licencia activas.
+        preventiveAlertPersistenceService.deleteActiveAlertForAssetAndSubtype(
+                user.getUsername(), "DOCUMENTO", "LICENCIA");
 
         var authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication != null && authentication.getPrincipal() instanceof UserPrincipal userPrincipal) {
@@ -235,6 +248,13 @@ public class UserService implements
         }
 
         saveActionUseCase.save(mensaje);
+
+        // Recalcular alertas de inmediato si cambió la licencia, para que la alerta previa
+        // desaparezca/actualice sin esperar al cron diario ni a un refresh manual.
+        if (changes.contains("licenseExpiry")) {
+            userRepository.flush();
+            preventiveAlertCalculationService.calculateAndEmitAlerts();
+        }
 
         return resolveUserResponse(UserMapper.toResponse(userUpdated));
     }

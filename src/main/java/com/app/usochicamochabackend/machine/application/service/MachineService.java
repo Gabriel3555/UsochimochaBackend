@@ -11,6 +11,7 @@ import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
 import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
 import com.app.usochicamochabackend.mapper.MachineMapper;
 import com.app.usochicamochabackend.notifications.application.NotificationService;
+import com.app.usochicamochabackend.notifications.application.PreventiveAlertCalculationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -26,6 +27,7 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
     private final MachineRepository machineRepository;
     private final SaveActionUseCase saveActionUseCase;
     private final NotificationService notificationService;
+    private final PreventiveAlertCalculationService preventiveAlertCalculationService;
 
     @Override
     public MachineResponse createMachine(MachineRequest machineRequest) {
@@ -54,6 +56,9 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
             saveActionUseCase.save("Usuario anonymous ha creado la máquina " + savedMachine.getName());
         }
 
+        // Recalcular alertas de inmediato: la máquina puede llegar con SOAT/seguro
+        // todo riesgo ya vencidos o próximos a vencer.
+        preventiveAlertCalculationService.calculateAndEmitAlerts();
 
         return MachineMapper.toResponse(savedMachine);
     }
@@ -169,6 +174,11 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
             saveActionUseCase.save(mensaje);
         }
 
+        // Recalcular alertas de inmediato si cambió el SOAT o el seguro todo riesgo,
+        // para que la alerta previa desaparezca/actualice sin esperar al cron diario.
+        if (cambios.stream().anyMatch(c -> c.startsWith("soat:") || c.startsWith("runt:"))) {
+            preventiveAlertCalculationService.calculateAndEmitAlerts();
+        }
 
         return MachineMapper.toResponse(savedMachine);
     }

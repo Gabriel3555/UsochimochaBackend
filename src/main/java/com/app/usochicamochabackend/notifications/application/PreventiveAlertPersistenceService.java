@@ -44,6 +44,7 @@ public class PreventiveAlertPersistenceService {
             alert = existing.get();
             alert.setColorEstado(colorEstado);
             alert.setDescripcion(descripcion);
+            alert.setFechaVencimiento(fechaVencimiento);
             alert.setMetricValue(metricValue);
             alert.setPercentageUsed(percentageUsed);
             alert.setFechaActualizacion(LocalDateTime.now());
@@ -72,6 +73,11 @@ public class PreventiveAlertPersistenceService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void deleteActiveAlertForAsset(String assetId, String alertType) {
         alertRepository.deleteActiveAlertForAsset(assetId, alertType);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void deleteActiveAlertForAssetAndSubtype(String assetId, String alertType, String alertSubtype) {
+        alertRepository.deleteActiveAlertForAssetAndSubtype(assetId, alertType, alertSubtype);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)

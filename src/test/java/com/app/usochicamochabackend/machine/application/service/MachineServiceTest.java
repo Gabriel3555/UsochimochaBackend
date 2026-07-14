@@ -7,6 +7,7 @@ import com.app.usochicamochabackend.machine.application.dto.MachineResponse;
 import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
 import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
 import com.app.usochicamochabackend.notifications.application.NotificationService;
+import com.app.usochicamochabackend.notifications.application.PreventiveAlertCalculationService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,6 +34,9 @@ class MachineServiceTest {
 
     @Mock
     private NotificationService notificationService;
+
+    @Mock
+    private PreventiveAlertCalculationService preventiveAlertCalculationService;
 
     @InjectMocks
     private MachineService machineService;

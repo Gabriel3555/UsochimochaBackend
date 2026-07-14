@@ -59,6 +59,7 @@ public class PreventiveAlertCalculationService {
         try {
             cleanupGreenAlerts();
             calculateDocumentAlerts();
+            calculateMachineDocumentAlerts();
             calculateOilChangeVehicleAlerts();
             calculateOilChangeMachineAlerts();
             calculateLicenseAlerts();
@@ -77,9 +78,6 @@ public class PreventiveAlertCalculationService {
             .filter(doc -> doc.getFechaVencimiento() != null)
             .toList();
 
-
-        var allDocsCount = documentacionRepository.findAll().size();
-
         for (var doc : allDocs) {
             try {
 
@@ -89,22 +87,31 @@ public class PreventiveAlertCalculationService {
                     doc.getFechaVencimiento()
                 );
 
-
-                // Si es VERDE, no guardar
-                if ("VERDE".equals(result.colorEstado)) {
-                    continue;
-                }
+                // Resolver el vehículo por ID en vez de usar doc.getVehiculo(): esa relación
+                // lazy no queda poblada cuando el documento se acaba de guardar en la MISMA
+                // transacción (el mapa de identidad de Hibernate reutiliza la instancia recién
+                // construida por el builder, que nunca setea `vehiculo`), lo que guardaría la
+                // alerta bajo el ID numérico del vehículo en vez de su placa.
+                var vehiculoOpt = vehicleRepository.findById(doc.getIdVehiculo());
 
                 // Obtener tipo de vehículo para assetType
                 String assetType = "VEHICULO";
-                if (doc.getVehiculo() != null && doc.getVehiculo().getTipoVehiculo() != null) {
-                    if ("MOTOCICLETA".equalsIgnoreCase(doc.getVehiculo().getTipoVehiculo().getNombreTipo())) {
+                if (vehiculoOpt.isPresent() && vehiculoOpt.get().getTipoVehiculo() != null) {
+                    if ("MOTOCICLETA".equalsIgnoreCase(vehiculoOpt.get().getTipoVehiculo().getNombreTipo())) {
                         assetType = "MOTOCICLETA";
                     }
                 }
 
                 // Guardar o actualizar en BD (usar placa del vehículo, no ID)
-                String assetId = doc.getVehiculo() != null ? doc.getVehiculo().getPlaca() : doc.getIdVehiculo().toString();
+                String assetId = vehiculoOpt.map(v -> v.getPlaca()).orElse(doc.getIdVehiculo().toString());
+
+                // Si es VERDE (documento renovado/vigente), limpiar cualquier alerta previa de este subtipo
+                if ("VERDE".equals(result.colorEstado)) {
+                    preventiveAlertPersistenceService.deleteActiveAlertForAssetAndSubtype(
+                        assetId, "DOCUMENTO", doc.getTipoDocumento()
+                    );
+                    continue;
+                }
 
                 preventiveAlertPersistenceService.saveOrUpdateAlert(
                     assetId,
@@ -122,6 +129,53 @@ public class PreventiveAlertCalculationService {
                 log.error("❌ Error procesando documento {}: {}", doc.getIdDocumento(), e.getMessage(), e);
             }
         }
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // TIPO 1B: DOCUMENTOS DE MAQUINARIA (SOAT, SEGURO TODO RIESGO)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private void calculateMachineDocumentAlerts() {
+        var machines = machineRepository.findAll().stream()
+            .filter(m -> Boolean.TRUE.equals(m.getStatus()))
+            .toList();
+
+        for (var machine : machines) {
+            try {
+                calculateMachineDocumentAlert(machine, "SOAT", machine.getSoat());
+                calculateMachineDocumentAlert(machine, "SEGURO TODO RIESGO", machine.getRunt());
+            } catch (Exception e) {
+                log.warn("⚠️ Error procesando documentos de máquina {}: {}", machine.getName(), e.getMessage());
+            }
+        }
+    }
+
+    private void calculateMachineDocumentAlert(MachineEntity machine, String tipoDocumento, LocalDate fechaVencimiento) {
+        if (fechaVencimiento == null) {
+            return;
+        }
+
+        var result = DocumentAlertCalculator.calculateDocumentAlert(tipoDocumento, fechaVencimiento);
+
+        if ("VERDE".equals(result.colorEstado)) {
+            preventiveAlertPersistenceService.deleteActiveAlertForAssetAndSubtype(
+                machine.getName(), "DOCUMENTO", tipoDocumento
+            );
+            return;
+        }
+
+        preventiveAlertPersistenceService.saveOrUpdateAlert(
+            machine.getName(),
+            "MAQUINARIA",
+            "DOCUMENTO",
+            tipoDocumento,
+            result.colorEstado,
+            result.descripcion,
+            fechaVencimiento,
+            "DIAS",
+            result.diasRestantes.doubleValue(),
+            null
+        );
     }
 
     // ─────────────────────────────────────────────────────────────────────────
@@ -289,11 +343,12 @@ public class PreventiveAlertCalculationService {
             oilType
         );
 
-        // Si es VERDE, no guardar
+        // Si es VERDE, no guardar (solo limpia el subtipo resuelto: MOTOR u HYDRAULIC, no ambos)
         if ("VERDE".equals(result.colorEstado)) {
-            preventiveAlertPersistenceService.deleteActiveAlertForAsset(
+            preventiveAlertPersistenceService.deleteActiveAlertForAssetAndSubtype(
                 machine.getName(),
-                "OIL_CHANGE_MACHINE"
+                "OIL_CHANGE_MACHINE",
+                oilType
             );
             return;
         }
@@ -319,12 +374,13 @@ public class PreventiveAlertCalculationService {
 
     private void calculateLicenseAlerts() {
 
-        LocalDate threshold = LocalDate.now().plusDays(45);
+        // Nota: no se acota por rango de fechas (ej. "próximos 45 días") para que el
+        // calculador decida el color en TODOS los casos, incluida licencia ya VENCIDA
+        // (fecha en el pasado) y licencia recién renovada muy a futuro (VERDE → limpia
+        // la alerta previa). Acotar aquí excluía esos casos y dejaba alertas huérfanas.
         var usersWithExpiry = userRepository.findAll().stream()
             .filter(u -> Boolean.TRUE.equals(u.getStatus()))
             .filter(u -> u.getLicenseExpiry() != null)
-            .filter(u -> !u.getLicenseExpiry().isAfter(threshold))
-            .filter(u -> !u.getLicenseExpiry().isBefore(LocalDate.now()))
             .toList();
 
 
@@ -336,6 +392,9 @@ public class PreventiveAlertCalculationService {
                 );
 
                 if ("VERDE".equals(result.colorEstado)) {
+                    preventiveAlertPersistenceService.deleteActiveAlertForAssetAndSubtype(
+                        user.getUsername(), "DOCUMENTO", "LICENCIA"
+                    );
                     continue;
                 }
 
@@ -345,7 +404,7 @@ public class PreventiveAlertCalculationService {
                     "DOCUMENTO",
                     "LICENCIA",
                     result.colorEstado,
-                    "🪪 Licencia de conducción próxima a vencer",
+                    "🪪 " + result.descripcion,
                     user.getLicenseExpiry(),
                     "DIAS",
                     result.diasRestantes.doubleValue(),

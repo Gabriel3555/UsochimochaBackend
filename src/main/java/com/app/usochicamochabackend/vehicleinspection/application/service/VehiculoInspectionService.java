@@ -7,6 +7,7 @@ import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
 import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleRepository;
 import com.app.usochicamochabackend.vehicleinspection.application.dto.*;
 import com.app.usochicamochabackend.notifications.application.NotificationService;
+import com.app.usochicamochabackend.notifications.application.PreventiveAlertCalculationService;
 import com.app.usochicamochabackend.vehicleinspection.application.port.CreateVehiculoInspectionUseCase;
 import com.app.usochicamochabackend.vehicleinspection.application.port.GetVehicleInspectionsUseCase;
 import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.*;
@@ -58,6 +59,7 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
     private final VehicleRepository vehicleRepository;
     private final VehicleDocumentStorageService vehicleDocumentStorageService;
     private final NotificationService notificationService;
+    private final PreventiveAlertCalculationService preventiveAlertCalculationService;
 
     /**
      * POST — Guarda la inspección pre-operativa en las 5 tablas de inspección
@@ -541,6 +543,12 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
                 .registradoPor(normalizeRegistradoPor(registradoPor))
                 .build();
         documentacionRepository.save(doc);
+        documentacionRepository.flush();
+
+        // Recalcular alertas preventivas de inmediato (no esperar al cron de las 5am ni
+        // a un refresh manual), para que la alerta de este documento desaparezca/actualice
+        // apenas se guarda la nueva fecha de vencimiento.
+        preventiveAlertCalculationService.calculateAndEmitAlerts();
     }
 
     @Transactional

@@ -150,9 +150,10 @@ class MotoE2ETest {
         assertThat(lastInspection.get().getObservacionesFinales()).isEqualTo("Prueba E2E terminada");
 
         // Paso 4: verificar que la inspección es visible en el panel web administrativo
+        // (endpoint paginado: el frontend consume `response.content`, ver stores/data.js fetchMotoInspections)
         mockMvc.perform(get("/api/v1/moto/inspections/reports"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[?(@.placa=='E2E-123')]").exists());
+                .andExpect(jsonPath("$.content[?(@.placa=='E2E-123')]").exists());
 
         SecurityContextHolder.clearContext();
     }

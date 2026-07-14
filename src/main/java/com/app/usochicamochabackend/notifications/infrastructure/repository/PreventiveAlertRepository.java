@@ -47,6 +47,25 @@ public interface PreventiveAlertRepository extends JpaRepository<PreventiveAlert
     );
 
     /**
+     * Elimina alertas ACTIVAS de un tipo y subtipo específico para un assetId.
+     * A diferencia de {@link #deleteActiveAlertForAsset}, no arrastra otros subtipos
+     * del mismo alertType (ej. no borra el aviso de TECNOMECANICA al resolver el de SOAT,
+     * ni el de aceite HYDRAULIC al resolver el de MOTOR).
+     */
+    @Transactional
+    @Modifying
+    @Query("DELETE FROM PreventiveAlertEntity p " +
+           "WHERE p.assetId = :assetId " +
+           "AND p.alertType = :alertType " +
+           "AND p.estado = 'ACTIVA' " +
+           "AND (p.alertSubtype = :alertSubtype OR (:alertSubtype IS NULL AND p.alertSubtype IS NULL))")
+    void deleteActiveAlertForAssetAndSubtype(
+        @Param("assetId") String assetId,
+        @Param("alertType") String alertType,
+        @Param("alertSubtype") String alertSubtype
+    );
+
+    /**
      * Elimina todas las alertas VERDES (no se deben guardar).
      */
     @Transactional
