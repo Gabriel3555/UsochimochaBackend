@@ -13,7 +13,18 @@ import com.app.usochicamochabackend.user.application.dto.CreateUserResponse;
 import com.app.usochicamochabackend.user.application.dto.UpdateUserRequest;
 import com.app.usochicamochabackend.user.application.port.CreateUserUseCase;
 import com.app.usochicamochabackend.user.application.port.UpdateUserUseCase;
+import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
+import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
+import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
+import com.app.usochicamochabackend.update.application.dto.PerformChangeMotorOilRequest;
+import com.app.usochicamochabackend.update.application.dto.VehicleOilChangeRequest;
+import com.app.usochicamochabackend.update.application.service.OilChangeService;
+import com.app.usochicamochabackend.update.application.service.VehicleOilChangeService;
+import com.app.usochicamochabackend.update.infrastructure.repository.OilChangeRepository;
+import com.app.usochicamochabackend.update.infrastructure.repository.VehicleOilChangeRepository;
+import com.app.usochicamochabackend.vehicle.application.dto.VehicleRequest;
+import com.app.usochicamochabackend.vehicle.application.service.VehicleService;
 import com.app.usochicamochabackend.vehicle.infrastructure.entity.MarcaModeloEntity;
 import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
 import com.app.usochicamochabackend.vehicle.infrastructure.repository.MarcaModeloRepository;
@@ -50,16 +61,24 @@ class PreventiveAlertsE2ETest {
     @Autowired private CreateMachineUseCase createMachineUseCase;
     @Autowired private UpdateMachineUseCase updateMachineUseCase;
     @Autowired private MachineRepository machineRepository;
+    @Autowired private com.app.usochicamochabackend.notifications.application.PreventiveAlertCalculationService preventiveAlertCalculationService;
 
     @Autowired private CreateUserUseCase createUserUseCase;
     @Autowired private UpdateUserUseCase updateUserUseCase;
     @Autowired private UserRepositoryJpa userRepository;
 
     @Autowired private VehiculoInspectionService vehiculoInspectionService;
+    @Autowired private VehicleService vehicleService;
     @Autowired private VehicleRepository vehicleRepository;
     @Autowired private MarcaModeloRepository marcaModeloRepository;
     @Autowired private TipoVehiculoRepository tipoVehiculoRepository;
     @Autowired private DocumentacionYElementosRepository documentacionRepository;
+
+    @Autowired private VehicleOilChangeService vehicleOilChangeService;
+    @Autowired private VehicleOilChangeRepository vehicleOilChangeRepository;
+    @Autowired private OilChangeService oilChangeService;
+    @Autowired private OilChangeRepository oilChangeRepository;
+    @Autowired private InspectionRepository inspectionRepository;
 
     @Autowired private PreventiveAlertRepository alertRepository;
     @Autowired private JdbcTemplate jdbcTemplate;
@@ -69,6 +88,9 @@ class PreventiveAlertsE2ETest {
         jdbcTemplate.execute("SET REFERENTIAL_INTEGRITY FALSE");
         alertRepository.deleteAll();
         documentacionRepository.deleteAll();
+        vehicleOilChangeRepository.deleteAll();
+        oilChangeRepository.deleteAll();
+        inspectionRepository.deleteAll();
         vehicleRepository.deleteAll();
         tipoVehiculoRepository.deleteAll();
         marcaModeloRepository.deleteAll();
@@ -85,6 +107,14 @@ class PreventiveAlertsE2ETest {
     private List<com.app.usochicamochabackend.notifications.infrastructure.entity.PreventiveAlertEntity> activeDocumentAlertsFor(String assetId) {
         return activeAlertsFor(assetId).stream()
                 .filter(a -> "DOCUMENTO".equals(a.getAlertType()))
+                .toList();
+    }
+
+    /** Alertas ROJO/AMARILLO de cambio de aceite (excluye las VERDE informativas de "primer cambio"). */
+    private List<com.app.usochicamochabackend.notifications.infrastructure.entity.PreventiveAlertEntity> activeOilAlertsFor(String assetId) {
+        return activeAlertsFor(assetId).stream()
+                .filter(a -> a.getAlertType() != null && a.getAlertType().startsWith("OIL_CHANGE"))
+                .filter(a -> !"VERDE".equals(a.getColorEstado()))
                 .toList();
     }
 
@@ -206,5 +236,151 @@ class PreventiveAlertsE2ETest {
         assertThat(alertsAfterRenewal)
                 .as("La alerta de licencia debe desaparecer apenas se renueva, sin esperar cron/refresh")
                 .isEmpty();
+    }
+
+    @Test
+    void vehicleOilChange_CreatesAndClearsAlertImmediately() {
+        MarcaModeloEntity marca = marcaModeloRepository.save(
+                MarcaModeloEntity.builder().descripcion("Marca E2E Aceite").build());
+        TipoVehiculoEntity tipo = tipoVehiculoRepository.save(
+                TipoVehiculoEntity.builder().nombreTipo("AUTOMOVIL").activo(true).build());
+        vehicleRepository.save(
+                VehicleEntity.builder()
+                        .placa("E2E-OIL")
+                        .idMarca(marca.getIdMarca())
+                        .idTipoVehiculo(tipo.getId())
+                        .tipoVehiculo(tipo)
+                        .kilometrajeActual(5000)
+                        .activo(true)
+                        .build());
+
+        // Registrar un cambio "viejo": intervalo de 1000km desde km 0, con el vehículo ya en 5000km
+        // → muy por encima del intervalo, debe generar alerta ROJA de inmediato.
+        vehicleOilChangeService.registerChange(new VehicleOilChangeRequest(
+                "E2E-OIL", null, "MOTOR", null, 4.0, 0, 1000, false));
+
+        var alertsAfterOldChange = activeOilAlertsFor("E2E-OIL");
+        assertThat(alertsAfterOldChange)
+                .as("Debe crearse la alerta ROJA de cambio de aceite apenas se registra el cambio vencido")
+                .anySatisfy(a -> {
+                    assertThat(a.getAlertType()).isEqualTo("OIL_CHANGE_VEHICLE");
+                    assertThat(a.getColorEstado()).isEqualTo("ROJO");
+                });
+
+        // Registrar un cambio fresco al km actual, con intervalo amplio → debe limpiar la alerta ya mismo.
+        vehicleOilChangeService.registerChange(new VehicleOilChangeRequest(
+                "E2E-OIL", null, "MOTOR", null, 4.0, 5000, 10000, false));
+
+        var alertsAfterFreshChange = activeOilAlertsFor("E2E-OIL");
+        assertThat(alertsAfterFreshChange)
+                .as("La alerta de cambio de aceite debe desaparecer apenas se registra el cambio nuevo")
+                .isEmpty();
+    }
+
+    @Test
+    void vehicleKilometrajeEdit_TriggersImmediateRecalculation() {
+        MarcaModeloEntity marca = marcaModeloRepository.save(
+                MarcaModeloEntity.builder().descripcion("Marca E2E Km").build());
+        TipoVehiculoEntity tipo = tipoVehiculoRepository.save(
+                TipoVehiculoEntity.builder().nombreTipo("AUTOMOVIL").activo(true).build());
+        VehicleEntity vehiculo = vehicleRepository.save(
+                VehicleEntity.builder()
+                        .placa("E2E-KMEDIT")
+                        .idMarca(marca.getIdMarca())
+                        .idTipoVehiculo(tipo.getId())
+                        .tipoVehiculo(tipo)
+                        .kilometrajeActual(100)
+                        .activo(true)
+                        .build());
+
+        // Baseline: último cambio en km 0, intervalo 1000km. Con el vehículo en 100km, todavía va bien.
+        vehicleOilChangeService.registerChange(new VehicleOilChangeRequest(
+                "E2E-KMEDIT", null, "MOTOR", null, 4.0, 0, 1000, false));
+        assertThat(activeOilAlertsFor("E2E-KMEDIT")).isEmpty();
+
+        // Editar el vehículo desde el panel admin subiendo el kilometraje muy por encima del intervalo
+        // (esto es justo lo que preguntó el usuario: "si edito el vehículo con un nuevo kilometraje").
+        vehicleService.updateVehicle(vehiculo.getIdVehiculo(), new VehicleRequest(
+                "E2E-KMEDIT", marca.getIdMarca(), tipo.getId(), 5000,
+                "Distrito", null, true, null, null, null));
+
+        var alertsAfterEdit = activeOilAlertsFor("E2E-KMEDIT");
+        assertThat(alertsAfterEdit)
+                .as("Editar el kilometraje del vehículo debe recalcular la alerta de aceite de inmediato")
+                .anySatisfy(a -> {
+                    assertThat(a.getAlertType()).isEqualTo("OIL_CHANGE_VEHICLE");
+                    assertThat(a.getColorEstado()).isEqualTo("ROJO");
+                });
+    }
+
+    @Test
+    void machineOilChange_CreatesAndClearsAlertImmediately() {
+        com.app.usochicamochabackend.auth.application.dto.UserPrincipal principal =
+                new com.app.usochicamochabackend.auth.application.dto.UserPrincipal(1L, "admin");
+        org.springframework.security.core.Authentication auth =
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(
+                        principal, null, java.util.List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ADMIN")));
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(auth);
+
+        try {
+            MachineRequest machineReq = new MachineRequest(
+                    "Máquina E2E Aceite", "Distrito", "320D", null, "Caterpillar", null,
+                    "ENG-OIL", "ID-OIL", BigDecimal.TEN, BigDecimal.ONE, "GAL_PER_HOUR");
+            MachineResponse machine = createMachineUseCase.createMachine(machineReq);
+            var machineEntity = machineRepository.findById(machine.id()).orElseThrow();
+
+            UserEntity user = userRepository.save(UserEntity.builder()
+                    .username("e2e.oil.machine").fullName("E2E").status(true)
+                    .email("e2e.oil.machine@example.com").role("ADMIN").password("x").build());
+
+            // Primera inspección a horómetro bajo (100h) — necesaria para poder registrar el
+            // primer cambio de aceite (performMotorOilChange exige currentHourMeter >= última inspección).
+            inspectionRepository.save(InspectionEntity.builder()
+                    .UUID(java.util.UUID.randomUUID().toString())
+                    .dateStamp(java.time.LocalDateTime.now().minusDays(30))
+                    .hourMeter(100.0)
+                    .machine(machineEntity)
+                    .user(user)
+                    .build());
+
+            // Cambio de aceite en ese momento (100h, intervalo 50h) → línea base recién puesta,
+            // uso 0% todavía: no debe haber alerta (esto es esperado, no se afirma explícitamente).
+            oilChangeService.performMotorOilChange(new PerformChangeMotorOilRequest(
+                    machine.id(), java.time.LocalDateTime.now().minusDays(30), null, 4.0, 100.0, 50));
+
+            // Pasa el tiempo: una inspección posterior reporta la máquina muy por encima del
+            // intervalo desde el último cambio (100h + 50h de intervalo, ahora en 5000h) →
+            // recalculando (InspectionService también dispara esto, ver test de inspección),
+            // debe quedar ROJO.
+            inspectionRepository.save(InspectionEntity.builder()
+                    .UUID(java.util.UUID.randomUUID().toString())
+                    .dateStamp(java.time.LocalDateTime.now())
+                    .hourMeter(5000.0)
+                    .machine(machineEntity)
+                    .user(user)
+                    .build());
+            preventiveAlertCalculationService.calculateAndEmitAlerts();
+
+            var alertsBeforeNewChange = activeOilAlertsFor(machine.name());
+            assertThat(alertsBeforeNewChange)
+                    .as("Sanity check: debe haber alerta ROJA antes de registrar el nuevo cambio")
+                    .anySatisfy(a -> {
+                        assertThat(a.getAlertType()).isEqualTo("OIL_CHANGE_MACHINE");
+                        assertThat(a.getAlertSubtype()).isEqualTo("MOTOR");
+                        assertThat(a.getColorEstado()).isEqualTo("ROJO");
+                    });
+
+            // Registrar el cambio de aceite ya mismo (a las 5000h, intervalo amplio) debe limpiar
+            // la alerta de inmediato, sin esperar cron/refresh.
+            oilChangeService.performMotorOilChange(new PerformChangeMotorOilRequest(
+                    machine.id(), java.time.LocalDateTime.now(), null, 4.0, 5000.0, 10000));
+
+            var alertsAfterFreshChange = activeOilAlertsFor(machine.name());
+            assertThat(alertsAfterFreshChange)
+                    .as("La alerta de cambio de aceite de maquinaria debe desaparecer apenas se registra el cambio nuevo")
+                    .isEmpty();
+        } finally {
+            org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        }
     }
 }

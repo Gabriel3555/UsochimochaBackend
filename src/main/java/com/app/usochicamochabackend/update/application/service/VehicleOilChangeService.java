@@ -1,6 +1,7 @@
 package com.app.usochicamochabackend.update.application.service;
 
 import com.app.usochicamochabackend.common.text.InputTextNormalizer;
+import com.app.usochicamochabackend.notifications.application.PreventiveAlertCalculationService;
 import com.app.usochicamochabackend.update.application.dto.VehicleOilChangeHistoryDTO;
 import com.app.usochicamochabackend.update.application.dto.VehicleOilChangeRequest;
 import com.app.usochicamochabackend.update.application.exception.BrandNotFoundException;
@@ -30,6 +31,7 @@ public class VehicleOilChangeService {
     private final VehicleRepository vehicleRepository;
     private final BrandRepository brandRepository;
     private final OilChangeValidationService validationService;
+    private final PreventiveAlertCalculationService preventiveAlertCalculationService;
 
     @Transactional
     public void registerChange(VehicleOilChangeRequest request) {
@@ -95,6 +97,10 @@ public class VehicleOilChangeService {
                 vehicleRepository.save(vehicle);
                 logger.debug("Vehículo actualizado con km y fecha de reporte");
             }
+
+            // Recalcular alertas de inmediato: este cambio de aceite resetea la línea base,
+            // así que la alerta previa (si existía) debe desaparecer/actualizarse ya mismo.
+            preventiveAlertCalculationService.calculateAndEmitAlerts();
 
             logger.info("Cambio de aceite registrado exitosamente para: {}", placa);
 

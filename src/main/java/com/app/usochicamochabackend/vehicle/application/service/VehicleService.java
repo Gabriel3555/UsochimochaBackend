@@ -6,6 +6,7 @@ import com.app.usochicamochabackend.catalog.infrastructure.repository.UbicacionR
 import com.app.usochicamochabackend.common.text.InputTextNormalizer;
 import com.app.usochicamochabackend.exception.VehicleSoftDeletedConflictException;
 import com.app.usochicamochabackend.mapper.VehicleMapper;
+import com.app.usochicamochabackend.notifications.application.PreventiveAlertCalculationService;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleRequest;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleResponse;
 import com.app.usochicamochabackend.vehicle.application.port.VehicleUseCase;
@@ -28,6 +29,7 @@ public class VehicleService implements VehicleUseCase {
     private final VehicleRepository vehicleRepository;
     private final UbicacionRepository ubicacionRepository;
     private final SaveActionUseCase saveActionUseCase;
+    private final PreventiveAlertCalculationService preventiveAlertCalculationService;
 
     @Override
     public List<VehicleResponse> findAllVehicles() {
@@ -134,6 +136,10 @@ public class VehicleService implements VehicleUseCase {
         }
 
         vehicleRepository.save(entity);
+
+        // Recalcular alertas de inmediato: el kilometraje pudo haber cambiado al editar.
+        preventiveAlertCalculationService.calculateAndEmitAlerts();
+
         return findByPlaca(entity.getPlaca());
     }
 

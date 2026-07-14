@@ -12,6 +12,7 @@ import com.app.usochicamochabackend.catalog.infrastructure.repository.UbicacionR
 import com.app.usochicamochabackend.mapper.VehicleMapper;
 import com.app.usochicamochabackend.moto.application.dto.*;
 import com.app.usochicamochabackend.notifications.application.NotificationService;
+import com.app.usochicamochabackend.notifications.application.PreventiveAlertCalculationService;
 import com.app.usochicamochabackend.moto.application.port.MotoCRUDUseCase;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleRequest;
 import com.app.usochicamochabackend.vehicle.application.dto.VehicleResponse;
@@ -54,6 +55,7 @@ public class MotoService implements MotoCRUDUseCase {
     private final DocumentacionYElementosRepository documentacionRepository;
     private final NotificationService notificationService;
     private final SaveActionUseCase saveActionUseCase;
+    private final PreventiveAlertCalculationService preventiveAlertCalculationService;
 
         /** Retorna las motocicletas activas (tipo = MOTOCICLETA) con su ubicación base y marca */
         public List<MotoPlacaResponse> getMotocicletas() {
@@ -196,7 +198,9 @@ public class MotoService implements MotoCRUDUseCase {
 
                 inspeccionRepository.save(inspeccion);
 
-                // TODO: Calcular y enviar alerta de cambio de aceite si aplica (Phase 2)
+                // Recalcular alertas de inmediato: el kilometraje reportado pudo haber cruzado
+                // el umbral de cambio de aceite.
+                preventiveAlertCalculationService.calculateAndEmitAlerts();
 
                 // ── 2: insp_detalle_mecanico (Estado Visual + Campos nuevos) ─────────
                 detalleMecanicoRepository.save(
@@ -379,6 +383,10 @@ public class MotoService implements MotoCRUDUseCase {
             entity.setFactoryEfficiencyUnit(req.factoryEfficiencyUnit());
         }
         vehicleRepository.save(entity);
+
+        // Recalcular alertas de inmediato: el kilometraje pudo haber cambiado al editar.
+        preventiveAlertCalculationService.calculateAndEmitAlerts();
+
         return VehicleMapper.toResponse(
                 vehicleRepository.findById(entity.getIdVehiculo()).orElse(entity));
     }

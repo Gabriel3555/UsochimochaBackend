@@ -162,7 +162,9 @@ public class VehiculoInspectionService implements CreateVehiculoInspectionUseCas
         }
         String updateEvent = tipoNombre.contains("MOTO") ? "moto-inspections-updated" : "vehicle-inspections-updated";
 
-        // TODO: Calcular y enviar alerta de cambio de aceite si aplica (Phase 2)
+        // Recalcular alertas de inmediato: el kilometraje reportado pudo haber cruzado
+        // el umbral de cambio de aceite.
+        preventiveAlertCalculationService.calculateAndEmitAlerts();
         notificationService.notifyDataUpdate(updateEvent);
 
         return new VehiculoInspectionResponse(idInspeccion, "Inspección guardada exitosamente");

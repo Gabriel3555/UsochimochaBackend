@@ -9,6 +9,7 @@ import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRep
 import com.app.usochicamochabackend.mapper.MachineMapper;
 import com.app.usochicamochabackend.mapper.OilChangeMapper;
 import com.app.usochicamochabackend.notifications.application.NotificationService;
+import com.app.usochicamochabackend.notifications.application.PreventiveAlertCalculationService;
 import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
 import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
 import com.app.usochicamochabackend.update.application.dto.*;
@@ -46,6 +47,7 @@ public class OilChangeService implements
     private final OilChangeRepository oilChangeRepository;
     private final SaveActionUseCase saveActionUseCase;
     private final NotificationService notificationService;
+    private final PreventiveAlertCalculationService preventiveAlertCalculationService;
 
     @Override
     public List<ConsolidateHydraulicAndMotorOilDTO> getConsolidateHydraulicAndMotorOilAllMachines() {
@@ -295,6 +297,9 @@ public class OilChangeService implements
         machine.setHorometroActual(request.currentHourMeter().intValue());
         machineRepository.save(machine);
 
+        // Recalcular alertas de inmediato: este cambio de aceite resetea la línea base.
+        preventiveAlertCalculationService.calculateAndEmitAlerts();
+
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha cambiado el aceite de motor de la maquina " + machine.getName());
 
@@ -318,6 +323,9 @@ public class OilChangeService implements
 
         machine.setHorometroActual(request.currentHourMeter().intValue());
         machineRepository.save(machine);
+
+        // Recalcular alertas de inmediato: este cambio de aceite resetea la línea base.
+        preventiveAlertCalculationService.calculateAndEmitAlerts();
 
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha cambiado el aceite hidraulico de la maquina " + machine.getName());

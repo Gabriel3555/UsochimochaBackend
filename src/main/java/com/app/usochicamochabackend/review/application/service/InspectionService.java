@@ -10,6 +10,7 @@ import com.app.usochicamochabackend.mapper.ImagesMapper;
 import com.app.usochicamochabackend.mapper.InspectionMapper;
 import com.app.usochicamochabackend.mapper.MachineMapper;
 import com.app.usochicamochabackend.notifications.application.NotificationService;
+import com.app.usochicamochabackend.notifications.application.PreventiveAlertCalculationService;
 import com.app.usochicamochabackend.shared.event.InspectionCompletedEvent;
 import com.app.usochicamochabackend.review.application.dto.*;
 import com.app.usochicamochabackend.review.application.port.*;
@@ -53,6 +54,7 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
     private final ImageRepository imageRepository;
     private final SaveActionUseCase saveActionUseCase;
     private final ApplicationEventPublisher eventPublisher;
+    private final PreventiveAlertCalculationService preventiveAlertCalculationService;
 
     @Override
     public InspectionFormResponse createInspectionOnlyData(InspectionFormRequest request) {
@@ -105,6 +107,10 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
 
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " hizo una inspeccion a la maquina " + machine.getName());
+
+        // Recalcular alertas de inmediato: el horómetro de esta inspección es la fuente
+        // primaria que usa el cálculo de alertas de cambio de aceite de maquinaria.
+        preventiveAlertCalculationService.calculateAndEmitAlerts();
 
         try {
             Long kmOHoras = saved.getHourMeter() != null ? saved.getHourMeter().longValue() : 0L;
@@ -298,6 +304,6 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " corrigió el horómetro de la máquina " + last.getMachine().getName() + " a " + newHourMeter);
 
-        // TODO: Recalcular alertas de cambio de aceite después de actualizar horómetro (Phase 2)
+        preventiveAlertCalculationService.calculateAndEmitAlerts();
     }
 }
