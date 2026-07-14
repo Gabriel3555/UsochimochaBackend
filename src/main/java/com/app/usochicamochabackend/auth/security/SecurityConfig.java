@@ -47,6 +47,7 @@ public class SecurityConfig {
                     http.requestMatchers(HttpMethod.OPTIONS, "/**").permitAll();
                     http.requestMatchers(HttpMethod.POST, "/api/v1/auth/**").permitAll();
                     http.requestMatchers(HttpMethod.GET, "/uploads/**").permitAll();
+                    http.requestMatchers(HttpMethod.HEAD, "/uploads/**").permitAll();
                     http.requestMatchers(
                             "/swagger-ui/**",
                             "/v3/api-docs/**",
@@ -139,12 +140,14 @@ public class SecurityConfig {
                     http.requestMatchers(HttpMethod.PUT, "/api/v1/oil/brand/**").hasAnyRole("ADMIN", "SUPERVISOR_OPERATIVO");
                     http.requestMatchers(HttpMethod.DELETE, "/api/v1/oil/brand/**").hasRole("ADMIN");
 
-                    // 9. Alertas (móvil: OPERARIO, SUPERVISOR_OPERATIVO pueden verlas)
-                    http.requestMatchers(HttpMethod.GET, "/new-data/alerts").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
-                    http.requestMatchers(HttpMethod.GET, "/new-data/alerts/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
-                    http.requestMatchers(HttpMethod.DELETE, "/new-data/alerts/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
+                    // 9. Alertas preventivas (web SUPERVISOR_OPERATIVO y ADMIN pueden verlas).
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/alerts/calculate").hasRole("ADMIN");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/alerts/debug/**").hasRole("ADMIN");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/alerts/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/alerts/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers(HttpMethod.DELETE, "/api/v1/alerts/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
 
-                    // 10. Mantenimiento (lecturas: OPERARIO, SUPERVISOR_OPERATIVO; creación: SUPERVISOR_OPERATIVO)
+                    // 10. Mantenimiento (lecturas: SUPERVISOR_OPERATIVO; creación: SUPERVISOR_OPERATIVO)
                     http.requestMatchers(HttpMethod.GET, "/api/v1/maintenance/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
                     http.requestMatchers(HttpMethod.POST, "/api/v1/maintenance").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
 
@@ -174,7 +177,7 @@ public class SecurityConfig {
                 "http://127.0.0.1:[*]"
         ));
         configuration.addAllowedHeader("*");
-        configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
+        configuration.setAllowedMethods(List.of("GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();

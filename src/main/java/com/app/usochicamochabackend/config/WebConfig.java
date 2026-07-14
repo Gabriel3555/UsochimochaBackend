@@ -24,7 +24,7 @@ public class WebConfig implements WebMvcConfigurer {
                         "https://web.usochicamocha.co",
                         "https://front-test.usochicamocha.co"
                         )
-                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
+                .allowedMethods("GET", "HEAD", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
                 .allowedHeaders("*")
                 .allowCredentials(true);
     }
