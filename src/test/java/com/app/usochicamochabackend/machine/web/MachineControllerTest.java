@@ -16,7 +16,6 @@ import org.springframework.http.MediaType;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
-import java.math.BigDecimal;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.*;
@@ -55,11 +54,11 @@ class MachineControllerTest {
 
     private static final MachineResponse MOCK_RESPONSE = new MachineResponse(
             1L, "Excavadora", "Usochicamocha", "2020", null, "Caterpillar",
-            null, "ENG001", "VIN001", BigDecimal.valueOf(80), BigDecimal.valueOf(5), "GAL/H");
+            null, "ENG001", "VIN001");
 
     private MachineRequest buildRequest() {
         return new MachineRequest("Excavadora", "Usochicamocha", "2020", null, "Caterpillar",
-                null, "ENG001", "VIN001", BigDecimal.valueOf(80), BigDecimal.valueOf(5), "GAL/H");
+                null, "ENG001", "VIN001");
     }
 
     @Test

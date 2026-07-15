@@ -9,7 +9,6 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -57,18 +56,6 @@ public class VehicleEntity {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "id_ubicacion_base")
     private UbicacionEntity ubicacionBase;
-
-    /** Capacidad real del tanque en galones (configurable solo por ADMIN). Null = sin límite específico → usa el máximo global. */
-    @Column(name = "fuel_tank_capacity_gallons", precision = 8, scale = 3)
-    private BigDecimal fuelTankCapacityGallons;
-
-    /** Eficiencia de fábrica. El valor numérico (km/gal, km/m³ según la unidad). Null si no se conoce. */
-    @Column(name = "factory_efficiency_km_per_gallon", precision = 8, scale = 2)
-    private BigDecimal factoryEfficiencyKmPerGallon;
-
-    /** Unidad de la eficiencia de fábrica: KM_PER_GALLON | KM_PER_CUBIC_METER. Default: KM_PER_GALLON. */
-    @Column(name = "factory_efficiency_unit", length = 30)
-    private String factoryEfficiencyUnit;
 
     @OneToMany(fetch = FetchType.EAGER, mappedBy = "vehiculo")
     private List<DocumentacionYElementosEntity> documentos;

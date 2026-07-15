@@ -39,7 +39,7 @@ class VehicleServiceTest {
 
     @BeforeEach
     void setUp() {
-        requestValido = new VehicleRequest("ABC123", 1, 2, 50000, "Distrito", null, true, null, null, null);
+        requestValido = new VehicleRequest("ABC123", 1, 2, 50000, "Distrito", null, true);
     }
 
     // --- findAllVehicles ---
@@ -111,7 +111,7 @@ class VehicleServiceTest {
     @Test
     void createVehicle_CuandoUbicacionInvalida_DebeLanzarBadRequest() {
         when(vehicleRepository.findByPlaca("ABC123")).thenReturn(Optional.empty());
-        VehicleRequest reqConUbicacion = new VehicleRequest("ABC123", 1, 2, 50000, "Distrito", 99, true, null, null, null);
+        VehicleRequest reqConUbicacion = new VehicleRequest("ABC123", 1, 2, 50000, "Distrito", 99, true);
 
         when(ubicacionRepository.existsById(99)).thenReturn(false);
 
