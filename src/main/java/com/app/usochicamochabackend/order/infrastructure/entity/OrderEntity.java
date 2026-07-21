@@ -3,6 +3,7 @@ package com.app.usochicamochabackend.order.infrastructure.entity;
 import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.performance.infrastructure.entity.ResultEntity;
 import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity;
+import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.InspPreOperativaEntity;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -33,13 +34,30 @@ public class OrderEntity {
     @JoinColumn(name = "inspection_id")
     private InspectionEntity inspection;
 
-    @OneToOne
+    @ManyToOne
+    @JoinColumn(name = "vehicle_inspection_id", nullable = true)
+    private InspPreOperativaEntity vehicleInspection;
+
+    @OneToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "result_id", nullable = true)
     private ResultEntity result;
 
     @ManyToOne
     @JoinColumn(name = "assigner_user_id")
     private UserEntity assignerUser;
+
+    @Column(name = "order_type", length = 50)
+    private String orderType;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "maintenance_type", length = 30)
+    private MaintenanceType maintenanceType;
+
+    @Column(name = "maintenance_category", length = 30)
+    private String maintenanceCategory;
+
+    @Column(unique = true, length = 20)
+    private String consecutive;
 
     @PrePersist
     protected void onCreate() {

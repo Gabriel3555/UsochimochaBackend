@@ -2,6 +2,7 @@ package com.app.usochicamochabackend.machine.application.service;
 
 import com.app.usochicamochabackend.actions.application.port.SaveActionUseCase;
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
+import com.app.usochicamochabackend.common.text.InputTextNormalizer;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.machine.application.dto.MachineRequest;
 import com.app.usochicamochabackend.machine.application.dto.MachineResponse;
@@ -10,6 +11,7 @@ import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
 import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
 import com.app.usochicamochabackend.mapper.MachineMapper;
 import com.app.usochicamochabackend.notifications.application.NotificationService;
+import com.app.usochicamochabackend.notifications.application.PreventiveAlertCalculationService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -25,10 +27,19 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
     private final MachineRepository machineRepository;
     private final SaveActionUseCase saveActionUseCase;
     private final NotificationService notificationService;
+    private final PreventiveAlertCalculationService preventiveAlertCalculationService;
 
     @Override
     public MachineResponse createMachine(MachineRequest machineRequest) {
-        MachineEntity savedMachine = machineRepository.save(new MachineEntity(null, machineRequest.name(), machineRequest.model(), machineRequest.belongsTo(), machineRequest.soat(), machineRequest.brand(), machineRequest.runt(), true, machineRequest.numEngine(), machineRequest.numInterIdentification()));
+        MachineRequest req = machineRequest.normalized();
+        MachineEntity savedMachine = machineRepository.save(MachineEntity.builder()
+                .name(req.name()).model(req.model()).belongsTo(req.belongsTo())
+                .soat(req.soat()).brand(req.brand()).runt(req.runt()).status(true)
+                .numEngine(req.numEngine()).numInterIdentification(req.numInterIdentification())
+                .fuelTankCapacityGallons(req.fuelTankCapacityGallons())
+                .factoryEfficiencyGalPerHour(req.factoryEfficiencyGalPerHour())
+                .factoryEfficiencyUnit(req.factoryEfficiencyUnit())
+                .build());
 
         try {
             Object principal = SecurityContextHolder.getContext().getAuthentication().getPrincipal();
@@ -45,6 +56,9 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
             saveActionUseCase.save("Usuario anonymous ha creado la máquina " + savedMachine.getName());
         }
 
+        // Recalcular alertas de inmediato: la máquina puede llegar con SOAT/seguro
+        // todo riesgo ya vencidos o próximos a vencer.
+        preventiveAlertCalculationService.calculateAndEmitAlerts();
 
         return MachineMapper.toResponse(savedMachine);
     }
@@ -88,6 +102,7 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
 
     @Override
     public MachineResponse updateMachine(MachineRequest machineRequest, Long id) {
+        MachineRequest req = machineRequest.normalized();
         MachineEntity currentMachine = machineRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Machine not found with ID: " + id));
 
@@ -95,7 +110,20 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
             throw new ResourceNotFoundException("Machine not found with ID: " + id);
         }
 
-        MachineEntity savedMachine = machineRepository.save(new MachineEntity(id, machineRequest.name(), machineRequest.model(), machineRequest.belongsTo(), machineRequest.soat(), machineRequest.brand(), machineRequest.runt(), true, machineRequest.numEngine(), machineRequest.numInterIdentification()));
+        MachineEntity savedMachine = machineRepository.save(MachineEntity.builder()
+                .id(id).name(req.name()).model(req.model()).belongsTo(req.belongsTo())
+                .soat(req.soat()).brand(req.brand()).runt(req.runt()).status(true)
+                .numEngine(req.numEngine()).numInterIdentification(req.numInterIdentification())
+                .fuelTankCapacityGallons(req.fuelTankCapacityGallons() != null
+                        ? req.fuelTankCapacityGallons()
+                        : currentMachine.getFuelTankCapacityGallons())
+                .factoryEfficiencyGalPerHour(req.factoryEfficiencyGalPerHour() != null
+                        ? req.factoryEfficiencyGalPerHour()
+                        : currentMachine.getFactoryEfficiencyGalPerHour())
+                .factoryEfficiencyUnit(req.factoryEfficiencyUnit() != null
+                        ? req.factoryEfficiencyUnit()
+                        : currentMachine.getFactoryEfficiencyUnit())
+                .build());
 
         List<String> cambios = new ArrayList<>();
 
@@ -146,6 +174,11 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
             saveActionUseCase.save(mensaje);
         }
 
+        // Recalcular alertas de inmediato si cambió el SOAT o el seguro todo riesgo,
+        // para que la alerta previa desaparezca/actualice sin esperar al cron diario.
+        if (cambios.stream().anyMatch(c -> c.startsWith("soat:") || c.startsWith("runt:"))) {
+            preventiveAlertCalculationService.calculateAndEmitAlerts();
+        }
 
         return MachineMapper.toResponse(savedMachine);
     }

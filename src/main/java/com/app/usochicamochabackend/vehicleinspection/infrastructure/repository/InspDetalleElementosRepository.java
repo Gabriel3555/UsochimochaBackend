@@ -4,6 +4,9 @@ import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.Insp
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Optional;
+
 @Repository
 public interface InspDetalleElementosRepository extends JpaRepository<InspDetalleElementosEntity, Long> {
+    Optional<InspDetalleElementosEntity> findByIdInspeccion(Long idInspeccion);
 }

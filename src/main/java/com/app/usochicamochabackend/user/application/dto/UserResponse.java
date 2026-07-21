@@ -1,4 +1,7 @@
 package com.app.usochicamochabackend.user.application.dto;
 
-public record UserResponse(Long id, String username, String fullName, String email, String role) {
+import java.time.LocalDate;
+
+public record UserResponse(Long id, String username, String fullName, String email, String role,
+                           String licenseCategory, LocalDate licenseExpiry, String licenseDocumentUrl) {
 }

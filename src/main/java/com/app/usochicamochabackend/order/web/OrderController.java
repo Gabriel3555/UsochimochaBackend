@@ -3,10 +3,8 @@ package com.app.usochicamochabackend.order.web;
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.order.application.dto.*;
-import com.app.usochicamochabackend.order.application.port.AssignOrderUseCase;
-import com.app.usochicamochabackend.order.application.port.GetAllOrdersByInspectionIdUseCase;
-import com.app.usochicamochabackend.order.application.port.GetAllOrdersByMachineIdUseCase;
-import com.app.usochicamochabackend.order.application.port.GetAllOrdersUseCase;
+import com.app.usochicamochabackend.order.application.port.*;
+import com.app.usochicamochabackend.update.application.service.ExcelGenerationService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -19,11 +17,13 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
 import java.util.List;
 
 @RestController
@@ -33,9 +33,13 @@ import java.util.List;
 public class OrderController {
 
     private final AssignOrderUseCase assignOrderUseCase;
-    private final GetAllOrdersByInspectionIdUseCase  getAllOrdersByInspectionIdUseCase;
+    private final GetAllOrdersByInspectionIdUseCase getAllOrdersByInspectionIdUseCase;
     private final GetAllOrdersUseCase getAllOrdersUseCase;
     private final GetAllOrdersByMachineIdUseCase getAllOrdersByMachineIdUseCase;
+    private final AssignVehicleOrderUseCase assignVehicleOrderUseCase;
+    private final GetAllOrdersByVehicleInspectionIdUseCase getAllOrdersByVehicleInspectionIdUseCase;
+    private final GetAllVehicleOrdersUseCase getAllVehicleOrdersUseCase;
+    private final ExcelGenerationService excelGenerationService;
 
     @Operation(
             summary = "Assign a new order",
@@ -108,5 +112,61 @@ public class OrderController {
 
         GetAllOrdersByMachineId response = getAllOrdersByMachineIdUseCase.getAllOrdersByMachineId(machineId);
         return ResponseEntity.ok(response);
+    }
+
+    @Operation(summary = "Create vehicle order", description = "Creates a work order linked to a vehicle pre-operative inspection.")
+    @PostMapping(value = "/vehicle", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<OrderWithVehicleDTO> assignVehicleOrder(
+            @RequestBody AssignVehicleOrderRequest request) {
+        return ResponseEntity.status(201).body(assignVehicleOrderUseCase.assignVehicleOrder(request));
+    }
+
+    @Operation(summary = "Get vehicle orders by inspection", description = "Returns all work orders for a given vehicle pre-operative inspection.")
+    @GetMapping("/vehicle/{vehicleInspectionId}")
+    public ResponseEntity<GetAllOrdersByVehicleInspectionIdResponse> getAllOrdersByVehicleInspectionId(
+            @Parameter(description = "PK of `inspeccion_pre_operativa`", required = true, example = "5")
+            @PathVariable Long vehicleInspectionId) {
+        return ResponseEntity.ok(getAllOrdersByVehicleInspectionIdUseCase.getAllOrdersByVehicleInspectionId(vehicleInspectionId));
+    }
+
+    @Operation(summary = "Get all vehicle orders (paginated)", description = "Returns all work orders linked to vehicle inspections, sorted by most recent.")
+    @GetMapping("/vehicle/all")
+    public ResponseEntity<Page<OrderWithVehicleDTO>> getAllVehicleOrders(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by("id").descending());
+        return ResponseEntity.ok(getAllVehicleOrdersUseCase.getAllVehicleOrders(pageable));
+    }
+
+    @Operation(summary = "Exportar órdenes de maquinaria a Excel")
+    @GetMapping("/export")
+    public ResponseEntity<byte[]> exportMachineOrders() throws IOException {
+        List<OrderWithMachineDTO> orders = getAllOrdersUseCase.getAllOrders(Pageable.unpaged()).getContent();
+        byte[] excelData = excelGenerationService.generateMachineOrdersExcel(orders);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        headers.setContentDispositionFormData("attachment", "ordenes_maquinaria.xlsx");
+        return ResponseEntity.ok().headers(headers).body(excelData);
+    }
+
+    @Operation(summary = "Exportar órdenes de vehículos y motos a Excel",
+            description = "Por defecto exporta ambos. Con `soloMotos=true` exporta únicamente las órdenes cuyo tipo de vehículo es MOTOCICLETA.")
+    @GetMapping("/vehicle/export")
+    public ResponseEntity<byte[]> exportVehicleOrders(
+            @RequestParam(defaultValue = "false") boolean soloMotos) throws IOException {
+        List<OrderWithVehicleDTO> orders = getAllVehicleOrdersUseCase.getAllVehicleOrders(Pageable.unpaged()).getContent();
+
+        if (soloMotos) {
+            orders = orders.stream()
+                    .filter(o -> o.vehicle() != null
+                            && "MOTOCICLETA".equalsIgnoreCase(o.vehicle().tipoVehiculo()))
+                    .toList();
+        }
+
+        byte[] excelData = excelGenerationService.generateVehicleOrdersExcel(orders);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        headers.setContentDispositionFormData("attachment", soloMotos ? "ordenes_motos.xlsx" : "ordenes_vehiculos_motos.xlsx");
+        return ResponseEntity.ok().headers(headers).body(excelData);
     }
 }

@@ -37,3 +37,16 @@ build/
 src/main/resources/application-dev.properties
 src/main/resources/application-local.properties
 src/main/resources/application-sqlserver.properties
+
+
+scripts/*.sql
+
+### Runtime uploads (documentos vehículo, etc.) ###
+/uploads/**
+
+### Runtime uploads folder root glob (safety)
+backend.log
+
+### Artifacts que no deben subirse al repo ###
+/*.jar
+*.log

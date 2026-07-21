@@ -26,7 +26,7 @@ public class LaborEntity {
 
     private Boolean sameMecanic;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.EAGER)
     private UserEntity mecanic;
 
     private String contractor;

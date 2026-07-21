@@ -32,7 +32,21 @@ public class OilChangeEntity {
     private Double hourMeter;
     private Integer averageHoursChange;
 
+    @Column(name = "hour_stamp")
+    private Integer hourStamp;
+
     @ManyToOne
     @JoinColumn(name = "machine_id")
     private MachineEntity machine;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "oil_type")
+    private OilType oilType;
+
+    @ManyToOne
+    @JoinColumn(name = "id_requirement")
+    private OilChangeRequirementEntity requirement;
+
+    @Column(name = "percentage_used")
+    private Integer percentageUsed;
 }

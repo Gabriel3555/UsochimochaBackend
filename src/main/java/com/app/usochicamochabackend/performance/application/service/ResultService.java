@@ -5,7 +5,6 @@ import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.mapper.ResultMapper;
-import com.app.usochicamochabackend.notifications.application.NotificationService;
 import com.app.usochicamochabackend.order.application.dto.OrderResponse;
 import com.app.usochicamochabackend.order.application.port.GetOrderByIdUseCase;
 import com.app.usochicamochabackend.order.infrastructure.entity.OrderEntity;
@@ -29,12 +28,11 @@ public class ResultService implements ExecuteAnOrderUseCase {
     private final OrderRepository orderRepository;
     private final UserRepositoryJpa  userRepository;
     private final SaveActionUseCase saveActionUseCase;
-    private final NotificationService notificationService;
 
     @Override
     @Transactional
     public ExecuteDTO execute(ExecuteAnOrderRequest request) {
-        OrderResponse orderResponse = getOrderByIdUseCase.getOrderById(request.orderId());
+        // Obtener la orden
         OrderEntity orderEntity = orderRepository.findById(request.orderId())
                 .orElseThrow(() -> new ResourceNotFoundException("Order not found"));
 
@@ -42,17 +40,35 @@ public class ResultService implements ExecuteAnOrderUseCase {
             throw new RuntimeException("Order has already been executed");
         }
 
+        // Crear y guardar el resultado PRIMERO
         ResultEntity result = ResultMapper.toEntity(request, orderEntity, userRepository);
         ResultEntity savedResult = resultRepository.save(result);
+        resultRepository.flush(); // Forzar flush para obtener el ID
 
+        // Asignar resultado a la orden
         orderEntity.setResult(savedResult);
-        orderEntity.setStatus("Done");
+        orderEntity.setStatus("Completada");
+
+        // Guardar SOLO la orden (Hibernate manejará el resto)
         orderRepository.save(orderEntity);
+        orderRepository.flush(); // Forzar flush para asegurar persistencia
 
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha ejecutado una orden de trabajo asignada a la inspeccion realizada a la maquina " + orderEntity.getInspection().getMachine().getName() + " el dia " + orderEntity.getInspection().getDateStamp());
+        var inspection = orderEntity.getInspection();
+        var vehicleInspection = orderEntity.getVehicleInspection();
+        String actionDetails;
+        if (inspection != null && inspection.getMachine() != null) {
+            actionDetails = "El usuario " + userPrincipal.username() + " ha ejecutado una orden de trabajo asignada a la inspeccion realizada a la maquina " + inspection.getMachine().getName() + " el dia " + inspection.getDateStamp();
+        } else if (inspection != null) {
+            actionDetails = "El usuario " + userPrincipal.username() + " ha ejecutado una orden de trabajo asignada a una inspección de máquina el día " + inspection.getDateStamp();
+        } else if (vehicleInspection != null) {
+            actionDetails = "El usuario " + userPrincipal.username() + " ha ejecutado una orden de trabajo del vehiculo con inspeccion " + vehicleInspection.getIdInspeccion() + " del dia " + vehicleInspection.getFechaRegistro();
+        } else {
+            actionDetails = "El usuario " + userPrincipal.username() + " ha ejecutado una orden de trabajo";
+        }
+        saveActionUseCase.save(actionDetails);
 
-
+        OrderResponse orderResponse = getOrderByIdUseCase.getOrderById(request.orderId());
         return ResultMapper.toResponse(savedResult, orderResponse);
     }
 

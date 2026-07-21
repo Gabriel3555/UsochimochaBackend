@@ -9,5 +9,13 @@ public record OrderWithoutInspectionResponse(
         String status,
         LocalDateTime date,
         String description,
-        UserResponse assignerUser
+        UserResponse assignerUser,
+        String orderType,
+        String maintenanceType,
+        String maintenanceCategory,
+        String consecutive,
+        Integer hoursSpent,
+        Integer minutesSpent,
+        String suppliers,
+        String timeSpent
 ) {}

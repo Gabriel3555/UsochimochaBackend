@@ -24,6 +24,7 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.scheduling.annotation.Async;
 
 import java.time.LocalDateTime;
 import java.util.Set;
@@ -44,12 +45,8 @@ public class UserDetailsServiceImp
         String username = authLoginRequest.username();
         String password = authLoginRequest.password();
 
-        UserEntity userEntity = userRepository.findByUsername(username)
+        UserEntity userEntity = userRepository.findActiveByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("user not found!"));
-
-        if (!userEntity.getStatus()) {
-            throw new BadCredentialsException("Invalid username or password!");
-        }
 
         Long id = userEntity.getId();
 
@@ -61,9 +58,8 @@ public class UserDetailsServiceImp
 
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication()
                 .getPrincipal();
-        saveActionUseCase.save("El usuario " + userPrincipal.username() +
-                " ha iniciado sesion el dia " + LocalDateTime.now().toLocalDate() + " a las "
-                + LocalDateTime.now().toLocalTime());
+
+        this.saveLoginAuditAsync(userPrincipal.username());
 
         return new AuthResponse(userEntity.getId(), username, userEntity.getFullName(), userEntity.getRole(),
                 "logged successfully!", jwtToken, refreshToken, true);
@@ -86,7 +82,7 @@ public class UserDetailsServiceImp
 
     @Override
     public UserDetails searchUserDetails(String username) {
-        UserEntity userEntity = userRepository.findByUsername(username)
+        UserEntity userEntity = userRepository.findActiveByUsername(username)
                 .orElseThrow(() -> new UsernameNotFoundException("user not found"));
 
         GrantedAuthority role = new SimpleGrantedAuthority("ROLE_".concat(userEntity.getRole()));
@@ -100,12 +96,8 @@ public class UserDetailsServiceImp
             DecodedJWT decodedJWT = jwtUtils.verifyToken(request.refreshToken());
             String username = jwtUtils.extractUsername(decodedJWT);
 
-            UserEntity userEntity = userRepository.findByUsername(username)
+            UserEntity userEntity = userRepository.findActiveByUsername(username)
                     .orElseThrow(() -> new UsernameNotFoundException("user not found"));
-
-            if (!userEntity.getStatus()) {
-                throw new BadCredentialsException("Invalid username or password!");
-            }
 
             GrantedAuthority role = new SimpleGrantedAuthority("ROLE_".concat(userEntity.getRole()));
 
@@ -125,5 +117,16 @@ public class UserDetailsServiceImp
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
         return this.searchUserDetails(username);
+    }
+
+    @Async
+    protected void saveLoginAuditAsync(String username) {
+        try {
+            saveActionUseCase.save("El usuario " + username +
+                    " ha iniciado sesion el dia " + LocalDateTime.now().toLocalDate() + " a las "
+                    + LocalDateTime.now().toLocalTime());
+        } catch (Exception e) {
+            System.err.println("Error guardando auditoría de login para " + username + ": " + e.getMessage());
+        }
     }
 }

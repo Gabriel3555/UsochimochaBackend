@@ -7,7 +7,16 @@ public interface VehicleProjection {
 
     String getMarca();
 
+    Integer getIdMarca();
+
+    Integer getIdTipoVehiculo();
+
     String getTipoVehiculo();
 
     Integer getKilometrajeActual();
+    String getBelongsTo();
+
+    Integer getIdUbicacionBase();
+
+    String getUbicacionBase();
 }

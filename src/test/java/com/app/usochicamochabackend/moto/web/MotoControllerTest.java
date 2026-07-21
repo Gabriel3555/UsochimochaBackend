@@ -2,7 +2,11 @@ package com.app.usochicamochabackend.moto.web;
 
 import com.app.usochicamochabackend.auth.utils.JwtUtils;
 import com.app.usochicamochabackend.moto.application.dto.*;
+import com.app.usochicamochabackend.update.application.service.ExcelGenerationService;
+import com.app.usochicamochabackend.update.application.service.VehicleOilChangeService;
+import com.app.usochicamochabackend.moto.application.port.MotoMonitoringUseCase;
 import com.app.usochicamochabackend.moto.application.service.MotoService;
+import com.app.usochicamochabackend.vehicleinspection.application.port.GetVehicleInspectionsUseCase;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,7 +38,19 @@ class MotoControllerTest {
     private MotoService motoService;
 
     @MockBean
+    private MotoMonitoringUseCase motoMonitoringUseCase;
+
+    @MockBean
+    private GetVehicleInspectionsUseCase getVehicleInspectionsUseCase;
+
+    @MockBean
     private JwtUtils jwtUtils;
+
+    @MockBean
+    private ExcelGenerationService excelGenerationService;
+
+    @MockBean
+    private VehicleOilChangeService vehicleOilChangeService;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -42,11 +58,14 @@ class MotoControllerTest {
     @Test
     @WithMockUser
     void getMotocicletas_ShouldReturnOk() throws Exception {
-        when(motoService.getMotocicletas()).thenReturn(List.of(new MotoPlacaResponse(1, "XYZ789")));
+        when(motoService.getMotocicletas()).thenReturn(
+                List.of(new MotoPlacaResponse(1, "XYZ789", "Yamaha YZF", 2, "Unidad Pantano")));
 
         mockMvc.perform(get("/api/v1/moto/placas"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].placa").value("XYZ789"));
+                .andExpect(jsonPath("$[0].placa").value("XYZ789"))
+                .andExpect(jsonPath("$[0].idUbicacionBase").value(2))
+                .andExpect(jsonPath("$[0].ubicacionBase").value("Unidad Pantano"));
     }
 
     @Test
@@ -61,10 +80,28 @@ class MotoControllerTest {
 
     @Test
     @WithMockUser
+    void getMotoInspectionsLatest_ShouldReturnOk() throws Exception {
+        when(getVehicleInspectionsUseCase.getMotoInspectionsLatestPerVehicle()).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/moto/inspections/reports"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser
+    void getMotoInspectionsHistory_ShouldReturnOk() throws Exception {
+        when(getVehicleInspectionsUseCase.getMotoInspectionsHistory()).thenReturn(List.of());
+
+        mockMvc.perform(get("/api/v1/moto/inspections/reports/history"))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    @WithMockUser
     void saveInspeccion_ShouldReturnId() throws Exception {
         InspeccionMotoRequest request = new InspeccionMotoRequest(
                 1, 5000, "BUENO", "Todo ok",
-                "Vigente", "Vigente", "Vigente", "N/A",
+                "Vigente", "Vigente", "N/A",
                 "Bueno", "Bueno", "Bueno",
                 1);
 
@@ -74,7 +111,7 @@ class MotoControllerTest {
                 .with(csrf())
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk())
+                .andExpect(status().isCreated())
                 .andExpect(jsonPath("$").value(100L));
     }
 }

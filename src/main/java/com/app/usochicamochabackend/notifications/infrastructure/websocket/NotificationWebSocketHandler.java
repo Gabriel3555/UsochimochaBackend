@@ -58,7 +58,7 @@ public class NotificationWebSocketHandler {
      */
     public void broadcastOilChange(String oilChangeData) {
         log.debug("Broadcasting oil change data: {}", oilChangeData);
-        messagingTemplate.convertAndSend("/topic/notifications/oil-change", oilChangeData);
+        messagingTemplate.convertAndSend("/topic/oil-change-alerts", oilChangeData);
     }
 
     /**
@@ -99,5 +99,18 @@ public class NotificationWebSocketHandler {
     public void sendSoatRuntToUser(String username, String soatRuntData) {
         log.debug("Sending SOAT/RUNT notification to user {}: {}", username, soatRuntData);
         messagingTemplate.convertAndSend("/user/" + username + "/notifications/soat-runt", soatRuntData);
+    }
+
+    public void broadcastFuelAnomaly(String anomalyData) {
+        log.debug("Broadcasting fuel anomaly: {}", anomalyData);
+        messagingTemplate.convertAndSend("/topic/alerts/fuel-anomaly", anomalyData);
+    }
+
+    /**
+     * Broadcast a data-update event to all connected clients (e.g. "vehicle-inspections-updated")
+     */
+    public void broadcastDataUpdate(String message) {
+        log.debug("Broadcasting data update: {}", message);
+        messagingTemplate.convertAndSend("/topic/notifications/data-update", message);
     }
 }

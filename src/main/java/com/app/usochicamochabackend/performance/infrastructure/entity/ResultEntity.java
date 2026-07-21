@@ -28,12 +28,18 @@ public class ResultEntity {
 
     private String timeSpent;
 
+    @Column(name = "hours_spent")
+    private Integer hoursSpent;
+
+    @Column(name = "minutes_spent")
+    private Integer minutesSpent;
+
     @OneToOne(mappedBy = "result")
     private OrderEntity order;
 
-    @OneToOne(cascade = CascadeType.ALL)
+    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     private LaborEntity laborForce;
 
-    @OneToOne(cascade = CascadeType.ALL)
+    @OneToOne(cascade = CascadeType.ALL, fetch = FetchType.EAGER)
     private SparePartEntity sparePart;
 }

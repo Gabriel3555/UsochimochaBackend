@@ -10,6 +10,8 @@ import com.app.usochicamochabackend.mapper.ImagesMapper;
 import com.app.usochicamochabackend.mapper.InspectionMapper;
 import com.app.usochicamochabackend.mapper.MachineMapper;
 import com.app.usochicamochabackend.notifications.application.NotificationService;
+import com.app.usochicamochabackend.notifications.application.PreventiveAlertCalculationService;
+import com.app.usochicamochabackend.shared.event.InspectionCompletedEvent;
 import com.app.usochicamochabackend.review.application.dto.*;
 import com.app.usochicamochabackend.review.application.port.*;
 import com.app.usochicamochabackend.review.infrastructure.entity.ImageEntity;
@@ -18,6 +20,7 @@ import com.app.usochicamochabackend.review.infrastructure.repository.ImageReposi
 import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
 import com.app.usochicamochabackend.review.application.dto.ExpirationNotificationDTO;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -34,12 +37,15 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import org.springframework.context.ApplicationEventPublisher;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
-public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveInspectionImageUseCase, GetInspectionByIdUseCase, GetInspectionImagesUseCase, GetAllInspectionsWithoutImagesUseCase, GetAllInspectionsForExportUseCase {
+public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveInspectionImageUseCase, GetInspectionByIdUseCase, GetInspectionImagesUseCase, GetAllInspectionsWithoutImagesUseCase, GetAllInspectionsForExportUseCase, UpdateInspectionHourMeterUseCase {
 
     private final NotificationService notificationService;
     private final InspectionRepository inspectionRepository;
@@ -47,6 +53,8 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
     private final MachineRepository machineRepository;
     private final ImageRepository imageRepository;
     private final SaveActionUseCase saveActionUseCase;
+    private final ApplicationEventPublisher eventPublisher;
+    private final PreventiveAlertCalculationService preventiveAlertCalculationService;
 
     @Override
     public InspectionFormResponse createInspectionOnlyData(InspectionFormRequest request) {
@@ -100,6 +108,25 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " hizo una inspeccion a la maquina " + machine.getName());
 
+        // Recalcular alertas de inmediato: el horómetro de esta inspección es la fuente
+        // primaria que usa el cálculo de alertas de cambio de aceite de maquinaria.
+        preventiveAlertCalculationService.calculateAndEmitAlerts();
+
+        try {
+            Long kmOHoras = saved.getHourMeter() != null ? saved.getHourMeter().longValue() : 0L;
+
+            eventPublisher.publishEvent(new InspectionCompletedEvent(
+                this,
+                machine.getId(),
+                machine.getName(),  // Usar name en lugar de placa
+                "MAQUINARIA",       // Tipo por defecto
+                kmOHoras,
+                saved.getDateStamp()
+            ));
+        } catch (Exception e) {
+            // Log pero no fallar: inspección se guardó, solo falla notificación
+            log.warn("Error publicando evento de inspección para máquina: {}", e.getMessage());
+        }
 
         return inspectionResponse;
     }
@@ -253,17 +280,30 @@ public class InspectionService implements CreateInspectionOnlyDataUseCase, SaveI
 
     @Override
     public Page<InspectionFormResponse> getAllInspectionsWithoutImages(Pageable pageable) {
-        Page<InspectionEntity> inspections = inspectionRepository.findAll(pageable);
+        Page<InspectionEntity> inspectionsPage = inspectionRepository.findAll(pageable);
+        Page<InspectionFormResponse> result = inspectionsPage.map(InspectionMapper::toDto);
 
         UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         saveActionUseCase.save("El usuario " + userPrincipal.username() + " ha observado todas las inspecciones el dia " + LocalDateTime.now());
 
-
-        return inspections.map(InspectionMapper::toDto);
+        return result;
     }
 
     @Override
     public List<InspectionEntity> getAllInspectionsForExport() {
         return inspectionRepository.findAllWithMachineAndUser();
+    }
+
+    @Override
+    public void updateHourMeter(Long machineId, Double newHourMeter) {
+        InspectionEntity last = inspectionRepository.getLastInspection(machineId);
+        if (last == null) throw new ResourceNotFoundException("No inspection found for machine " + machineId);
+        last.setHourMeter(newHourMeter);
+        inspectionRepository.save(last);
+
+        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        saveActionUseCase.save("El usuario " + userPrincipal.username() + " corrigió el horómetro de la máquina " + last.getMachine().getName() + " a " + newHourMeter);
+
+        preventiveAlertCalculationService.calculateAndEmitAlerts();
     }
 }

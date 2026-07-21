@@ -8,12 +8,14 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 
 /**
  * Tabla: documentacion_y_elementos
  * Almacena un registro por cada tipo de documento del vehículo:
- * SOAT, TECNO, LICENCIA, EXTINTOR.
+ * SOAT, TECNOMECANICA, LICENCIA, EXTINTOR (el código usa TECNOMECANICA al persistir tecnomecánica).
  * Campo fecha_vencimiento es NOT NULL en la BD.
+ * Varias filas por tipo representan historial; la vigente tiene {@code activo = true}.
  */
 @Data
 @Entity
@@ -35,17 +37,26 @@ public class DocumentacionYElementosEntity {
     @JoinColumn(name = "id_vehiculo", insertable = false, updatable = false)
     private VehicleEntity vehiculo;
 
-    /** Valores esperados: 'SOAT', 'TECNO', 'LICENCIA', 'EXTINTOR' */
+    /** Valores esperados: 'SOAT', 'TECNOMECANICA', 'LICENCIA', 'EXTINTOR' (alineado con servicios y seed SQL). */
     @Column(name = "tipo_documento", length = 50)
     private String tipoDocumento;
 
-    /** NOT NULL en BD — siempre debe tener un valor */
-    @Column(name = "fecha_vencimiento", nullable = false)
+    /** Nulo para TARJETA_PROPIEDAD (sin vencimiento); obligatorio para demás tipos */
+    @Column(name = "fecha_vencimiento")
     private LocalDate fechaVencimiento;
 
-    /** URI de la imagen enviada desde el dispositivo */
-    @Column(name = "imagen_url", length = 255)
+    /** Ruta/URL del archivo (imagen o PDF) asociado al documento. */
+    @Column(name = "imagen_url", length = 1024)
     private String imagenUrl;
+
+    @Column(name = "fecha_registro")
+    private LocalDateTime fechaRegistro;
+
+    @Column(name = "registrado_por", length = 100)
+    private String registradoPor;
+
+    @Column(name = "content_type", length = 120)
+    private String contentType;
 
     /** Estado del documento: Vigente / Próximo a Vencer / Vencido */
     @Column(name = "estadodatos", length = 255)
@@ -64,4 +75,14 @@ public class DocumentacionYElementosEntity {
     /** Mes/año adicional (usado para extintor) */
     @Column(name = "mesyear")
     private LocalDate mesyear;
+
+    @PrePersist
+    public void prePersist() {
+        if (fechaRegistro == null) {
+            fechaRegistro = LocalDateTime.now();
+        }
+        if (activo == null) {
+            activo = true;
+        }
+    }
 }

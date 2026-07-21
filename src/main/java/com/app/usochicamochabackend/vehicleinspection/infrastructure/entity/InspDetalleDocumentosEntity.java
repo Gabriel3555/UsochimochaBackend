@@ -37,9 +37,6 @@ public class InspDetalleDocumentosEntity {
     @Column(name = "check_tecno", length = 20)
     private String checkTecno;
 
-    @Column(name = "check_licencia", length = 20)
-    private String checkLicencia;
-
     @Column(name = "check_extintor", length = 20)
     private String checkExtintor;
 }

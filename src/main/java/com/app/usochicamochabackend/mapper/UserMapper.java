@@ -24,7 +24,10 @@ public class UserMapper {
                 entity.getUsername(),
                 entity.getFullName(),
                 entity.getEmail(),
-                entity.getRole()
+                entity.getRole(),
+                entity.getLicenseCategory(),
+                entity.getLicenseExpiry(),
+                entity.getLicenseDocumentUrl()
         );
     }
 

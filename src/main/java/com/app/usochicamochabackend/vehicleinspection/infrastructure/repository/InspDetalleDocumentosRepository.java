@@ -23,4 +23,6 @@ public interface InspDetalleDocumentosRepository extends JpaRepository<InspDetal
                 )
             """, nativeQuery = true)
     Optional<InspDetalleDocumentosEntity> findLatestByVehiculoId(@Param("idVehiculo") Integer idVehiculo);
+
+    Optional<InspDetalleDocumentosEntity> findByIdInspeccion(Long idInspeccion);
 }

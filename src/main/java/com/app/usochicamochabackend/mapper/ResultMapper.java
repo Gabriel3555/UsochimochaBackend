@@ -10,12 +10,27 @@ import com.app.usochicamochabackend.performance.infrastructure.entity.LaborEntit
 import com.app.usochicamochabackend.performance.infrastructure.entity.ResultEntity;
 import com.app.usochicamochabackend.performance.infrastructure.entity.SparePartEntity;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 
 public class ResultMapper {
 
     private ResultMapper() {}
+
+    /**
+     * Valida que los tiempos de ejecución sean válidos
+     * - Horas >= 0
+     * - Minutos entre 0-59
+     */
+    private static void validateExecutionTime(Integer hours, Integer minutes) {
+        if (hours == null || hours < 0) {
+            throw new IllegalArgumentException("Las horas deben ser mayor o igual a 0");
+        }
+        if (minutes == null || minutes < 0 || minutes > 59) {
+            throw new IllegalArgumentException("Los minutos deben estar entre 0 y 59");
+        }
+    }
 
     public static ResultEntity toEntity(
             ExecuteAnOrderRequest request,
@@ -24,15 +39,25 @@ public class ResultMapper {
     ) {
         if (request == null || order == null) return null;
 
+        // Validar tiempos
+        validateExecutionTime(request.hoursSpent(), request.minutesSpent());
+
         ResultEntity result = new ResultEntity();
         result.setDate(LocalDateTime.now());
-        result.setTimeSpent(request.timeSpent());
+        result.setHoursSpent(request.hoursSpent());
+        result.setMinutesSpent(request.minutesSpent());
         result.setDescription(request.description());
-        result.setOrder(order);
 
         UserEntity mechanic = null;
         if (request.labor() != null && Boolean.TRUE.equals(request.labor().sameMecanic())) {
-            mechanic = order.getInspection() != null ? order.getInspection().getUser() : null;
+            if (order.getInspection() != null) {
+                mechanic = order.getInspection().getUser();
+            } else if (order.getVehicleInspection() != null) {
+                String loginUser = order.getVehicleInspection().getLoginUser();
+                if (loginUser != null) {
+                    mechanic = userRepository.findByUsername(loginUser).orElse(null);
+                }
+            }
         }
 
         LaborEntity labor = LaborMapper.toEntity(request.labor(), mechanic);
@@ -71,16 +96,38 @@ public class ResultMapper {
 
         OrderResponse order = OrderMapper.toDto(entity.getOrder());
 
+        Double hourMeter = order != null && order.inspection() != null ? order.inspection().hourMeter() : null;
+
+        BigDecimal laborPrice = labor != null ? labor.price() : BigDecimal.ZERO;
+        BigDecimal sparePrice = sparePart != null ? sparePart.price() : BigDecimal.ZERO;
+
+        String timeSpent = formatTimeSpent(entity.getHoursSpent(), entity.getMinutesSpent());
+        if (timeSpent == null && entity.getTimeSpent() != null && !entity.getTimeSpent().isBlank()) {
+            timeSpent = entity.getTimeSpent();
+        }
+
         return new ResultDTO(
                 entity.getId(),
                 entity.getDate(),
                 entity.getDescription(),
-                order.inspection().hourMeter(),
-                entity.getTimeSpent(),
+                hourMeter,
+                timeSpent,
                 labor,
                 sparePart,
-                labor.price().add(sparePart.price())
+                laborPrice.add(sparePrice)
         );
+    }
+
+    private static String formatTimeSpent(Integer hours, Integer minutes) {
+        if (hours == null && minutes == null) return null;
+
+        int h = hours != null ? hours : 0;
+        int m = minutes != null ? minutes : 0;
+
+        if (h == 0 && m == 0) return null;
+        if (h == 0) return m + "m";
+        if (m == 0) return h + "h";
+        return h + "h " + m + "m";
     }
 
     public static List<ResultDTO> toResponseList(List<ResultEntity> entityList) {

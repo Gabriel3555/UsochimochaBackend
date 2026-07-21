@@ -48,7 +48,9 @@ public class JwtTokenValidator extends OncePerRequestFilter {
             String token = header.substring(7);
 
             try {
+                logger.info("🔐 [JWT] Validando token: " + token.substring(0, Math.min(50, token.length())) + "...");
                 DecodedJWT decodedJWT = jwtUtils.verifyToken(token);
+                logger.info("✅ [JWT] Token válido para usuario: " + decodedJWT.getSubject());
                 Long userId = decodedJWT.getClaim("userId").asLong();
                 String username = jwtUtils.extractUsername(decodedJWT);
                 String roleString = jwtUtils.extractSpecificClaim(decodedJWT, "role").asString();
@@ -64,10 +66,10 @@ public class JwtTokenValidator extends OncePerRequestFilter {
 
             } catch (Exception ex) {
                 // 🔥 Captura error del token inválido/expirado
-                logger.warning("Invalid JWT token: " + ex.getMessage());
+                logger.warning("❌ [JWT] Token inválido: " + ex.getClass().getSimpleName() + " - " + ex.getMessage());
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 response.setContentType("application/json");
-                response.getWriter().write("{\"error\": \"Invalid or expired token\"}");
+                response.getWriter().write("{\"error\": \"Invalid or expired token\", \"cause\": \"" + ex.getMessage() + "\"}");
                 return; // 🚨 IMPORTANTE: no seguir el chain
             }
         }

@@ -11,5 +11,9 @@ public record OrderResponse(
         LocalDateTime date,
         String description,
         InspectionFormResponse inspection,
-        UserResponse assignerUser
+        UserResponse assignerUser,
+        String orderType,
+        String maintenanceType,
+        String maintenanceCategory,
+        String consecutive
 ) {}

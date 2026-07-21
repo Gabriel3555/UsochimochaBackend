@@ -3,6 +3,7 @@ package com.app.usochicamochabackend.notifications.application;
 import com.app.usochicamochabackend.notifications.infrastructure.websocket.NotificationWebSocketHandler;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.ConcurrentHashMap;
@@ -13,6 +14,7 @@ import java.util.concurrent.ConcurrentHashMap;
 public class NotificationService {
 
     private final NotificationWebSocketHandler webSocketHandler;
+    private final SimpMessagingTemplate messagingTemplate;
     private final ConcurrentHashMap<String, Long> notificationStats = new ConcurrentHashMap<>();
 
     /**
@@ -20,7 +22,6 @@ public class NotificationService {
      */
     public void notifyInspection(String inspectionData) {
         if (inspectionData != null) {
-            log.debug("Sending inspection WebSocket notification: {}", inspectionData);
             webSocketHandler.broadcastInspection(inspectionData);
             recordNotificationStats("inspection");
         }
@@ -31,7 +32,6 @@ public class NotificationService {
      */
     public void notifyOilChange(String oilChangeData) {
         if (oilChangeData != null) {
-            log.debug("Sending oil change WebSocket notification: {}", oilChangeData);
             webSocketHandler.broadcastOilChange(oilChangeData);
             recordNotificationStats("oil-change");
         }
@@ -42,7 +42,6 @@ public class NotificationService {
      */
     public void notifyUser(String username, String notification) {
         if (notification != null && username != null) {
-            log.debug("Sending user-specific WebSocket notification to {}: {}", username, notification);
             webSocketHandler.sendToUser(username, notification);
             recordNotificationStats("user-specific");
         }
@@ -53,7 +52,6 @@ public class NotificationService {
      */
     public void notifyConnectionStatus(String status) {
         if (status != null) {
-            log.debug("Sending connection status: {}", status);
             webSocketHandler.sendConnectionStatus(status);
             recordNotificationStats("connection-status");
         }
@@ -78,7 +76,6 @@ public class NotificationService {
      */
     public void resetNotificationStats() {
         notificationStats.clear();
-        log.debug("Notification statistics reset");
     }
 
     /**
@@ -86,7 +83,6 @@ public class NotificationService {
      */
     public void notifySoatRunt(String soatRuntData) {
         if (soatRuntData != null) {
-            log.debug("Sending SOAT/RUNT WebSocket notification: {}", soatRuntData);
             webSocketHandler.broadcastSoatRuntNotification(soatRuntData);
             recordNotificationStats("soat-runt");
         }
@@ -97,9 +93,25 @@ public class NotificationService {
      */
     public void notifySoatRuntStreamStatus(String status) {
         if (status != null) {
-            log.debug("Sending SOAT/RUNT stream status WebSocket notification: {}", status);
             webSocketHandler.broadcastSoatRuntStreamStatus(status);
             recordNotificationStats("soat-runt-stream");
+        }
+    }
+
+    /**
+     * Broadcast a data-update event (e.g. "vehicle-inspections-updated", "moto-inspections-updated")
+     */
+    public void notifyDataUpdate(String message) {
+        if (message != null) {
+            webSocketHandler.broadcastDataUpdate(message);
+            recordNotificationStats("data-update");
+        }
+    }
+
+    public void notifyFuelAnomaly(String anomalyData) {
+        if (anomalyData != null) {
+            webSocketHandler.broadcastFuelAnomaly(anomalyData);
+            recordNotificationStats("fuel-anomaly");
         }
     }
 
@@ -108,9 +120,30 @@ public class NotificationService {
      */
     public void notifySoatRuntUser(String username, String soatRuntData) {
         if (soatRuntData != null && username != null) {
-            log.debug("Sending SOAT/RUNT WebSocket notification to user {}: {}", username, soatRuntData);
             webSocketHandler.sendSoatRuntToUser(username, soatRuntData);
             recordNotificationStats("soat-runt-user");
         }
     }
+
+    /**
+     * Send document expiry alert notification via WebSocket (used by scheduled checks)
+     */
+    public void notifyDocumentExpiry(String message) {
+        if (message != null) {
+            webSocketHandler.broadcastDataUpdate(message);
+            recordNotificationStats("document-expiry");
+        }
+    }
+
+    /**
+     * Send preventive alert notification via WebSocket (FASE 2: Sistema nuevo de alertas)
+     * Emite por el tema /topic/alerts para que el frontend las reciba en tiempo real
+     */
+    public void notifyPreventiveAlert(Object alertData) {
+        if (alertData != null) {
+            messagingTemplate.convertAndSend("/topic/alerts", alertData);
+            recordNotificationStats("preventive-alert");
+        }
+    }
+
 }

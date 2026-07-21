@@ -45,7 +45,9 @@ class UsochicamochaBackendApplicationTests {
                 "Integration Test User",
                 "MECHANIC",
                 "integration@example.com",
-                "password123"
+                "password123",
+                "A",
+                java.time.LocalDate.of(2027, 12, 31)
         );
 
         // When - Create user

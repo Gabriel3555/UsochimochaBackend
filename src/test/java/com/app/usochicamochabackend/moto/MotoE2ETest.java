@@ -1,18 +1,21 @@
 package com.app.usochicamochabackend.moto;
 
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
+import org.junit.jupiter.api.Tag;
+import com.app.usochicamochabackend.catalog.infrastructure.entity.TipoVehiculoEntity;
+import com.app.usochicamochabackend.catalog.infrastructure.entity.UbicacionEntity;
+import com.app.usochicamochabackend.catalog.infrastructure.repository.TipoVehiculoRepository;
+import com.app.usochicamochabackend.catalog.infrastructure.repository.UbicacionRepository;
 import com.app.usochicamochabackend.moto.application.dto.InspeccionMotoRequest;
-import com.app.usochicamochabackend.moto.application.service.MotoService;
-import com.app.usochicamochabackend.moto.infrastructure.entity.TipoVehiculoEntity;
-import com.app.usochicamochabackend.moto.infrastructure.entity.UbicacionEntity;
+import com.app.usochicamochabackend.vehicle.infrastructure.entity.MarcaModeloEntity;
 import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
-import com.app.usochicamochabackend.vehicleinspection.infrastructure.entity.InspPreOperativaEntity;
-import com.app.usochicamochabackend.moto.infrastructure.repository.MotoInspeccionRepository;
-import com.app.usochicamochabackend.moto.infrastructure.repository.TipoVehiculoRepository;
-import com.app.usochicamochabackend.moto.infrastructure.repository.UbicacionRepository;
-import com.app.usochicamochabackend.moto.infrastructure.repository.VehiculoRepository;
+import com.app.usochicamochabackend.vehicle.infrastructure.repository.MarcaModeloRepository;
+import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleRepository;
+import com.app.usochicamochabackend.vehicleinspection.infrastructure.repository.InspPreOperativaRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -23,9 +26,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -34,17 +35,17 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+@Tag("e2e")
 @SpringBootTest
-@AutoConfigureMockMvc
-@ActiveProfiles("dev") // Run against dev profile as requested
-@Transactional
+@AutoConfigureMockMvc(addFilters = false)
+@ActiveProfiles("test")
 class MotoE2ETest {
 
     @Autowired
     private MockMvc mockMvc;
 
     @Autowired
-    private VehiculoRepository vehiculoRepository;
+    private VehicleRepository vehicleRepository;
 
     @Autowired
     private UbicacionRepository ubicacionRepository;
@@ -53,62 +54,78 @@ class MotoE2ETest {
     private TipoVehiculoRepository tipoVehiculoRepository;
 
     @Autowired
-    private MotoInspeccionRepository inspeccionRepository;
+    private MarcaModeloRepository marcaModeloRepository;
+
+    @Autowired
+    private InspPreOperativaRepository inspeccionRepository;
 
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
     private Integer testVehiculoId;
     private Integer testUbicacionId;
 
+    @AfterEach
+    void tearDown() {
+        jdbcTemplate.execute("SET REFERENTIAL_INTEGRITY FALSE");
+        inspeccionRepository.deleteAll();
+        vehicleRepository.deleteAll();
+        tipoVehiculoRepository.deleteAll();
+        ubicacionRepository.deleteAll();
+        marcaModeloRepository.deleteAll();
+        jdbcTemplate.execute("SET REFERENTIAL_INTEGRITY TRUE");
+    }
+
     @BeforeEach
     void setUp() {
-        // 1. Create TipoVehiculo
+        MarcaModeloEntity marca = MarcaModeloEntity.builder()
+                .descripcion("Marca E2E")
+                .build();
+        marca = marcaModeloRepository.save(marca);
+
         TipoVehiculoEntity tipo = TipoVehiculoEntity.builder()
                 .nombreTipo("MOTOCICLETA")
                 .activo(true)
                 .build();
-        tipoVehiculoRepository.save(tipo);
+        tipo = tipoVehiculoRepository.save(tipo);
 
-        // 2. Create Vehiculo
         VehicleEntity moto = VehicleEntity.builder()
                 .placa("E2E-123")
+                .idMarca(marca.getIdMarca())
                 .idTipoVehiculo(tipo.getId())
                 .tipoVehiculo(tipo)
                 .kilometrajeActual(100)
                 .activo(true)
                 .build();
-        vehiculoRepository.save(moto);
+        moto = vehicleRepository.save(moto);
         testVehiculoId = moto.getIdVehiculo();
 
-        // 3. Create Ubicacion
         UbicacionEntity ubicacion = UbicacionEntity.builder()
                 .nombreUbicacion("Patio E2E")
                 .activo(true)
                 .build();
-        ubicacionRepository.save(ubicacion);
+        ubicacion = ubicacionRepository.save(ubicacion);
         testUbicacionId = ubicacion.getId();
     }
 
     @Test
     void fullMotorcycleInspectionFlow_ShouldWork() throws Exception {
-        // Setup Security Context with real UserPrincipal expected by MotoService
         UserPrincipal principal = new UserPrincipal(1L, "admin");
         var auth = new UsernamePasswordAuthenticationToken(
                 principal, null, Set.of(new SimpleGrantedAuthority("ROLE_ADMIN")));
         SecurityContextHolder.getContext().setAuthentication(auth);
 
-        // STEP 1: Get Placas
         mockMvc.perform(get("/api/v1/moto/placas"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.placa=='E2E-123')]").exists());
 
-        // STEP 2: Get Ubicaciones
         mockMvc.perform(get("/api/v1/moto/ubicaciones"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[?(@.nombreUbicacion=='Patio E2E')]").exists());
 
-        // STEP 3: Save Inspection
         InspeccionMotoRequest request = new InspeccionMotoRequest(
                 testVehiculoId,
                 150,
@@ -116,26 +133,28 @@ class MotoE2ETest {
                 "Prueba E2E terminada",
                 "Vigente",
                 "Vigente",
-                "Vigente",
                 "N/A",
                 "Bueno",
                 "Bueno",
                 "Bueno",
-                testUbicacionId
-        );
+                testUbicacionId);
 
         mockMvc.perform(post("/api/v1/moto/inspeccion")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
-                .andExpect(status().isOk());
+                .andExpect(status().isCreated());
 
-        // STEP 4: Verify in Database
-        var inspections = inspeccionRepository.findAll();
-        assertThat(inspections).isNotEmpty();
-        var lastInspection = inspections.get(inspections.size() - 1);
-        
-        // Note: the test creates a dummy inspection and asserts the fields are saved properly
-        assertThat(lastInspection.getKilometrajeReportado()).isEqualTo(150);
-        assertThat(lastInspection.getObservacionesFinales()).isEqualTo("Prueba E2E terminada");
+        var lastInspection = inspeccionRepository.findLatestByVehicleId(testVehiculoId);
+        assertThat(lastInspection).isPresent();
+        assertThat(lastInspection.get().getKilometrajeReportado()).isEqualTo(150);
+        assertThat(lastInspection.get().getObservacionesFinales()).isEqualTo("Prueba E2E terminada");
+
+        // Paso 4: verificar que la inspección es visible en el panel web administrativo
+        // (endpoint paginado: el frontend consume `response.content`, ver stores/data.js fetchMotoInspections)
+        mockMvc.perform(get("/api/v1/moto/inspections/reports"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.content[?(@.placa=='E2E-123')]").exists());
+
+        SecurityContextHolder.clearContext();
     }
 }
