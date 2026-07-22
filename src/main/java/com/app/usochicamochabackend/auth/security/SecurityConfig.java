@@ -142,6 +142,13 @@ public class SecurityConfig {
                     // Tanqueos: ambos roles de campo (OPERARIO, ALMACEN) pueden registrar.
                     http.requestMatchers(HttpMethod.POST, "/api/v1/fuel/refueling").hasAnyRole("OPERARIO", "ALMACEN", "SUPERVISOR_OPERATIVO", "ADMIN");
                     http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/refueling").hasAnyRole("OPERARIO", "ALMACEN", "SUPERVISOR_OPERATIVO", "ADMIN");
+                    // Fase 2-3: reportes (lectura) y escritura de reintegros/configuración.
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/dashboard/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/almacen/**").hasAnyRole("ALMACEN", "SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/rendimiento").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/distribucion").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/fuel/reintegros").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers("/api/v1/fuel/config/**").hasRole("ADMIN");
                     // Catálogo de tipos y cualquier otra ruta de fuel no listada arriba: cualquier autenticado.
                     http.requestMatchers("/api/v1/fuel/**").authenticated();
 
