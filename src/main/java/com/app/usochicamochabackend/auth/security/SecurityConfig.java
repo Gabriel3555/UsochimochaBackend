@@ -135,6 +135,16 @@ public class SecurityConfig {
                     http.requestMatchers(HttpMethod.GET, "/api/v1/maintenance/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
                     http.requestMatchers(HttpMethod.POST, "/api/v1/maintenance").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
 
+                    // 11. Combustibles (fuel) — rol nuevo ALMACEN cableado explícitamente.
+                    // Compras: fuera de alcance de ALMACEN (decisión cerrada del plan de arquitectura).
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/fuel/purchases").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/purchases").hasAnyRole("ALMACEN", "SUPERVISOR_OPERATIVO", "ADMIN");
+                    // Tanqueos: ambos roles de campo (OPERARIO, ALMACEN) pueden registrar.
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/fuel/refueling").hasAnyRole("OPERARIO", "ALMACEN", "SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/refueling").hasAnyRole("OPERARIO", "ALMACEN", "SUPERVISOR_OPERATIVO", "ADMIN");
+                    // Catálogo de tipos y cualquier otra ruta de fuel no listada arriba: cualquier autenticado.
+                    http.requestMatchers("/api/v1/fuel/**").authenticated();
+
                     // Cualquier otra petición: solo ADMIN
                     http.anyRequest().hasRole("ADMIN");
                 })
