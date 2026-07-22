@@ -1,4 +1,7 @@
 package com.app.usochicamochabackend.fuel.infrastructure.repository;
 
-public interface RefuelingRecordsRepository {
+import com.app.usochicamochabackend.fuel.infrastructure.entity.RefuelingRecordsEntity;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface RefuelingRecordsRepository extends JpaRepository<RefuelingRecordsEntity, Long> {
 }

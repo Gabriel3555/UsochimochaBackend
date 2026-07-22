@@ -1,4 +1,7 @@
 package com.app.usochicamochabackend.fuel.infrastructure.repository;
 
-public interface FuelPurchaseRepository {
+import com.app.usochicamochabackend.fuel.infrastructure.entity.FuelPurchaseEntity;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface FuelPurchaseRepository extends JpaRepository<FuelPurchaseEntity, Long> {
 }
