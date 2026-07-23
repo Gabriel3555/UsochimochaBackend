@@ -27,11 +27,12 @@ class FuelTypeRepositoryTest {
         fuelTypesRepository.save(FuelTypesEntity.builder().codigo("GASOLINA_CORRIENTE").nombre("Gasolina corriente").activo(true).build());
         fuelTypesRepository.save(FuelTypesEntity.builder().codigo("GASOLINA_EXTRA").nombre("Gasolina extra").activo(true).build());
         fuelTypesRepository.save(FuelTypesEntity.builder().codigo("ACPM").nombre("ACPM / Diésel").activo(true).build());
-        fuelTypesRepository.save(FuelTypesEntity.builder().codigo("GAS").nombre("Gas natural vehicular").activo(true).build());
+        fuelTypesRepository.save(FuelTypesEntity.builder().codigo("GAS").nombre("Gas natural vehicular").activo(true).unidadMedida("M3").build());
 
         List<FuelTypesEntity> todos = fuelTypesRepository.findAll();
 
         assertThat(todos).hasSize(4);
+        assertThat(fuelTypesRepository.findByCodigo("GAS")).get().extracting(FuelTypesEntity::getUnidadMedida).isEqualTo("M3");
     }
 
     @Test

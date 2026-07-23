@@ -70,6 +70,34 @@ class FuelPerformanceServiceTest {
     }
 
     @Test
+    void maquinaAGasConTanqueoPrevioYConfig_CalculaProyectadoConUnidadM3PorHora() {
+        RefuelingRecordsEntity actual = RefuelingRecordsEntity.builder()
+                .id(2L).machineId(11L).horometroKm(new BigDecimal("150"))
+                .cantidadGalones(new BigDecimal("35"))
+                .fechaRegistro(Timestamp.valueOf(LocalDateTime.of(2026, 7, 15, 10, 0)))
+                .build();
+        RefuelingRecordsEntity anterior = RefuelingRecordsEntity.builder()
+                .id(1L).machineId(11L).horometroKm(new BigDecimal("100")).build();
+
+        when(refuelingRecordsRepository.findByMachineIdIsNotNullAndFechaRegistroBetween(any(), any()))
+                .thenReturn(List.of(actual));
+        when(refuelingRecordsRepository.findAnteriorPorMachineId(anyLong(), any()))
+                .thenReturn(Optional.of(anterior));
+        when(assetFuelConfigRepository.findByMachineId(11L)).thenReturn(Optional.of(
+                AssetFuelConfigEntity.builder().machineId(11L).consumoEstandar(new BigDecimal("0.6")).unidadConsumo("M3_POR_HORA").build()));
+
+        List<FuelPerformanceResponse> resultado = fuelPerformanceService.obtenerRendimiento(
+                "MAQUINARIA", LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31));
+
+        assertEquals(1, resultado.size());
+        FuelPerformanceResponse fila = resultado.get(0);
+        // 50 horas ejecutadas * 0.6 m3/hora = 30 proyectados; real 35 -> diferencia 5
+        assertEquals(0, new BigDecimal("50").compareTo(fila.ejecutado()));
+        assertEquals(0, new BigDecimal("30").compareTo(fila.galonesProyectados()));
+        assertEquals(0, new BigDecimal("5").compareTo(fila.diferencia()));
+    }
+
+    @Test
     void maquinaSinTanqueoPrevio_QuedaExcluidaDelReporte() {
         RefuelingRecordsEntity actual = RefuelingRecordsEntity.builder()
                 .id(2L).machineId(10L).horometroKm(new BigDecimal("150"))

@@ -36,15 +36,16 @@ class FuelTypeControllerTest {
     @WithMockUser(roles = "OPERARIO")
     void getTypes_ConUsuarioAutenticado_Devuelve200ConCuatroElementos() throws Exception {
         when(fuelTypesRepository.findAll()).thenReturn(List.of(
-                FuelTypesEntity.builder().id(1L).codigo("GASOLINA_CORRIENTE").nombre("Gasolina corriente").activo(true).build(),
-                FuelTypesEntity.builder().id(2L).codigo("GASOLINA_EXTRA").nombre("Gasolina extra").activo(true).build(),
-                FuelTypesEntity.builder().id(3L).codigo("ACPM").nombre("ACPM / Diésel").activo(true).build(),
-                FuelTypesEntity.builder().id(4L).codigo("GAS").nombre("Gas natural vehicular").activo(true).build()));
+                FuelTypesEntity.builder().id(1L).codigo("GASOLINA_CORRIENTE").nombre("Gasolina corriente").activo(true).unidadMedida("GALON").build(),
+                FuelTypesEntity.builder().id(2L).codigo("GASOLINA_EXTRA").nombre("Gasolina extra").activo(true).unidadMedida("GALON").build(),
+                FuelTypesEntity.builder().id(3L).codigo("ACPM").nombre("ACPM / Diésel").activo(true).unidadMedida("GALON").build(),
+                FuelTypesEntity.builder().id(4L).codigo("GAS").nombre("Gas natural vehicular").activo(true).unidadMedida("M3").build()));
 
         mockMvc.perform(get("/api/v1/fuel/types"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(4))
-                .andExpect(jsonPath("$[2].codigo").value("ACPM"));
+                .andExpect(jsonPath("$[2].codigo").value("ACPM"))
+                .andExpect(jsonPath("$[3].unidadMedida").value("M3"));
     }
 
     @Test

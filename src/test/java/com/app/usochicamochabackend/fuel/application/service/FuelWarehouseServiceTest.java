@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.fuel.application.service;
 
+import com.app.usochicamochabackend.fuel.application.dto.FuelWarehouseBalanceResponse;
 import com.app.usochicamochabackend.fuel.application.dto.FuelWarehouseMovementsResponse;
 import com.app.usochicamochabackend.fuel.infrastructure.entity.FuelInventoryEntity;
 import com.app.usochicamochabackend.fuel.infrastructure.repository.FuelInventoryRepository;
@@ -47,6 +48,8 @@ class FuelWarehouseServiceTest {
                 .thenReturn(Collections.singletonList(new Object[]{"DISTRITO", 1L, new BigDecimal("30")}));
         when(fuelPurchaseRepository.findByFechaCompraBetweenOrderByFechaCompraDesc(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(List.of());
+        when(fuelPurchaseRepository.findDistinctFuelTypeIds()).thenReturn(List.of(1L));
+        when(refuelingRecordsRepository.findDistinctFuelTypeIds()).thenReturn(List.of());
 
         FuelWarehouseMovementsResponse response = fuelWarehouseService.obtenerMovimientos(
                 LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31));
@@ -57,5 +60,44 @@ class FuelWarehouseServiceTest {
         assertEquals(0, new BigDecimal("100").compareTo(fila.entradas()));
         assertEquals(0, new BigDecimal("30").compareTo(fila.salidas()));
         assertEquals(0, new BigDecimal("70").compareTo(fila.saldoFinal()));
+    }
+
+    @Test
+    void obtenerSaldos_SoloIncluyeTiposConAlMenosUnaCompraOTanqueoAlgunaVez() {
+        // 4 tipos sembrados en fuel_inventory, pero solo el 1 (ACPM) tiene compras y el 2
+        // (CORRIENTE) tiene tanqueos — 3 y 4 nunca se han manejado, no deben aparecer.
+        when(fuelInventoryRepository.findAll()).thenReturn(List.of(
+                FuelInventoryEntity.builder().areaCosto("DISTRITO").fuelTypeId(1L).cantidadDisponible(new BigDecimal("70")).build(),
+                FuelInventoryEntity.builder().areaCosto("DISTRITO").fuelTypeId(2L).cantidadDisponible(new BigDecimal("40")).build(),
+                FuelInventoryEntity.builder().areaCosto("DISTRITO").fuelTypeId(3L).cantidadDisponible(BigDecimal.ZERO).build(),
+                FuelInventoryEntity.builder().areaCosto("DISTRITO").fuelTypeId(4L).cantidadDisponible(BigDecimal.ZERO).build()));
+        when(fuelPurchaseRepository.findDistinctFuelTypeIds()).thenReturn(List.of(1L));
+        when(refuelingRecordsRepository.findDistinctFuelTypeIds()).thenReturn(List.of(2L));
+
+        FuelWarehouseBalanceResponse response = fuelWarehouseService.obtenerSaldos();
+
+        assertEquals(2, response.saldos().size());
+        assertEquals(List.of(1L, 2L), response.saldos().stream().map(FuelWarehouseBalanceResponse.Saldo::fuelTypeId).sorted().toList());
+    }
+
+    @Test
+    void obtenerMovimientos_SoloIncluyeTiposConAlMenosUnaCompraOTanqueoAlgunaVez() {
+        when(fuelInventoryRepository.findAll()).thenReturn(List.of(
+                FuelInventoryEntity.builder().areaCosto("DISTRITO").fuelTypeId(1L).cantidadDisponible(new BigDecimal("70")).build(),
+                FuelInventoryEntity.builder().areaCosto("DISTRITO").fuelTypeId(3L).cantidadDisponible(BigDecimal.ZERO).build()));
+        when(fuelPurchaseRepository.sumCantidadPorAreaYTipoBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(List.of());
+        when(refuelingRecordsRepository.sumCantidadAlmacenPorAreaYTipoBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(List.of());
+        when(fuelPurchaseRepository.findByFechaCompraBetweenOrderByFechaCompraDesc(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(List.of());
+        when(fuelPurchaseRepository.findDistinctFuelTypeIds()).thenReturn(List.of(1L));
+        when(refuelingRecordsRepository.findDistinctFuelTypeIds()).thenReturn(List.of());
+
+        FuelWarehouseMovementsResponse response = fuelWarehouseService.obtenerMovimientos(
+                LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31));
+
+        assertEquals(1, response.conciliacion().size());
+        assertEquals(1L, response.conciliacion().get(0).fuelTypeId());
     }
 }
