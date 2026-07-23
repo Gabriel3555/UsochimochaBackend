@@ -15,8 +15,10 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -30,19 +32,35 @@ public class FuelWarehouseService implements GetFuelWarehouseUseCase {
 
     @Override
     public FuelWarehouseBalanceResponse obtenerSaldos() {
+        Set<Long> tiposEnUso = tiposEnUso();
         List<FuelWarehouseBalanceResponse.Saldo> saldos = fuelInventoryRepository.findAll().stream()
+                .filter(entity -> tiposEnUso.contains(entity.getFuelTypeId()))
                 .map(entity -> new FuelWarehouseBalanceResponse.Saldo(
                         entity.getAreaCosto(), entity.getFuelTypeId(), entity.getCantidadDisponible()))
                 .toList();
         return new FuelWarehouseBalanceResponse(saldos);
     }
 
+    /**
+     * Tipos de combustible con al menos una compra o tanqueo alguna vez — fuel_inventory
+     * se siembra para los 4 tipos del catálogo desde el inicio, los maneje o no la
+     * organización, así que sin este filtro Saldos/Conciliación siempre muestran los 4
+     * aunque solo usen 2 (contenido "basura" del catálogo sin datos reales).
+     */
+    private Set<Long> tiposEnUso() {
+        Set<Long> tipos = new HashSet<>(fuelPurchaseRepository.findDistinctFuelTypeIds());
+        tipos.addAll(refuelingRecordsRepository.findDistinctFuelTypeIds());
+        return tipos;
+    }
+
     @Override
     public FuelWarehouseMovementsResponse obtenerMovimientos(LocalDate fechaInicio, LocalDate fechaFin) {
         FechaRangoUtil.Rango rango = FechaRangoUtil.resolver(fechaInicio, fechaFin);
+        Set<Long> tiposEnUso = tiposEnUso();
 
         Map<AreaTipo, BigDecimal> saldoActual = new HashMap<>();
         for (FuelInventoryEntity entity : fuelInventoryRepository.findAll()) {
+            if (!tiposEnUso.contains(entity.getFuelTypeId())) continue;
             saldoActual.put(new AreaTipo(entity.getAreaCosto(), entity.getFuelTypeId()), entity.getCantidadDisponible());
         }
 

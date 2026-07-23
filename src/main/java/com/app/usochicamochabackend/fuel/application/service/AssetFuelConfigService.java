@@ -6,6 +6,7 @@ import com.app.usochicamochabackend.fuel.application.dto.AssetFuelConfigRequest;
 import com.app.usochicamochabackend.fuel.application.dto.AssetFuelConfigResponse;
 import com.app.usochicamochabackend.fuel.application.port.ManageAssetFuelConfigUseCase;
 import com.app.usochicamochabackend.fuel.infrastructure.entity.AssetFuelConfigEntity;
+import com.app.usochicamochabackend.fuel.infrastructure.entity.FuelTypesEntity;
 import com.app.usochicamochabackend.fuel.infrastructure.repository.AssetFuelConfigRepository;
 import com.app.usochicamochabackend.fuel.infrastructure.repository.FuelTypesRepository;
 import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
@@ -17,13 +18,17 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
 public class AssetFuelConfigService implements ManageAssetFuelConfigUseCase {
 
-    private static final String GAL_POR_HORA = "GAL_POR_HORA";
-    private static final String KM_POR_GALON = "KM_POR_GALON";
+    // La unidad de consumo esperada depende de dos cosas: la forma que dicta el tipo
+    // de activo (KM_POR_X para vehículo, X_POR_HORA para máquina) y la unidad física del
+    // combustible seleccionado (GALON o M3, ver fuel_types.unidad_medida) — no es fija.
+    private static final Map<String, String> UNIDAD_VEHICULO = Map.of("GALON", "KM_POR_GALON", "M3", "KM_POR_M3");
+    private static final Map<String, String> UNIDAD_MAQUINA = Map.of("GALON", "GAL_POR_HORA", "M3", "M3_POR_HORA");
 
     private final AssetFuelConfigRepository assetFuelConfigRepository;
     private final FuelTypesRepository fuelTypesRepository;
@@ -39,7 +44,7 @@ public class AssetFuelConfigService implements ManageAssetFuelConfigUseCase {
     @Override
     @Transactional
     public AssetFuelConfigResponse configurarVehiculo(Integer vehicleId, AssetFuelConfigRequest request) {
-        validarRequest(request, KM_POR_GALON);
+        validarRequest(request, UNIDAD_VEHICULO);
         if (!vehicleRepository.existsById(vehicleId)) {
             throw new ResourceNotFoundException("No existe el vehículo con id=" + vehicleId);
         }
@@ -55,7 +60,7 @@ public class AssetFuelConfigService implements ManageAssetFuelConfigUseCase {
     @Override
     @Transactional
     public AssetFuelConfigResponse configurarMaquina(Long machineId, AssetFuelConfigRequest request) {
-        validarRequest(request, GAL_POR_HORA);
+        validarRequest(request, UNIDAD_MAQUINA);
         if (!machineRepository.existsById(machineId)) {
             throw new ResourceNotFoundException("No existe la máquina con id=" + machineId);
         }
@@ -68,17 +73,18 @@ public class AssetFuelConfigService implements ManageAssetFuelConfigUseCase {
         return mapToResponse(entity);
     }
 
-    private void validarRequest(AssetFuelConfigRequest request, String unidadEsperada) {
+    private void validarRequest(AssetFuelConfigRequest request, Map<String, String> unidadesPorMedida) {
         if (request.fuelTypeDefaultId() == null || request.consumoEstandar() == null || request.unidadConsumo() == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "fuelTypeDefaultId, consumoEstandar y unidadConsumo son obligatorios.");
         }
+        FuelTypesEntity fuelType = fuelTypesRepository.findById(request.fuelTypeDefaultId())
+                .orElseThrow(() -> new ResourceNotFoundException("No existe el tipo de combustible con id=" + request.fuelTypeDefaultId()));
+
+        String unidadEsperada = unidadesPorMedida.get(fuelType.getUnidadMedida());
         if (!request.unidadConsumo().equals(unidadEsperada)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "unidadConsumo debe ser " + unidadEsperada + " para este tipo de activo.");
-        }
-        if (!fuelTypesRepository.existsById(request.fuelTypeDefaultId())) {
-            throw new ResourceNotFoundException("No existe el tipo de combustible con id=" + request.fuelTypeDefaultId());
+                    "unidadConsumo debe ser " + unidadEsperada + " para este tipo de activo con combustible en " + fuelType.getUnidadMedida() + ".");
         }
     }
 

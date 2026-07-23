@@ -26,7 +26,9 @@ public class FuelPerformanceService implements GetFuelPerformanceUseCase {
     private static final String MAQUINARIA = "MAQUINARIA";
     private static final String VEHICULO = "VEHICULO";
     private static final String MOTOCICLETA = "MOTOCICLETA";
-    private static final String GAL_POR_HORA = "GAL_POR_HORA";
+    // Unidades con forma "tasa por hora" (GAL_POR_HORA, M3_POR_HORA): cantidad = horas × tasa.
+    // Las de forma "distancia por unidad" (KM_POR_GALON, KM_POR_M3): cantidad = km / tasa.
+    private static final String SUFIJO_POR_HORA = "_POR_HORA";
 
     private final RefuelingRecordsRepository refuelingRecordsRepository;
     private final AssetFuelConfigRepository assetFuelConfigRepository;
@@ -88,7 +90,7 @@ public class FuelPerformanceService implements GetFuelPerformanceUseCase {
         BigDecimal ejecutado = horometroActual.subtract(horometroAnterior);
         BigDecimal consumoEstandar = config.get().getConsumoEstandar();
 
-        BigDecimal galonesProyectados = GAL_POR_HORA.equals(config.get().getUnidadConsumo())
+        BigDecimal galonesProyectados = config.get().getUnidadConsumo().endsWith(SUFIJO_POR_HORA)
                 ? ejecutado.multiply(consumoEstandar)
                 : ejecutado.divide(consumoEstandar, 3, java.math.RoundingMode.HALF_UP);
 
