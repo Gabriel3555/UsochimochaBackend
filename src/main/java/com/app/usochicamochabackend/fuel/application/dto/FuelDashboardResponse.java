@@ -13,7 +13,31 @@ public record FuelDashboardResponse(
     BigDecimal gastoBruto,
     BigDecimal gastoNeto,
     BigDecimal ahorro,
-    List<GalonesPorTipo> galonesPorTipo
+    List<GalonesPorTipo> galonesPorTipo,
+    List<GastoPorTipo> gastoPorTipo,
+    Long discrepancias,
+    BigDecimal precioPromedioGalonComprado,
+    ComparacionAnterior comparacionAnterior
 ) {
     public record GalonesPorTipo(Long fuelTypeId, BigDecimal cantidad) {}
+
+    /** Gasto total (compras almacén + tanqueos bomba) por tipo de combustible, en pesos. */
+    public record GastoPorTipo(Long fuelTypeId, BigDecimal monto) {}
+
+    /**
+     * Comparación contra el periodo inmediatamente anterior, de la misma duración
+     * (no "mes anterior" fijo — se calcula relativo al rango filtrado). Los delta
+     * quedan en null cuando el periodo anterior no tiene base contra qué comparar
+     * (evita división por cero / porcentajes sin sentido).
+     */
+    public record ComparacionAnterior(
+        LocalDate fechaInicioAnterior,
+        LocalDate fechaFinAnterior,
+        BigDecimal gastoBrutoAnterior,
+        BigDecimal gastoNetoAnterior,
+        BigDecimal ahorroAnterior,
+        BigDecimal deltaGastoBrutoPct,
+        BigDecimal deltaGastoNetoPct,
+        BigDecimal deltaAhorroPct
+    ) {}
 }
