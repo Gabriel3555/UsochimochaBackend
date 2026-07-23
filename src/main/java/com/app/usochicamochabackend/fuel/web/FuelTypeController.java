@@ -24,7 +24,8 @@ public class FuelTypeController {
                         entity.getId(),
                         entity.getCodigo(),
                         entity.getNombre(),
-                        entity.getActivo()
+                        entity.getActivo(),
+                        entity.getUnidadMedida()
                 ))
                 .toList();
 
