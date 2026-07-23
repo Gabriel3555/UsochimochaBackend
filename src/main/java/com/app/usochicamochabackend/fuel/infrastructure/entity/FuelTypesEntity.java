@@ -16,4 +16,6 @@ public class FuelTypesEntity {
     private String codigo;
     private String nombre;
     private Boolean activo;
+    @Builder.Default
+    private String unidadMedida = "GALON";
 }

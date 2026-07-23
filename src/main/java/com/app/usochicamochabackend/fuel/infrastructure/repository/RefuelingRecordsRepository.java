@@ -23,6 +23,10 @@ public interface RefuelingRecordsRepository extends JpaRepository<RefuelingRecor
             + "WHERE r.fechaRegistro BETWEEN :inicio AND :fin GROUP BY r.fuelTypeId")
     List<Object[]> sumCantidadPorTipoBetween(@Param("inicio") Timestamp inicio, @Param("fin") Timestamp fin);
 
+    @Query("SELECT r.fuelTypeId, COALESCE(SUM(r.totalCalculado), 0) FROM RefuelingRecordsEntity r "
+            + "WHERE r.lugar = 'BOMBA' AND r.fechaRegistro BETWEEN :inicio AND :fin GROUP BY r.fuelTypeId")
+    List<Object[]> sumTotalCalculadoBombaPorTipoBetween(@Param("inicio") Timestamp inicio, @Param("fin") Timestamp fin);
+
     // Las salidas de la conciliación de almacén (Task 11) deben separarse por área de costo,
     // mismo motivo que sumCantidadPorAreaYTipoBetween en FuelPurchaseRepository.
     @Query("SELECT r.areaCosto, r.fuelTypeId, COALESCE(SUM(r.cantidadGalones), 0) FROM RefuelingRecordsEntity r "
@@ -42,4 +46,13 @@ public interface RefuelingRecordsRepository extends JpaRepository<RefuelingRecor
     List<RefuelingRecordsEntity> findByMachineIdIsNotNullAndFechaRegistroBetween(Timestamp inicio, Timestamp fin);
 
     List<RefuelingRecordsEntity> findByVehicleIdIsNotNullAndFechaRegistroBetween(Timestamp inicio, Timestamp fin);
+
+    List<RefuelingRecordsEntity> findByFechaRegistroBetween(Timestamp inicio, Timestamp fin);
+
+    long countByDiscrepanciaValorTrueAndFechaRegistroBetween(Timestamp inicio, Timestamp fin);
+
+    // Tipos de combustible con al menos un tanqueo alguna vez — ver nota en
+    // FuelPurchaseRepository.findDistinctFuelTypeIds().
+    @Query("SELECT DISTINCT r.fuelTypeId FROM RefuelingRecordsEntity r")
+    List<Long> findDistinctFuelTypeIds();
 }
