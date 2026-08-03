@@ -24,15 +24,19 @@ public class FuelDistributionService implements GetFuelDistributionUseCase {
     private final RefuelingRecordsRepository refuelingRecordsRepository;
     private final FuelReintegrationsRepository fuelReintegrationsRepository;
 
+    private static final String AREA_TODAS = "TODAS";
+
     @Override
     public FuelDistributionResponse obtenerDistribucion(String area, LocalDate fechaInicio, LocalDate fechaFin) {
-        if (!"DISTRITO".equals(area) && !"ASOCIACION".equals(area)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "area debe ser DISTRITO o ASOCIACION.");
+        boolean todas = area == null || AREA_TODAS.equals(area);
+        if (!todas && !"DISTRITO".equals(area) && !"ASOCIACION".equals(area)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "area debe ser DISTRITO, ASOCIACION o TODAS.");
         }
         FechaRangoUtil.Rango rango = FechaRangoUtil.resolver(fechaInicio, fechaFin);
 
-        List<RefuelingRecordsEntity> tanqueos =
-                refuelingRecordsRepository.findByAreaCostoAndFechaRegistroBetween(area, rango.inicio(), rango.fin());
+        List<RefuelingRecordsEntity> tanqueos = todas
+                ? refuelingRecordsRepository.findByFechaRegistroBetween(rango.inicio(), rango.fin())
+                : refuelingRecordsRepository.findByAreaCostoAndFechaRegistroBetween(area, rango.inicio(), rango.fin());
 
         List<FuelDistributionResponse.Fila> filas = tanqueos.stream().map(this::mapFila).toList();
 
@@ -44,7 +48,7 @@ public class FuelDistributionService implements GetFuelDistributionUseCase {
                 .filter(java.util.Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        return new FuelDistributionResponse(rango.fechaInicio(), rango.fechaFin(), area, totalGalones, totalCosto, filas);
+        return new FuelDistributionResponse(rango.fechaInicio(), rango.fechaFin(), todas ? AREA_TODAS : area, totalGalones, totalCosto, filas);
     }
 
     private FuelDistributionResponse.Fila mapFila(RefuelingRecordsEntity tanqueo) {
@@ -78,6 +82,11 @@ public class FuelDistributionService implements GetFuelDistributionUseCase {
                 tanqueo.getCantidadGalones(),
                 valorDespachado,
                 cantidadReintegrada,
-                valorReintegro);
+                valorReintegro,
+                tanqueo.getLugar(),
+                tanqueo.getAreaCosto(),
+                tanqueo.getEsFull(),
+                tanqueo.getPrecioUnitario(),
+                tanqueo.getDiscrepanciaValor());
     }
 }

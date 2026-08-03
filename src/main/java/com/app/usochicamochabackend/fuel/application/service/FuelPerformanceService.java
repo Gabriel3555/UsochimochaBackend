@@ -6,6 +6,8 @@ import com.app.usochicamochabackend.fuel.infrastructure.entity.AssetFuelConfigEn
 import com.app.usochicamochabackend.fuel.infrastructure.entity.RefuelingRecordsEntity;
 import com.app.usochicamochabackend.fuel.infrastructure.repository.AssetFuelConfigRepository;
 import com.app.usochicamochabackend.fuel.infrastructure.repository.RefuelingRecordsRepository;
+import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
+import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
 import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
 import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleRepository;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +35,7 @@ public class FuelPerformanceService implements GetFuelPerformanceUseCase {
     private final RefuelingRecordsRepository refuelingRecordsRepository;
     private final AssetFuelConfigRepository assetFuelConfigRepository;
     private final VehicleRepository vehicleRepository;
+    private final MachineRepository machineRepository;
 
     @Value("${app.fuel.rendimiento-desviacion-tolerancia-porcentaje:0.15}")
     private BigDecimal tolerancia;
@@ -90,16 +93,39 @@ public class FuelPerformanceService implements GetFuelPerformanceUseCase {
         BigDecimal ejecutado = horometroActual.subtract(horometroAnterior);
         BigDecimal consumoEstandar = config.get().getConsumoEstandar();
 
+        // Config vieja/inválida (consumoEstandar<=0 nunca debería poder guardarse
+        // desde AssetFuelConfigService, pero se revisa igual aquí como defensa):
+        // dividir por cero rompería TODO el reporte, no solo esta fila.
+        if (consumoEstandar.compareTo(BigDecimal.ZERO) <= 0) {
+            return Optional.empty();
+        }
+
         BigDecimal galonesProyectados = config.get().getUnidadConsumo().endsWith(SUFIJO_POR_HORA)
                 ? ejecutado.multiply(consumoEstandar)
                 : ejecutado.divide(consumoEstandar, 3, java.math.RoundingMode.HALF_UP);
 
         BigDecimal diferencia = tanqueo.getCantidadGalones().subtract(galonesProyectados);
-        boolean alerta = diferencia.abs().compareTo(galonesProyectados.multiply(tolerancia).abs()) > 0;
+        // Un horómetro/km que retrocede (dato mal digitado o corregido hacia atrás)
+        // siempre se marca como alerta de forma explícita — no depender de que el
+        // cálculo normal (proyectado negativo) termine disparándola por coincidencia.
+        boolean horometroRetrocedio = ejecutado.signum() < 0;
+        boolean alerta = horometroRetrocedio
+                || diferencia.abs().compareTo(galonesProyectados.multiply(tolerancia).abs()) > 0;
+
+        String identificacionActivo = esMaquina
+                ? machineRepository.findById(tanqueo.getMachineId()).map(MachineEntity::getName).orElse(null)
+                : vehicleRepository.findById(tanqueo.getVehicleId()).map(this::placaConMarca).orElse(null);
 
         return Optional.of(new FuelPerformanceResponse(
-                tanqueo.getId(), tanqueo.getVehicleId(), tanqueo.getMachineId(), tanqueo.getFechaRegistro().toLocalDateTime(),
+                tanqueo.getId(), tanqueo.getVehicleId(), tanqueo.getMachineId(), tanqueo.getFuelTypeId(),
+                tanqueo.getFechaRegistro().toLocalDateTime(),
                 horometroAnterior, horometroActual, ejecutado, consumoEstandar,
-                galonesProyectados, tanqueo.getCantidadGalones(), diferencia, alerta));
+                galonesProyectados, tanqueo.getCantidadGalones(), diferencia, alerta,
+                identificacionActivo, tanqueo.getEsFull()));
+    }
+
+    private String placaConMarca(VehicleEntity vehicle) {
+        String marca = vehicle.getMarca() != null ? vehicle.getMarca().getDescripcion() : null;
+        return marca != null ? vehicle.getPlaca() + " — " + marca : vehicle.getPlaca();
     }
 }

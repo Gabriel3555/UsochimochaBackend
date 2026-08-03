@@ -72,11 +72,55 @@ class AssetFuelConfigServiceTest {
         assertEquals(0, new BigDecimal("35").compareTo(response.consumoEstandar()));
     }
 
+    // La unidad ya NO se restringe por tipo de activo (vehículo=km,
+    // máquina=horas) — solo por la familia física del combustible (galón vs
+    // m³). FuelPerformanceService decide la fórmula únicamente por el sufijo
+    // de unidadConsumo, sin mirar si es vehículo o máquina, así que un
+    // vehículo diésel trackeado por horómetro (no por km) es un caso real y
+    // válido, igual que una máquina trackeada por galones/km si aplica.
     @Test
-    void configurarVehiculo_ConUnidadIncorrecta_Lanza400() {
+    void configurarVehiculo_ConUnidadPorHora_YCombustibleGalon_Guarda() {
+        when(vehicleRepository.existsById(5)).thenReturn(true);
         when(fuelTypesRepository.findById(1L)).thenReturn(Optional.of(
                 FuelTypesEntity.builder().id(1L).codigo("ACPM").unidadMedida("GALON").build()));
+        when(assetFuelConfigRepository.findByVehicleId(5)).thenReturn(Optional.empty());
+        when(assetFuelConfigRepository.save(any())).thenAnswer(invocation -> {
+            AssetFuelConfigEntity e = invocation.getArgument(0);
+            e.setId(1L);
+            return e;
+        });
+
         AssetFuelConfigRequest request = new AssetFuelConfigRequest(1L, new BigDecimal("30"), "GAL_POR_HORA", null);
+        AssetFuelConfigResponse response = assetFuelConfigService.configurarVehiculo(5, request);
+
+        assertEquals("GAL_POR_HORA", response.unidadConsumo());
+    }
+
+    @Test
+    void configurarMaquina_ConUnidadPorKm_YCombustibleGalon_Guarda() {
+        when(machineRepository.existsById(10L)).thenReturn(true);
+        when(fuelTypesRepository.findById(1L)).thenReturn(Optional.of(
+                FuelTypesEntity.builder().id(1L).codigo("ACPM").unidadMedida("GALON").build()));
+        when(assetFuelConfigRepository.findByMachineId(10L)).thenReturn(Optional.empty());
+        when(assetFuelConfigRepository.save(any())).thenAnswer(invocation -> {
+            AssetFuelConfigEntity e = invocation.getArgument(0);
+            e.setId(1L);
+            return e;
+        });
+
+        AssetFuelConfigRequest request = new AssetFuelConfigRequest(1L, new BigDecimal("5"), "KM_POR_GALON", null);
+        AssetFuelConfigResponse response = assetFuelConfigService.configurarMaquina(10L, request);
+
+        assertEquals("KM_POR_GALON", response.unidadConsumo());
+    }
+
+    @Test
+    void configurarVehiculo_ConUnidadDeFamiliaFisicaDistinta_Lanza400() {
+        when(fuelTypesRepository.findById(1L)).thenReturn(Optional.of(
+                FuelTypesEntity.builder().id(1L).codigo("ACPM").unidadMedida("GALON").build()));
+        // "KM_POR_M3"/"M3_POR_HORA" son de la familia m³, no galón — esto sí
+        // debe seguir rechazándose sin importar el tipo de activo.
+        AssetFuelConfigRequest request = new AssetFuelConfigRequest(1L, new BigDecimal("30"), "M3_POR_HORA", null);
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                 () -> assetFuelConfigService.configurarVehiculo(5, request));
@@ -86,10 +130,10 @@ class AssetFuelConfigServiceTest {
     }
 
     @Test
-    void configurarMaquina_ConUnidadIncorrecta_Lanza400() {
-        when(fuelTypesRepository.findById(1L)).thenReturn(Optional.of(
-                FuelTypesEntity.builder().id(1L).codigo("ACPM").unidadMedida("GALON").build()));
-        AssetFuelConfigRequest request = new AssetFuelConfigRequest(1L, new BigDecimal("5"), "KM_POR_GALON", null);
+    void configurarMaquina_ConUnidadDeFamiliaFisicaDistinta_Lanza400() {
+        when(fuelTypesRepository.findById(4L)).thenReturn(Optional.of(
+                FuelTypesEntity.builder().id(4L).codigo("GAS").unidadMedida("M3").build()));
+        AssetFuelConfigRequest request = new AssetFuelConfigRequest(4L, new BigDecimal("5"), "GAL_POR_HORA", null);
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                 () -> assetFuelConfigService.configurarMaquina(10L, request));
@@ -145,6 +189,31 @@ class AssetFuelConfigServiceTest {
         AssetFuelConfigResponse response = assetFuelConfigService.configurarMaquina(10L, request);
 
         assertEquals("M3_POR_HORA", response.unidadConsumo());
+    }
+
+    @Test
+    void configurarVehiculo_ConConsumoEstandarCeroOMenos_Lanza400() {
+        // consumoEstandar<=0 provocaría una división por cero al calcular Rendimiento
+        // (FuelPerformanceService) — debe rechazarse aquí, en el punto de entrada,
+        // antes incluso de consultar el tipo de combustible.
+        AssetFuelConfigRequest request = new AssetFuelConfigRequest(1L, BigDecimal.ZERO, "KM_POR_GALON", null);
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> assetFuelConfigService.configurarVehiculo(5, request));
+
+        assertEquals(400, ex.getStatusCode().value());
+        verify(assetFuelConfigRepository, never()).save(any());
+    }
+
+    @Test
+    void configurarMaquina_ConConsumoEstandarNegativo_Lanza400() {
+        AssetFuelConfigRequest request = new AssetFuelConfigRequest(1L, new BigDecimal("-3"), "GAL_POR_HORA", null);
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> assetFuelConfigService.configurarMaquina(10L, request));
+
+        assertEquals(400, ex.getStatusCode().value());
+        verify(assetFuelConfigRepository, never()).save(any());
     }
 
     @Test

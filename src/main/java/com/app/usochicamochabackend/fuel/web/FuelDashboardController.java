@@ -31,7 +31,7 @@ public class FuelDashboardController {
     }
 
     @GetMapping("/tendencia")
-    @PreAuthorize("hasAnyRole('SUPERVISOR_OPERATIVO', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPERVISOR_OPERATIVO', 'ADMIN')")    
     public ResponseEntity<List<FuelTrendResponse>> tendencia(
             @RequestParam(required = false) Integer meses,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin) {

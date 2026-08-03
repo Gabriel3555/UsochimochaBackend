@@ -38,17 +38,26 @@ class FuelDashboardServiceTest {
 
     @Test
     void obtenerDashboard_CalculaGastoBrutoNetoYAhorroCorrectamente() {
+        // totalCalculado (compras y bomba) ya viene NETO de descuento (cantidad*precio -
+        // descuento, ver FuelPurchaseService/RefuelingRecordService) — por eso "neto" se arma
+        // sumando esos totales directamente, y "bruto" se reconstruye sumándole el descuento
+        // de vuelta (bruto = neto + descuento), no restándolo (restar de nuevo sería doble
+        // descuento).
         when(fuelPurchaseRepository.sumTotalCalculadoBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(new BigDecimal("1000000"));
         when(fuelPurchaseRepository.sumDescuentoBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(new BigDecimal("50000"));
         when(refuelingRecordsRepository.sumTotalCalculadoBombaBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(new BigDecimal("300000"));
+        when(refuelingRecordsRepository.sumDescuentoBombaBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(BigDecimal.ZERO);
         when(refuelingRecordsRepository.sumCantidadPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(List.of(new Object[]{1L, new BigDecimal("120.000")}, new Object[]{3L, new BigDecimal("40.500")}));
         when(fuelPurchaseRepository.sumTotalCalculadoPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(List.of());
         when(refuelingRecordsRepository.sumTotalCalculadoBombaPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(List.of());
+        when(refuelingRecordsRepository.sumCantidadBombaPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(List.of());
         when(fuelPurchaseRepository.sumCantidadBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(BigDecimal.ZERO);
@@ -60,10 +69,47 @@ class FuelDashboardServiceTest {
         FuelDashboardResponse response = fuelDashboardService.obtenerDashboard(
                 LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31));
 
-        assertEquals(0, new BigDecimal("1300000").compareTo(response.gastoBruto()));
-        assertEquals(0, new BigDecimal("1250000").compareTo(response.gastoNeto()));
+        assertEquals(0, new BigDecimal("1350000").compareTo(response.gastoBruto()));
+        assertEquals(0, new BigDecimal("1300000").compareTo(response.gastoNeto()));
         assertEquals(0, new BigDecimal("50000").compareTo(response.ahorro()));
         assertEquals(2, response.galonesPorTipo().size());
+    }
+
+    @Test
+    void obtenerDashboard_DescuentoEnTanqueoBomba_SeSumaAlAhorro_BugCorregido() {
+        // Antes de este fix, un descuento aplicado en un tanqueo de BOMBA se restaba en
+        // silencio dentro de totalCalculado pero jamás se sumaba a "ahorro" (que solo miraba
+        // fuel_purchases) — la tarjeta "Ahorro por descuentos" mostraba $0 aunque hubiera
+        // descuentos reales en bomba.
+        when(fuelPurchaseRepository.sumTotalCalculadoBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(BigDecimal.ZERO);
+        when(fuelPurchaseRepository.sumDescuentoBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(BigDecimal.ZERO);
+        when(refuelingRecordsRepository.sumTotalCalculadoBombaBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(new BigDecimal("950000"));
+        when(refuelingRecordsRepository.sumDescuentoBombaBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(new BigDecimal("50000"));
+        when(refuelingRecordsRepository.sumCantidadPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(List.of());
+        when(fuelPurchaseRepository.sumTotalCalculadoPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(List.of());
+        when(refuelingRecordsRepository.sumTotalCalculadoBombaPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(List.of());
+        when(refuelingRecordsRepository.sumCantidadBombaPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(List.of());
+        when(fuelPurchaseRepository.sumCantidadBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(BigDecimal.ZERO);
+        when(fuelPurchaseRepository.countByDiscrepanciaValorTrueAndFechaCompraBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(0L);
+        when(refuelingRecordsRepository.countByDiscrepanciaValorTrueAndFechaRegistroBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(0L);
+
+        FuelDashboardResponse response = fuelDashboardService.obtenerDashboard(
+                LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31));
+
+        assertEquals(0, new BigDecimal("50000").compareTo(response.ahorro()));
+        assertEquals(0, new BigDecimal("1000000").compareTo(response.gastoBruto()));
+        assertEquals(0, new BigDecimal("950000").compareTo(response.gastoNeto()));
     }
 
     @Test
@@ -74,6 +120,8 @@ class FuelDashboardServiceTest {
                 .thenReturn(BigDecimal.ZERO);
         when(refuelingRecordsRepository.sumTotalCalculadoBombaBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(BigDecimal.ZERO);
+        when(refuelingRecordsRepository.sumDescuentoBombaBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(BigDecimal.ZERO);
         when(refuelingRecordsRepository.sumCantidadPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(List.of());
         // Tipo 1 (ACPM): 700.000 en compras + 300.000 en tanqueos bomba = 1.000.000
@@ -82,6 +130,8 @@ class FuelDashboardServiceTest {
                 .thenReturn(Collections.singletonList(new Object[]{1L, new BigDecimal("700000")}));
         when(refuelingRecordsRepository.sumTotalCalculadoBombaPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(List.of(new Object[]{1L, new BigDecimal("300000")}, new Object[]{2L, new BigDecimal("200000")}));
+        when(refuelingRecordsRepository.sumCantidadBombaPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(List.of());
         when(fuelPurchaseRepository.sumCantidadBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(BigDecimal.ZERO);
         when(fuelPurchaseRepository.countByDiscrepanciaValorTrueAndFechaCompraBetween(any(Timestamp.class), any(Timestamp.class)))
@@ -100,6 +150,42 @@ class FuelDashboardServiceTest {
     }
 
     @Test
+    void obtenerDashboard_GalonesBombaPorTipoExcluyeAlmacen_ADiferenciaDeGalonesPorTipo() {
+        when(fuelPurchaseRepository.sumTotalCalculadoBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(BigDecimal.ZERO);
+        when(fuelPurchaseRepository.sumDescuentoBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(BigDecimal.ZERO);
+        when(refuelingRecordsRepository.sumTotalCalculadoBombaBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(BigDecimal.ZERO);
+        when(refuelingRecordsRepository.sumDescuentoBombaBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(BigDecimal.ZERO);
+        // galonesPorTipo (bomba+almacén combinados): 100 gal del tipo 1
+        when(refuelingRecordsRepository.sumCantidadPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(Collections.singletonList(new Object[]{1L, new BigDecimal("100.000")}));
+        when(fuelPurchaseRepository.sumTotalCalculadoPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(List.of());
+        when(refuelingRecordsRepository.sumTotalCalculadoBombaPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(List.of());
+        // galonesBombaPorTipo (solo bomba): apenas 30 de esos 100 gal fueron en bomba —
+        // los otros 70 fueron ALMACEN, sin costo, y no deben contar en el precio/unidad.
+        when(refuelingRecordsRepository.sumCantidadBombaPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(Collections.singletonList(new Object[]{1L, new BigDecimal("30.000")}));
+        when(fuelPurchaseRepository.sumCantidadBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(BigDecimal.ZERO);
+        when(fuelPurchaseRepository.countByDiscrepanciaValorTrueAndFechaCompraBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(0L);
+        when(refuelingRecordsRepository.countByDiscrepanciaValorTrueAndFechaRegistroBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(0L);
+
+        FuelDashboardResponse response = fuelDashboardService.obtenerDashboard(
+                LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31));
+
+        assertEquals(0, new BigDecimal("100.000").compareTo(response.galonesPorTipo().get(0).cantidad()));
+        assertEquals(1, response.galonesBombaPorTipo().size());
+        assertEquals(0, new BigDecimal("30.000").compareTo(response.galonesBombaPorTipo().get(0).cantidad()));
+    }
+
+    @Test
     void obtenerDashboard_ConFechasNulas_UsaMesActual() {
         when(fuelPurchaseRepository.sumTotalCalculadoBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(BigDecimal.ZERO);
@@ -107,11 +193,15 @@ class FuelDashboardServiceTest {
                 .thenReturn(BigDecimal.ZERO);
         when(refuelingRecordsRepository.sumTotalCalculadoBombaBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(BigDecimal.ZERO);
+        when(refuelingRecordsRepository.sumDescuentoBombaBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(BigDecimal.ZERO);
         when(refuelingRecordsRepository.sumCantidadPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(List.of());
         when(fuelPurchaseRepository.sumTotalCalculadoPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(List.of());
         when(refuelingRecordsRepository.sumTotalCalculadoBombaPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(List.of());
+        when(refuelingRecordsRepository.sumCantidadBombaPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(List.of());
         when(fuelPurchaseRepository.sumCantidadBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(BigDecimal.ZERO);
@@ -138,11 +228,15 @@ class FuelDashboardServiceTest {
                 .thenReturn(BigDecimal.ZERO);
         when(refuelingRecordsRepository.sumTotalCalculadoBombaBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(BigDecimal.ZERO);
+        when(refuelingRecordsRepository.sumDescuentoBombaBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(BigDecimal.ZERO);
         when(refuelingRecordsRepository.sumCantidadPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(List.of());
         when(fuelPurchaseRepository.sumTotalCalculadoPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(List.of());
         when(refuelingRecordsRepository.sumTotalCalculadoBombaPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(List.of());
+        when(refuelingRecordsRepository.sumCantidadBombaPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(List.of());
         when(fuelPurchaseRepository.sumCantidadBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(BigDecimal.ZERO);
@@ -199,8 +293,9 @@ class FuelDashboardServiceTest {
         assertEquals(3, tendencia.size());
         // Orden cronológico: hace 2 meses -> hace 1 mes -> mes actual.
         assertEquals(hace2Meses.atDay(1), tendencia.get(0).mes());
-        assertEquals(0, new BigDecimal("500000").compareTo(tendencia.get(0).gastoBruto()));
-        assertEquals(0, new BigDecimal("450000").compareTo(tendencia.get(0).gastoNeto()));
+        // compra con totalCalculado=500000 (ya neto) + descuento=50000 -> bruto=550000, neto=500000
+        assertEquals(0, new BigDecimal("550000").compareTo(tendencia.get(0).gastoBruto()));
+        assertEquals(0, new BigDecimal("500000").compareTo(tendencia.get(0).gastoNeto()));
         assertEquals(0, BigDecimal.ZERO.compareTo(tendencia.get(0).galonesTotal()));
 
         assertEquals(hace1Mes.atDay(1), tendencia.get(1).mes());

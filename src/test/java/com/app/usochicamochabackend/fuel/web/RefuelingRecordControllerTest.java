@@ -12,6 +12,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.http.HttpMethod;
 import org.springframework.mock.web.MockPart;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -27,9 +28,11 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.authentication;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -59,7 +62,7 @@ class RefuelingRecordControllerTest {
     void registrar_ConRolOperario_Devuelve201() throws Exception {
         RefuelingRecordResponse response = new RefuelingRecordResponse(
                 1L, null, 99L, "ALMACEN", "DISTRITO", 1L, new BigDecimal("30"), new BigDecimal("500"),
-                false, null, null, null, null, false, null, "Bodega", 1L, LocalDateTime.now());
+                false, null, null, null, null, false, null, "Bodega", 1L, LocalDateTime.now(), false);
         when(registerRefuelingRecordUseCase.registrar(any(), any(), anyLong())).thenReturn(response);
 
         mockMvc.perform(multipart("/api/v1/fuel/refueling")
@@ -88,4 +91,39 @@ class RefuelingRecordControllerTest {
         mockMvc.perform(get("/api/v1/fuel/refueling"))
                 .andExpect(status().isOk());
     }
+
+    @Test
+    @DisplayName("PUT /refueling/{id}: ADMIN autorizado, devuelve 200")
+    void actualizar_ConRolAdmin_Devuelve200() throws Exception {
+        RefuelingRecordResponse response = new RefuelingRecordResponse(
+                1L, null, 99L, "ALMACEN", "DISTRITO", 1L, new BigDecimal("30"), new BigDecimal("500"),
+                false, null, null, null, null, false, null, "Bodega", 1L, LocalDateTime.now(), false);
+        when(registerRefuelingRecordUseCase.actualizar(anyLong(), any(), any())).thenReturn(response);
+
+        mockMvc.perform(multipart(HttpMethod.PUT, "/api/v1/fuel/refueling/{id}", 1L)
+                        .part(new MockPart("machineId", "99".getBytes()))
+                        .part(new MockPart("lugar", "ALMACEN".getBytes()))
+                        .part(new MockPart("areaCosto", "DISTRITO".getBytes()))
+                        .part(new MockPart("fuelTypeId", "1".getBytes()))
+                        .part(new MockPart("cantidadGalones", "30".getBytes()))
+                        .part(new MockPart("horometroKm", "500".getBytes()))
+                        .with(csrf())
+                        .with(as(3L, "admin", "ADMIN")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(1));
+    }
+
+    @Test
+    @DisplayName("DELETE /refueling/{id}: ADMIN autorizado, devuelve 204")
+    void eliminar_ConRolAdmin_Devuelve204() throws Exception {
+        doNothing().when(registerRefuelingRecordUseCase).eliminar(1L);
+
+        mockMvc.perform(delete("/api/v1/fuel/refueling/{id}", 1L)
+                        .with(csrf())
+                        .with(as(3L, "admin", "ADMIN")))
+                .andExpect(status().isNoContent());
+    }
+
+    // Nota: la matriz de permisos (rol distinto de ADMIN -> 403) se prueba en
+    // FuelModuleE2ETest, mismo criterio que el resto de este archivo.
 }

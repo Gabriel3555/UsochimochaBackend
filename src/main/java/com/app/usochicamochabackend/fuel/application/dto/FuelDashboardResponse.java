@@ -15,6 +15,11 @@ public record FuelDashboardResponse(
     BigDecimal ahorro,
     List<GalonesPorTipo> galonesPorTipo,
     List<GastoPorTipo> gastoPorTipo,
+    // Cantidad SOLO de bomba por tipo (subconjunto de galonesPorTipo, que mezcla
+    // bomba+almacén) — sirve para que el frontend calcule un precio/unidad real
+    // (gastoPorTipo ÷ galonesBombaPorTipo) sin diluirlo con galones de almacén,
+    // que no tienen costo asociado.
+    List<GalonesPorTipo> galonesBombaPorTipo,
     Long discrepancias,
     BigDecimal precioPromedioGalonComprado,
     ComparacionAnterior comparacionAnterior

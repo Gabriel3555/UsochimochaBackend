@@ -15,9 +15,18 @@ import java.util.Optional;
 public interface RefuelingRecordsRepository extends JpaRepository<RefuelingRecordsEntity, Long> {
     Page<RefuelingRecordsEntity> findByStatus(Boolean status, Pageable pageable);
 
+    Optional<RefuelingRecordsEntity> findByIdAndStatus(Long id, Boolean status);
+
     @Query("SELECT COALESCE(SUM(r.totalCalculado), 0) FROM RefuelingRecordsEntity r "
             + "WHERE r.lugar = 'BOMBA' AND r.fechaRegistro BETWEEN :inicio AND :fin")
     BigDecimal sumTotalCalculadoBombaBetween(@Param("inicio") Timestamp inicio, @Param("fin") Timestamp fin);
+
+    // Descuento aplicado en tanqueos de BOMBA — totalCalculado ya lo resta (ver
+    // RefuelingRecordService), así que esto sirve para reconstruir el bruto (neto +
+    // descuento) y para que "ahorro" del dashboard no ignore los descuentos de bomba.
+    @Query("SELECT COALESCE(SUM(r.descuento), 0) FROM RefuelingRecordsEntity r "
+            + "WHERE r.lugar = 'BOMBA' AND r.fechaRegistro BETWEEN :inicio AND :fin")
+    BigDecimal sumDescuentoBombaBetween(@Param("inicio") Timestamp inicio, @Param("fin") Timestamp fin);
 
     @Query("SELECT r.fuelTypeId, COALESCE(SUM(r.cantidadGalones), 0) FROM RefuelingRecordsEntity r "
             + "WHERE r.fechaRegistro BETWEEN :inicio AND :fin GROUP BY r.fuelTypeId")
@@ -26,6 +35,13 @@ public interface RefuelingRecordsRepository extends JpaRepository<RefuelingRecor
     @Query("SELECT r.fuelTypeId, COALESCE(SUM(r.totalCalculado), 0) FROM RefuelingRecordsEntity r "
             + "WHERE r.lugar = 'BOMBA' AND r.fechaRegistro BETWEEN :inicio AND :fin GROUP BY r.fuelTypeId")
     List<Object[]> sumTotalCalculadoBombaPorTipoBetween(@Param("inicio") Timestamp inicio, @Param("fin") Timestamp fin);
+
+    // Cantidad SOLO de bomba por tipo — separada de sumCantidadPorTipoBetween (que
+    // mezcla bomba+almacén) para poder calcular un precio/unidad real (gasto bomba
+    // ÷ cantidad bomba) sin diluirlo con galones de almacén, que no tienen costo.
+    @Query("SELECT r.fuelTypeId, COALESCE(SUM(r.cantidadGalones), 0) FROM RefuelingRecordsEntity r "
+            + "WHERE r.lugar = 'BOMBA' AND r.fechaRegistro BETWEEN :inicio AND :fin GROUP BY r.fuelTypeId")
+    List<Object[]> sumCantidadBombaPorTipoBetween(@Param("inicio") Timestamp inicio, @Param("fin") Timestamp fin);
 
     // Las salidas de la conciliación de almacén (Task 11) deben separarse por área de costo,
     // mismo motivo que sumCantidadPorAreaYTipoBetween en FuelPurchaseRepository.

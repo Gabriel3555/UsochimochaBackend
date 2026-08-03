@@ -9,4 +9,6 @@ import org.springframework.web.multipart.MultipartFile;
 public interface RegisterRefuelingRecordUseCase {
     RefuelingRecordResponse registrar(RefuelingRecordRequest request, MultipartFile factura, Long responsableId);
     Page<RefuelingRecordResponse> listar(Pageable pageable, Boolean activo);
+    RefuelingRecordResponse actualizar(Long id, RefuelingRecordRequest request, MultipartFile factura);
+    void eliminar(Long id);
 }

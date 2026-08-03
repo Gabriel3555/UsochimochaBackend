@@ -25,6 +25,11 @@ public record FuelDistributionResponse(
         BigDecimal cantidadDespachada,
         BigDecimal valorDespachado,
         BigDecimal cantidadReintegrada,
-        BigDecimal valorReintegro
+        BigDecimal valorReintegro,
+        String lugar,
+        String areaCosto,
+        Boolean esFull,
+        BigDecimal precioUnitario,
+        Boolean discrepanciaValor
     ) {}
 }

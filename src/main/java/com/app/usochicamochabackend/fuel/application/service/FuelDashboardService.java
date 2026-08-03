@@ -35,15 +35,21 @@ public class FuelDashboardService implements GetFuelDashboardUseCase {
         FechaRangoUtil.Rango rango = FechaRangoUtil.resolver(fechaInicio, fechaFin);
 
         BigDecimal totalComprasAlmacen = fuelPurchaseRepository.sumTotalCalculadoBetween(rango.inicio(), rango.fin());
-        BigDecimal totalDescuentos = fuelPurchaseRepository.sumDescuentoBetween(rango.inicio(), rango.fin());
         BigDecimal totalTanqueosBomba = refuelingRecordsRepository.sumTotalCalculadoBombaBetween(rango.inicio(), rango.fin());
+        BigDecimal totalDescuentos = fuelPurchaseRepository.sumDescuentoBetween(rango.inicio(), rango.fin())
+                .add(refuelingRecordsRepository.sumDescuentoBombaBetween(rango.inicio(), rango.fin()));
 
-        BigDecimal gastoBruto = totalComprasAlmacen.add(totalTanqueosBomba);
-        BigDecimal gastoNeto = gastoBruto.subtract(totalDescuentos);
+        // totalCalculado (compras y bomba) ya viene NETO de descuento (cantidad*precio -
+        // descuento, ver FuelPurchaseService/RefuelingRecordService) — por eso "neto" es
+        // la suma directa, y "bruto" se reconstruye sumando el descuento de vuelta. Restarlo
+        // de nuevo aquí sería un doble descuento.
+        BigDecimal gastoNeto = totalComprasAlmacen.add(totalTanqueosBomba);
+        BigDecimal gastoBruto = gastoNeto.add(totalDescuentos);
         BigDecimal ahorro = totalDescuentos;
 
         List<FuelDashboardResponse.GalonesPorTipo> galonesPorTipo = agruparGalonesPorTipo(rango);
         List<FuelDashboardResponse.GastoPorTipo> gastoPorTipo = agruparGastoPorTipo(rango);
+        List<FuelDashboardResponse.GalonesPorTipo> galonesBombaPorTipo = agruparGalonesBombaPorTipo(rango);
 
         long discrepancias = fuelPurchaseRepository.countByDiscrepanciaValorTrueAndFechaCompraBetween(rango.inicio(), rango.fin())
                 + refuelingRecordsRepository.countByDiscrepanciaValorTrueAndFechaRegistroBetween(rango.inicio(), rango.fin());
@@ -60,7 +66,7 @@ public class FuelDashboardService implements GetFuelDashboardUseCase {
                 rango.fechaInicio(), rango.fechaFin(),
                 totalComprasAlmacen, totalTanqueosBomba, totalDescuentos,
                 gastoBruto, gastoNeto, ahorro,
-                galonesPorTipo, gastoPorTipo,
+                galonesPorTipo, gastoPorTipo, galonesBombaPorTipo,
                 discrepancias, precioPromedioGalonComprado, comparacionAnterior);
     }
 
@@ -79,11 +85,12 @@ public class FuelDashboardService implements GetFuelDashboardUseCase {
         Timestamp finAnteriorTs = Timestamp.valueOf(LocalDateTime.of(fechaFinAnterior, LocalTime.MAX));
 
         BigDecimal comprasAnterior = fuelPurchaseRepository.sumTotalCalculadoBetween(inicioAnteriorTs, finAnteriorTs);
-        BigDecimal descuentoAnterior = fuelPurchaseRepository.sumDescuentoBetween(inicioAnteriorTs, finAnteriorTs);
         BigDecimal tanqueosBombaAnterior = refuelingRecordsRepository.sumTotalCalculadoBombaBetween(inicioAnteriorTs, finAnteriorTs);
+        BigDecimal descuentoAnterior = fuelPurchaseRepository.sumDescuentoBetween(inicioAnteriorTs, finAnteriorTs)
+                .add(refuelingRecordsRepository.sumDescuentoBombaBetween(inicioAnteriorTs, finAnteriorTs));
 
-        BigDecimal gastoBrutoAnterior = comprasAnterior.add(tanqueosBombaAnterior);
-        BigDecimal gastoNetoAnterior = gastoBrutoAnterior.subtract(descuentoAnterior);
+        BigDecimal gastoNetoAnterior = comprasAnterior.add(tanqueosBombaAnterior);
+        BigDecimal gastoBrutoAnterior = gastoNetoAnterior.add(descuentoAnterior);
         BigDecimal ahorroAnterior = descuentoAnterior;
 
         return new FuelDashboardResponse.ComparacionAnterior(
@@ -111,6 +118,16 @@ public class FuelDashboardService implements GetFuelDashboardUseCase {
             galonesPorTipo.put((Long) fila[0], (BigDecimal) fila[1]);
         }
         return galonesPorTipo.entrySet().stream()
+                .map(entry -> new FuelDashboardResponse.GalonesPorTipo(entry.getKey(), entry.getValue()))
+                .toList();
+    }
+
+    private List<FuelDashboardResponse.GalonesPorTipo> agruparGalonesBombaPorTipo(FechaRangoUtil.Rango rango) {
+        Map<Long, BigDecimal> galonesBombaPorTipo = new LinkedHashMap<>();
+        for (Object[] fila : refuelingRecordsRepository.sumCantidadBombaPorTipoBetween(rango.inicio(), rango.fin())) {
+            galonesBombaPorTipo.put((Long) fila[0], (BigDecimal) fila[1]);
+        }
+        return galonesBombaPorTipo.entrySet().stream()
                 .map(entry -> new FuelDashboardResponse.GalonesPorTipo(entry.getKey(), entry.getValue()))
                 .toList();
     }
@@ -159,20 +176,28 @@ public class FuelDashboardService implements GetFuelDashboardUseCase {
         }
 
         Map<YearMonth, BigDecimal> tanqueosBombaPorMes = new LinkedHashMap<>();
+        Map<YearMonth, BigDecimal> descuentoBombaPorMes = new LinkedHashMap<>();
         Map<YearMonth, BigDecimal> galonesPorMes = new LinkedHashMap<>();
         for (RefuelingRecordsEntity tanqueo : tanqueos) {
             YearMonth mes = YearMonth.from(tanqueo.getFechaRegistro().toLocalDateTime());
             galonesPorMes.merge(mes, tanqueo.getCantidadGalones(), BigDecimal::add);
             if ("BOMBA".equals(tanqueo.getLugar()) && tanqueo.getTotalCalculado() != null) {
                 tanqueosBombaPorMes.merge(mes, tanqueo.getTotalCalculado(), BigDecimal::add);
+                if (tanqueo.getDescuento() != null) {
+                    descuentoBombaPorMes.merge(mes, tanqueo.getDescuento(), BigDecimal::add);
+                }
             }
         }
 
         List<FuelTrendResponse> tendencia = new ArrayList<>();
         for (YearMonth mes = mesInicio; !mes.isAfter(mesActual); mes = mes.plusMonths(1)) {
-            BigDecimal gastoBrutoMes = comprasPorMes.getOrDefault(mes, BigDecimal.ZERO)
+            // Igual que en obtenerDashboard: los totales ya vienen netos de descuento, así
+            // que "neto" es la suma directa y "bruto" se reconstruye sumando el descuento.
+            BigDecimal gastoNetoMes = comprasPorMes.getOrDefault(mes, BigDecimal.ZERO)
                     .add(tanqueosBombaPorMes.getOrDefault(mes, BigDecimal.ZERO));
-            BigDecimal gastoNetoMes = gastoBrutoMes.subtract(descuentoPorMes.getOrDefault(mes, BigDecimal.ZERO));
+            BigDecimal descuentoMes = descuentoPorMes.getOrDefault(mes, BigDecimal.ZERO)
+                    .add(descuentoBombaPorMes.getOrDefault(mes, BigDecimal.ZERO));
+            BigDecimal gastoBrutoMes = gastoNetoMes.add(descuentoMes);
             BigDecimal galonesMes = galonesPorMes.getOrDefault(mes, BigDecimal.ZERO);
             tendencia.add(new FuelTrendResponse(mes.atDay(1), gastoBrutoMes, gastoNetoMes, galonesMes));
         }

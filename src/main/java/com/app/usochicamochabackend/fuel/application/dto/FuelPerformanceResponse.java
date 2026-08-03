@@ -7,6 +7,7 @@ public record FuelPerformanceResponse(
     Long refuelingId,
     Integer vehicleId,
     Long machineId,
+    Long fuelTypeId,
     LocalDateTime fechaRegistro,
     BigDecimal horometroAnterior,
     BigDecimal horometroActual,
@@ -15,5 +16,10 @@ public record FuelPerformanceResponse(
     BigDecimal galonesProyectados,
     BigDecimal galonesReal,
     BigDecimal diferencia,
-    Boolean alerta
+    Boolean alerta,
+    // Vehículos/motos: "placa — marca" (identifica el vehículo puntual, no solo su
+    // categoría). Máquinas no tienen placa — se identifican por su nombre, igual
+    // que en el módulo de Maquinaria (no hay categoría formal para ellas).
+    String identificacionActivo,
+    Boolean esFull
 ) {}
