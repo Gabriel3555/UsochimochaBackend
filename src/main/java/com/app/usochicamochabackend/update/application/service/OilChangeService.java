@@ -282,20 +282,15 @@ public class OilChangeService implements
 
     @Override
     public PerformChangeMotorOilResponse performMotorOilChange(PerformChangeMotorOilRequest request) {
+        validarHorometro(request.currentHourMeter());
+
         OilChangeEntity oilChange = OilChangeMapper.motorOilRequestToEntity(request, machineRepository, brandRepository);
 
         MachineEntity machine = machineRepository.findById(request.machineId()).orElseThrow(() -> new ResourceNotFoundException("Machine not found with id " + request.machineId()));
 
-        InspectionEntity lastInspection = inspectionRepository.getLastInspection(request.machineId());
-
-        if (request.currentHourMeter() < lastInspection.getHourMeter()) {
-            throw new BadRequestException("The stated hour meter cannot be less than the last inspection hour meter");
-        }
-
         oilChangeRepository.save(oilChange);
 
-        machine.setHorometroActual(request.currentHourMeter().intValue());
-        machineRepository.save(machine);
+        actualizarHorometroSiEsMayor(machine, request.currentHourMeter());
 
         // Recalcular alertas de inmediato: este cambio de aceite resetea la línea base.
         preventiveAlertCalculationService.calculateAndEmitAlerts();
@@ -309,20 +304,15 @@ public class OilChangeService implements
 
     @Override
     public PerformChangeHydraulicOilResponse performChangeHydraulicOil(PerformChangeHydraulicOilRequest request) {
+        validarHorometro(request.currentHourMeter());
+
         OilChangeEntity oilChange = OilChangeMapper.hydraulicOilRequestToEntity(request, machineRepository, brandRepository);
 
         MachineEntity machine = machineRepository.findById(request.machineId()).orElseThrow(() -> new ResourceNotFoundException("Machine not found with id " + request.machineId()));
 
-        InspectionEntity lastInspection = inspectionRepository.getLastInspection(request.machineId());
-
-        if (request.currentHourMeter() < lastInspection.getHourMeter()) {
-            throw new BadRequestException("The stated hour meter cannot be less than the last inspection hour meter");
-        }
-
         oilChangeRepository.save(oilChange);
 
-        machine.setHorometroActual(request.currentHourMeter().intValue());
-        machineRepository.save(machine);
+        actualizarHorometroSiEsMayor(machine, request.currentHourMeter());
 
         // Recalcular alertas de inmediato: este cambio de aceite resetea la línea base.
         preventiveAlertCalculationService.calculateAndEmitAlerts();
@@ -332,5 +322,28 @@ public class OilChangeService implements
 
 
         return OilChangeMapper.hydraulicOilEntityToResponse(oilChange);
+    }
+
+    // El horómetro/horas del cambio ya no se compara contra la última inspección
+    // ni contra el horómetro actual de la máquina: eso bloqueaba justo el caso de
+    // un técnico registrando tarde (con el horómetro real, menor al de una
+    // inspección posterior). Solo se exige que sea un valor positivo.
+    private void validarHorometro(Double currentHourMeter) {
+        if (currentHourMeter == null || currentHourMeter <= 0) {
+            throw new BadRequestException("El horómetro/horas debe ser un valor positivo.");
+        }
+    }
+
+    // Mismo patrón forward-only que VehicleOilChangeService.registerChange(): el
+    // horómetro del cambio pasa a ser el "actual" de la máquina solo si es mayor al
+    // que ya tenía — permite registrar cambios atrasados (horómetro menor al
+    // actual) sin hacer retroceder el valor rastreado en tiempo real.
+    private void actualizarHorometroSiEsMayor(MachineEntity machine, Double currentHourMeter) {
+        int nuevaLectura = currentHourMeter.intValue();
+        int actual = machine.getHorometroActual() != null ? machine.getHorometroActual() : 0;
+        if (nuevaLectura > actual) {
+            machine.setHorometroActual(nuevaLectura);
+            machineRepository.save(machine);
+        }
     }
 }

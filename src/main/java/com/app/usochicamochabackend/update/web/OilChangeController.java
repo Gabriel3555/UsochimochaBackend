@@ -1,8 +1,5 @@
 package com.app.usochicamochabackend.update.web;
 
-import com.app.usochicamochabackend.exception.ResourceNotFoundException;
-import com.app.usochicamochabackend.order.application.dto.GetAllOrdersByMachineId;
-import com.app.usochicamochabackend.order.application.port.GetAllOrdersByMachineIdUseCase;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
