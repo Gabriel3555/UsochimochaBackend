@@ -1,12 +1,10 @@
 package com.app.usochicamochabackend.order.web;
 
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
-import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.order.application.dto.*;
 import com.app.usochicamochabackend.order.application.port.*;
 import com.app.usochicamochabackend.update.application.service.ExcelGenerationService;
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -33,11 +31,8 @@ import java.util.List;
 public class OrderController {
 
     private final AssignOrderUseCase assignOrderUseCase;
-    private final GetAllOrdersByInspectionIdUseCase getAllOrdersByInspectionIdUseCase;
     private final GetAllOrdersUseCase getAllOrdersUseCase;
-    private final GetAllOrdersByMachineIdUseCase getAllOrdersByMachineIdUseCase;
     private final AssignVehicleOrderUseCase assignVehicleOrderUseCase;
-    private final GetAllOrdersByVehicleInspectionIdUseCase getAllOrdersByVehicleInspectionIdUseCase;
     private final GetAllVehicleOrdersUseCase getAllVehicleOrdersUseCase;
     private final ExcelGenerationService excelGenerationService;
 
@@ -78,11 +73,6 @@ public class OrderController {
         return ResponseEntity.status(201).body(assignOrderUseCase.assignOrder(assignOrderRequest));
     }
 
-    @GetMapping("/all/{inspectionId}")
-    public GetAllOrdersByInspectionIdResponse getAllOrdersByInspectionId(@PathVariable Long inspectionId) {
-        return getAllOrdersByInspectionIdUseCase.getAllOrdersByInspectionId(inspectionId);
-    }
-
     @GetMapping("/all")
     public ResponseEntity<Page<OrderWithMachineDTO>> getAllOrders(
             @RequestParam(defaultValue = "0") int page,
@@ -92,41 +82,11 @@ public class OrderController {
         return ResponseEntity.ok(getAllOrdersUseCase.getAllOrders(pageable));
     }
 
-    @Operation(
-            summary = "Get all orders by machine ID",
-            description = "Retrieves all orders related to the inspections of a given machine."
-    )
-    @ApiResponses(value = {
-            @ApiResponse(responseCode = "200", description = "Orders retrieved successfully",
-                    content = @Content(mediaType = "application/json",
-                            schema = @Schema(implementation = GetAllOrdersByMachineId.class))),
-            @ApiResponse(responseCode = "404", description = "Machine or inspections not found",
-                    content = @Content(mediaType = "application/json")),
-            @ApiResponse(responseCode = "500", description = "Internal server error",
-                    content = @Content)
-    })
-    @GetMapping("/machine/{machineId}")
-    public ResponseEntity<GetAllOrdersByMachineId> getAllOrdersByMachineId(
-            @Parameter(description = "ID of the machine to fetch orders for", required = true, example = "1")
-            @PathVariable Long machineId) throws ResourceNotFoundException {
-
-        GetAllOrdersByMachineId response = getAllOrdersByMachineIdUseCase.getAllOrdersByMachineId(machineId);
-        return ResponseEntity.ok(response);
-    }
-
     @Operation(summary = "Create vehicle order", description = "Creates a work order linked to a vehicle pre-operative inspection.")
     @PostMapping(value = "/vehicle", consumes = MediaType.APPLICATION_JSON_VALUE, produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<OrderWithVehicleDTO> assignVehicleOrder(
             @RequestBody AssignVehicleOrderRequest request) {
         return ResponseEntity.status(201).body(assignVehicleOrderUseCase.assignVehicleOrder(request));
-    }
-
-    @Operation(summary = "Get vehicle orders by inspection", description = "Returns all work orders for a given vehicle pre-operative inspection.")
-    @GetMapping("/vehicle/{vehicleInspectionId}")
-    public ResponseEntity<GetAllOrdersByVehicleInspectionIdResponse> getAllOrdersByVehicleInspectionId(
-            @Parameter(description = "PK of `inspeccion_pre_operativa`", required = true, example = "5")
-            @PathVariable Long vehicleInspectionId) {
-        return ResponseEntity.ok(getAllOrdersByVehicleInspectionIdUseCase.getAllOrdersByVehicleInspectionId(vehicleInspectionId));
     }
 
     @Operation(summary = "Get all vehicle orders (paginated)", description = "Returns all work orders linked to vehicle inspections, sorted by most recent.")
