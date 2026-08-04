@@ -28,9 +28,18 @@ public record RefuelingRecordResponse(
     // asset_fuel_config.tanqueCapacidadGal) — calculada por AssetFuelCapacityService,
     // no por esta clase, para que quede centralizada en el backend y reutilizable
     // por cualquier consumidor de tanqueos (creación, edición, listados, reportes).
-    Boolean capacidadExcedida
+    Boolean capacidadExcedida,
+    // Cantidad fuera de un rango razonable para el tipo de activo (ej. 300 gal en
+    // una moto) — AssetFuelCapacityService.cantidadFueraDeRangoTipico, aplica aunque
+    // el activo no tenga tanqueCapacidadGal configurado.
+    Boolean cantidadFueraDeRango,
+    // Precio unitario fuera de rango vs el promedio reciente del mismo combustible
+    // en BOMBA — FuelPriceAnomalyService, null cuando no aplica (ALMACEN o sin
+    // precioUnitario).
+    Boolean precioFueraDeRango
 ) {
-    public static RefuelingRecordResponse from(RefuelingRecordsEntity entity, boolean capacidadExcedida) {
+    public static RefuelingRecordResponse from(RefuelingRecordsEntity entity, boolean capacidadExcedida,
+            boolean cantidadFueraDeRango, boolean precioFueraDeRango) {
         return new RefuelingRecordResponse(
                 entity.getId(),
                 entity.getVehicleId(),
@@ -50,7 +59,9 @@ public record RefuelingRecordResponse(
                 entity.getOrigen(),
                 entity.getResponsableId(),
                 entity.getFechaRegistro() != null ? entity.getFechaRegistro().toLocalDateTime() : null,
-                capacidadExcedida
+                capacidadExcedida,
+                cantidadFueraDeRango,
+                precioFueraDeRango
         );
     }
 }

@@ -41,6 +41,7 @@ public class RefuelingRecordService implements RegisterRefuelingRecordUseCase {
     private final VehicleRepository vehicleRepository;
     private final MachineRepository machineRepository;
     private final AssetFuelCapacityService assetFuelCapacityService;
+    private final FuelPriceAnomalyService fuelPriceAnomalyService;
 
     @Value("${app.fuel.discrepancia-tolerancia-porcentaje:0.01}")
     private BigDecimal tolerancia;
@@ -56,9 +57,11 @@ public class RefuelingRecordService implements RegisterRefuelingRecordUseCase {
         Boolean discrepanciaValor = false;
 
         if (esBomba) {
-            if (request.precioUnitario() == null || factura == null || factura.isEmpty()) {
+            // La factura es opcional (no siempre se tiene a mano al registrar el
+            // tanqueo) — solo el precio unitario es obligatorio en BOMBA.
+            if (request.precioUnitario() == null) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Un tanqueo en BOMBA requiere precioUnitario y factura.");
+                        "El precio unitario es obligatorio en un tanqueo BOMBA.");
             }
             if (request.totalIngresado() == null) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "totalIngresado es obligatorio en BOMBA.");
@@ -86,11 +89,9 @@ public class RefuelingRecordService implements RegisterRefuelingRecordUseCase {
                 .totalIngresado(request.totalIngresado())
                 .totalCalculado(totalCalculado)
                 .discrepanciaValor(discrepanciaValor)
-                // Placeholder no nulo cuando lugar=BOMBA: el CHECK de la migración V20
-                // (`lugar <> 'BOMBA' OR url_factura IS NOT NULL`) se evalúa en este INSERT,
-                // antes de que exista el id necesario para subir el archivo real. Mismo
-                // patrón que ya usa FuelPurchaseService para las facturas de compra.
-                .urlFactura(esBomba ? "pendiente" : null)
+                // Factura opcional (V23): ya no hace falta el placeholder "pendiente" que
+                // exigía el CHECK original de la V20 — null es válido incluso en BOMBA.
+                .urlFactura(null)
                 .origen(request.origen())
                 .responsableId(responsableId)
                 .fechaRegistro(Timestamp.valueOf(LocalDateTime.now()))
@@ -98,7 +99,7 @@ public class RefuelingRecordService implements RegisterRefuelingRecordUseCase {
                 .build();
         entity = refuelingRecordsRepository.save(entity);
 
-        if (esBomba) {
+        if (esBomba && factura != null && !factura.isEmpty()) {
             try {
                 String urlFactura = fuelDocumentStorageService.store(factura, "refueling", entity.getId());
                 entity.setUrlFactura(urlFactura);
@@ -143,25 +144,16 @@ public class RefuelingRecordService implements RegisterRefuelingRecordUseCase {
         BigDecimal totalCalculado = null;
         Boolean discrepanciaValor = false;
         if (esBomba) {
+            // La factura es opcional (V23) — solo precio unitario y total ingresado son
+            // obligatorios en BOMBA, tanto al crear como al editar.
             if (request.precioUnitario() == null || request.totalIngresado() == null) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "precioUnitario y totalIngresado son obligatorios cuando lugar es BOMBA.");
+                        "El precio unitario y el total ingresado son obligatorios en un tanqueo BOMBA.");
             }
             TotalYDiscrepancia calculo = calcularTotalYDiscrepancia(
                     request.cantidadGalones(), request.precioUnitario(), request.descuento(), request.totalIngresado());
             totalCalculado = calculo.totalCalculado();
             discrepanciaValor = calculo.discrepanciaValor();
-
-            // Solo era null si el tanqueo no era BOMBA todavía (ALMACEN nunca guarda
-            // url_factura) — si ya era BOMBA, siempre tiene una factura real persistida.
-            boolean necesitaFacturaNueva = entity.getUrlFactura() == null;
-            if (necesitaFacturaNueva && (factura == null || factura.isEmpty())) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "Se requiere factura al cambiar un tanqueo a BOMBA.");
-            }
-            if (entity.getUrlFactura() == null) {
-                entity.setUrlFactura("pendiente"); // mismo placeholder que registrar(), por el CHECK de la V20
-            }
         }
 
         entity.setVehicleId(request.vehicleId());
@@ -284,6 +276,10 @@ public class RefuelingRecordService implements RegisterRefuelingRecordUseCase {
     private RefuelingRecordResponse mapToResponse(RefuelingRecordsEntity entity) {
         boolean capacidadExcedida = assetFuelCapacityService.excedeCapacidad(
                 entity.getVehicleId(), entity.getMachineId(), entity.getCantidadGalones());
-        return RefuelingRecordResponse.from(entity, capacidadExcedida);
+        boolean cantidadFueraDeRango = assetFuelCapacityService.cantidadFueraDeRangoTipico(
+                entity.getVehicleId(), entity.getMachineId(), entity.getCantidadGalones());
+        boolean precioFueraDeRango = fuelPriceAnomalyService.precioFueraDeRango(
+                entity.getFuelTypeId(), entity.getPrecioUnitario(), entity.getId());
+        return RefuelingRecordResponse.from(entity, capacidadExcedida, cantidadFueraDeRango, precioFueraDeRango);
     }
 }
