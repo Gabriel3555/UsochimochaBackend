@@ -30,6 +30,9 @@ public class FuelReintegrationsEntity {
     @Column(name = "valor_reintegro")
     private BigDecimal valorReintegro;
 
+    @Column(name = "motivo")
+    private String motivo;
+
     @Column(name = "responsable_id")
     private Long responsableId;
 
