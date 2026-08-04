@@ -36,10 +36,17 @@ public record RefuelingRecordResponse(
     // Precio unitario fuera de rango vs el promedio reciente del mismo combustible
     // en BOMBA — FuelPriceAnomalyService, null cuando no aplica (ALMACEN o sin
     // precioUnitario).
-    Boolean precioFueraDeRango
+    Boolean precioFueraDeRango,
+    // Suma de fuel_reintegrations para este tanqueo (ZERO si no hay ninguno, nunca
+    // null — simplifica el cálculo de saldo disponible = cantidadGalones -
+    // cantidadReintegrada en el frontend). Antes solo lo calculaba el endpoint viejo
+    // GET /fuel/distribucion (FuelDistributionService.mapFila); se replica el mismo
+    // cálculo acá para que Tanqueo y Distribución / Historial de tanqueos también
+    // lo muestren.
+    BigDecimal cantidadReintegrada
 ) {
     public static RefuelingRecordResponse from(RefuelingRecordsEntity entity, boolean capacidadExcedida,
-            boolean cantidadFueraDeRango, boolean precioFueraDeRango) {
+            boolean cantidadFueraDeRango, boolean precioFueraDeRango, BigDecimal cantidadReintegrada) {
         return new RefuelingRecordResponse(
                 entity.getId(),
                 entity.getVehicleId(),
@@ -61,7 +68,8 @@ public record RefuelingRecordResponse(
                 entity.getFechaRegistro() != null ? entity.getFechaRegistro().toLocalDateTime() : null,
                 capacidadExcedida,
                 cantidadFueraDeRango,
-                precioFueraDeRango
+                precioFueraDeRango,
+                cantidadReintegrada
         );
     }
 }

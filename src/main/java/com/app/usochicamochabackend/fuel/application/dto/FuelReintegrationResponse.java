@@ -9,5 +9,6 @@ public record FuelReintegrationResponse(
     BigDecimal cantidadReintegrada,
     BigDecimal valorReintegro,
     Long responsableId,
-    LocalDateTime fechaReintegro
+    LocalDateTime fechaReintegro,
+    String motivo
 ) {}
