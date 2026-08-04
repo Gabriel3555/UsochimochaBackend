@@ -55,6 +55,9 @@ class RefuelingRecordServiceTest {
     @Mock
     private AssetFuelCapacityService assetFuelCapacityService;
 
+    @Mock
+    private FuelPriceAnomalyService fuelPriceAnomalyService;
+
     private RefuelingRecordService refuelingRecordService;
 
     private final MultipartFile factura = new MockMultipartFile("factura", "f.pdf", "application/pdf", new byte[]{1, 2, 3});
@@ -63,7 +66,7 @@ class RefuelingRecordServiceTest {
     void setUp() {
         refuelingRecordService = new RefuelingRecordService(
                 refuelingRecordsRepository, adjustFuelInventoryUseCase, fuelDocumentStorageService, saveActionUseCase,
-                vehicleRepository, machineRepository, assetFuelCapacityService);
+                vehicleRepository, machineRepository, assetFuelCapacityService, fuelPriceAnomalyService);
         ReflectionTestUtils.setField(refuelingRecordService, "tolerancia", new BigDecimal("0.01"));
     }
 
@@ -194,16 +197,32 @@ class RefuelingRecordServiceTest {
     }
 
     @Test
-    void tanqueoBombaSinFactura_Lanza400() {
+    void tanqueoBombaSinPrecioUnitario_Lanza400() {
         RefuelingRecordRequest request = new RefuelingRecordRequest(
                 3, null, "BOMBA", "DISTRITO", 1L, new BigDecimal("30"), new BigDecimal("500"),
-                false, new BigDecimal("10000"), null, new BigDecimal("300000"), null);
+                false, null, null, new BigDecimal("300000"), null);
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                 () -> refuelingRecordService.registrar(request, null, 7L));
 
         assertEquals(400, ex.getStatusCode().value());
         verify(refuelingRecordsRepository, never()).save(any());
+    }
+
+    @Test
+    void tanqueoBombaSinFactura_NoLanzaYQuedaUrlFacturaNula() {
+        // Factura opcional (V23): con precioUnitario presente, un tanqueo BOMBA sin
+        // factura se registra igual, sin intentar subir ningún archivo.
+        stubSaveAsignandoId();
+
+        RefuelingRecordRequest request = new RefuelingRecordRequest(
+                3, null, "BOMBA", "DISTRITO", 1L, new BigDecimal("30"), new BigDecimal("500"),
+                false, new BigDecimal("10000"), null, new BigDecimal("300000"), null);
+
+        RefuelingRecordResponse response = refuelingRecordService.registrar(request, null, 7L);
+
+        assertNull(response.urlFactura());
+        verifyNoInteractions(fuelDocumentStorageService);
     }
 
     @Test
@@ -225,12 +244,12 @@ class RefuelingRecordServiceTest {
     }
 
     @Test
-    void tanqueoBomba_PrimerGuardadoNoManda_UrlFacturaNula() throws Exception {
-        // Bug real contra Postgres (no lo detecta H2 en tests, que no aplica el CHECK de
-        // la migración V20): `lugar <> 'BOMBA' OR url_factura IS NOT NULL` se evalúa en el
-        // INSERT mismo, antes de que exista el id necesario para subir el archivo real —
-        // el primer guardado necesita un placeholder no nulo, igual que ya hace
-        // FuelPurchaseService con "pendiente".
+    void tanqueoBombaConFactura_PrimerGuardadoSinUrlYSegundoConLaRealTrasSubir() throws Exception {
+        // El id del registro no existe hasta el primer save() — subir el archivo real
+        // (que necesita ese id para el path de storage) solo puede pasar en un segundo
+        // save(). Desde V23 el primer guardado ya no necesita ningún placeholder (antes
+        // "pendiente", por el CHECK viejo que exigía url_factura NOT NULL en BOMBA):
+        // null es válido incluso en BOMBA, la factura es opcional.
         // OJO: no usar ArgumentCaptor aquí — reutiliza la MISMA referencia mutable entre
         // ambos save(), así que capturar el objeto y leerlo después siempre ve el valor
         // final (falso negativo). Hay que tomar el snapshot del valor en el momento exacto
@@ -254,7 +273,8 @@ class RefuelingRecordServiceTest {
         refuelingRecordService.registrar(request, factura, 7L);
 
         assertEquals(2, urlFacturaEnCadaGuardado.size());
-        assertNotNull(urlFacturaEnCadaGuardado.get(0));
+        assertNull(urlFacturaEnCadaGuardado.get(0));
+        assertEquals("/uploads/documents/fuel/refueling/1/current.pdf", urlFacturaEnCadaGuardado.get(1));
     }
 
     // ---- actualizar() ----
@@ -305,23 +325,25 @@ class RefuelingRecordServiceTest {
     }
 
     @Test
-    void actualizarTanqueoDeAlmacenABomba_ExigeFacturaSiNoTeniaUnaReal() {
+    void actualizarTanqueoDeAlmacenABomba_SinFacturaNoLanzaYQuedaUrlFacturaNula() {
+        // Factura opcional (V23): pasar un tanqueo de ALMACEN a BOMBA sin adjuntar
+        // factura ya no exige nada más que precioUnitario/totalIngresado.
         RefuelingRecordsEntity existente = RefuelingRecordsEntity.builder()
                 .id(3L).vehicleId(3).lugar("ALMACEN").areaCosto("DISTRITO").fuelTypeId(1L)
                 .cantidadGalones(new BigDecimal("30")).horometroKm(new BigDecimal("500"))
                 .urlFactura(null).status(true)
                 .build();
         when(refuelingRecordsRepository.findByIdAndStatus(3L, true)).thenReturn(Optional.of(existente));
+        stubSaveAsignandoId();
 
         RefuelingRecordRequest request = new RefuelingRecordRequest(
                 3, null, "BOMBA", "DISTRITO", 1L, new BigDecimal("30"), new BigDecimal("500"),
                 false, new BigDecimal("10000"), null, new BigDecimal("300000"), null);
 
-        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> refuelingRecordService.actualizar(3L, request, null));
+        RefuelingRecordResponse response = refuelingRecordService.actualizar(3L, request, null);
 
-        assertEquals(400, ex.getStatusCode().value());
-        verify(refuelingRecordsRepository, never()).save(any());
+        assertNull(response.urlFactura());
+        verifyNoInteractions(fuelDocumentStorageService);
     }
 
     @Test
