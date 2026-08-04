@@ -65,10 +65,21 @@ public interface RefuelingRecordsRepository extends JpaRepository<RefuelingRecor
 
     List<RefuelingRecordsEntity> findByFechaRegistroBetween(Timestamp inicio, Timestamp fin);
 
+    List<RefuelingRecordsEntity> findByLugarAndFechaRegistroBetween(String lugar, Timestamp inicio, Timestamp fin);
+
     long countByDiscrepanciaValorTrueAndFechaRegistroBetween(Timestamp inicio, Timestamp fin);
 
     // Tipos de combustible con al menos un tanqueo alguna vez — ver nota en
     // FuelPurchaseRepository.findDistinctFuelTypeIds().
     @Query("SELECT DISTINCT r.fuelTypeId FROM RefuelingRecordsEntity r")
     List<Long> findDistinctFuelTypeIds();
+
+    // Precio promedio reciente del mismo combustible en BOMBA — línea base para
+    // FuelPriceAnomalyService. excludeId excluye el propio registro al editar (si no,
+    // un precio ya guardado se compara contra un promedio que lo incluye a él mismo).
+    @Query("SELECT AVG(r.precioUnitario) FROM RefuelingRecordsEntity r WHERE r.lugar = 'BOMBA' "
+            + "AND r.fuelTypeId = :fuelTypeId AND r.fechaRegistro >= :desde AND r.precioUnitario IS NOT NULL "
+            + "AND (:excludeId IS NULL OR r.id <> :excludeId)")
+    BigDecimal avgPrecioUnitarioBombaRecienteByFuelType(@Param("fuelTypeId") Long fuelTypeId,
+            @Param("desde") Timestamp desde, @Param("excludeId") Long excludeId);
 }
