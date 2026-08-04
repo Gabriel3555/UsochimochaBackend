@@ -6,7 +6,9 @@ import com.app.usochicamochabackend.fuel.application.dto.RefuelingRecordRequest;
 import com.app.usochicamochabackend.fuel.application.dto.RefuelingRecordResponse;
 import com.app.usochicamochabackend.fuel.application.port.AdjustFuelInventoryUseCase;
 import com.app.usochicamochabackend.fuel.application.port.RegisterRefuelingRecordUseCase;
+import com.app.usochicamochabackend.fuel.infrastructure.entity.FuelReintegrationsEntity;
 import com.app.usochicamochabackend.fuel.infrastructure.entity.RefuelingRecordsEntity;
+import com.app.usochicamochabackend.fuel.infrastructure.repository.FuelReintegrationsRepository;
 import com.app.usochicamochabackend.fuel.infrastructure.repository.RefuelingRecordsRepository;
 import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
 import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleRepository;
@@ -42,6 +44,7 @@ public class RefuelingRecordService implements RegisterRefuelingRecordUseCase {
     private final MachineRepository machineRepository;
     private final AssetFuelCapacityService assetFuelCapacityService;
     private final FuelPriceAnomalyService fuelPriceAnomalyService;
+    private final FuelReintegrationsRepository fuelReintegrationsRepository;
 
     @Value("${app.fuel.discrepancia-tolerancia-porcentaje:0.01}")
     private BigDecimal tolerancia;
@@ -280,6 +283,13 @@ public class RefuelingRecordService implements RegisterRefuelingRecordUseCase {
                 entity.getVehicleId(), entity.getMachineId(), entity.getCantidadGalones());
         boolean precioFueraDeRango = fuelPriceAnomalyService.precioFueraDeRango(
                 entity.getFuelTypeId(), entity.getPrecioUnitario(), entity.getId());
-        return RefuelingRecordResponse.from(entity, capacidadExcedida, cantidadFueraDeRango, precioFueraDeRango);
+        BigDecimal cantidadReintegrada = sumaReintegros(entity.getId());
+        return RefuelingRecordResponse.from(entity, capacidadExcedida, cantidadFueraDeRango, precioFueraDeRango, cantidadReintegrada);
+    }
+
+    private BigDecimal sumaReintegros(Long refuelingId) {
+        return fuelReintegrationsRepository.findByRefuelingId(refuelingId).stream()
+                .map(FuelReintegrationsEntity::getCantidadReintegrada)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 }

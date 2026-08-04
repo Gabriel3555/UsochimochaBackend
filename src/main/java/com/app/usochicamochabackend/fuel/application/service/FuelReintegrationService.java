@@ -40,9 +40,16 @@ public class FuelReintegrationService implements RegisterFuelReintegrationUseCas
         RefuelingRecordsEntity tanqueo = refuelingRecordsRepository.findById(request.refuelingId())
                 .orElseThrow(() -> new ResourceNotFoundException("No existe el tanqueo con id=" + request.refuelingId()));
 
-        if (request.cantidadReintegrada().compareTo(tanqueo.getCantidadGalones()) > 0) {
+        // Contra el saldo restante (cantidad original - reintegros previos), no solo
+        // contra la cantidad original — si no, una segunda llamada podía sobre-reintegrar
+        // (ej. tanqueo de 10 gal, reintegrar 6 y luego 6 más, 12 de 10 aceptado).
+        java.math.BigDecimal reintegrosPrevios = fuelReintegrationsRepository.findByRefuelingId(tanqueo.getId()).stream()
+                .map(FuelReintegrationsEntity::getCantidadReintegrada)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        java.math.BigDecimal saldoDisponible = tanqueo.getCantidadGalones().subtract(reintegrosPrevios);
+        if (request.cantidadReintegrada().compareTo(saldoDisponible) > 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "La cantidad reintegrada no puede superar la cantidad tanqueada originalmente.");
+                    "La cantidad reintegrada supera el saldo disponible del tanqueo.");
         }
 
         // Decisión confirmada: los tanqueos ALMACEN no se valorizan (no tienen precio propio),
@@ -63,11 +70,13 @@ public class FuelReintegrationService implements RegisterFuelReintegrationUseCas
                 .valorReintegro(valorReintegro)
                 .responsableId(responsableId)
                 .fechaReintegro(Timestamp.valueOf(LocalDateTime.now()))
+                .motivo(request.motivo())
                 .build();
         entity = fuelReintegrationsRepository.save(entity);
 
         saveActionUseCase.save("Se registró un reintegro de " + request.cantidadReintegrada()
-                + " galones para el tanqueo id=" + request.refuelingId());
+                + " galones para el tanqueo id=" + request.refuelingId()
+                + (request.motivo() != null && !request.motivo().isBlank() ? " (motivo: " + request.motivo() + ")" : ""));
 
         return mapToResponse(entity);
     }
@@ -79,6 +88,7 @@ public class FuelReintegrationService implements RegisterFuelReintegrationUseCas
                 entity.getCantidadReintegrada(),
                 entity.getValorReintegro(),
                 entity.getResponsableId(),
-                entity.getFechaReintegro() != null ? entity.getFechaReintegro().toLocalDateTime() : null);
+                entity.getFechaReintegro() != null ? entity.getFechaReintegro().toLocalDateTime() : null,
+                entity.getMotivo());
     }
 }

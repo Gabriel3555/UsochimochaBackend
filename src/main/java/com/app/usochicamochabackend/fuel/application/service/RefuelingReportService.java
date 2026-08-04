@@ -2,13 +2,16 @@ package com.app.usochicamochabackend.fuel.application.service;
 
 import com.app.usochicamochabackend.fuel.application.dto.RefuelingRecordResponse;
 import com.app.usochicamochabackend.fuel.application.port.GetRefuelingReportUseCase;
+import com.app.usochicamochabackend.fuel.infrastructure.entity.FuelReintegrationsEntity;
 import com.app.usochicamochabackend.fuel.infrastructure.entity.RefuelingRecordsEntity;
+import com.app.usochicamochabackend.fuel.infrastructure.repository.FuelReintegrationsRepository;
 import com.app.usochicamochabackend.fuel.infrastructure.repository.RefuelingRecordsRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -36,6 +39,7 @@ public class RefuelingReportService implements GetRefuelingReportUseCase {
     private final RefuelingRecordsRepository refuelingRecordsRepository;
     private final AssetFuelCapacityService assetFuelCapacityService;
     private final FuelPriceAnomalyService fuelPriceAnomalyService;
+    private final FuelReintegrationsRepository fuelReintegrationsRepository;
 
     @Override
     public List<RefuelingRecordResponse> obtenerReporte(String tipo, String area, LocalDate fechaInicio, LocalDate fechaFin) {
@@ -57,7 +61,14 @@ public class RefuelingReportService implements GetRefuelingReportUseCase {
                 .map(t -> RefuelingRecordResponse.from(t,
                         assetFuelCapacityService.excedeCapacidad(t.getVehicleId(), t.getMachineId(), t.getCantidadGalones()),
                         assetFuelCapacityService.cantidadFueraDeRangoTipico(t.getVehicleId(), t.getMachineId(), t.getCantidadGalones()),
-                        fuelPriceAnomalyService.precioFueraDeRango(t.getFuelTypeId(), t.getPrecioUnitario(), t.getId())))
+                        fuelPriceAnomalyService.precioFueraDeRango(t.getFuelTypeId(), t.getPrecioUnitario(), t.getId()),
+                        sumaReintegros(t.getId())))
                 .toList();
+    }
+
+    private BigDecimal sumaReintegros(Long refuelingId) {
+        return fuelReintegrationsRepository.findByRefuelingId(refuelingId).stream()
+                .map(FuelReintegrationsEntity::getCantidadReintegrada)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 }
