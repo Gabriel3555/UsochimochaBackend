@@ -8,6 +8,10 @@ import java.time.LocalDateTime;
 public record VehicleOilChangeHistoryDTO(
         Long id,
         LocalDateTime dateStamp,
+        // oilType + brandId se agregaron para poder precargar el formulario de
+        // edición (brandName por sí solo no alcanza para preseleccionar un <select>).
+        String oilType,
+        Long brandId,
         String brandName,
         Double quantity,
         Integer kmAtChange,

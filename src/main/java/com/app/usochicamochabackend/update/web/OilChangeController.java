@@ -19,6 +19,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
@@ -36,6 +37,7 @@ public class OilChangeController {
     private final PerformMotorOilChangeUseCase performMotorOilChange;
     private final PerformHydraulicChangeUseCase performHydraulicChange;
     private final ExcelGenerationService excelGenerationService;
+    private final ManageMachineOilChangeHistoryUseCase manageMachineOilChangeHistoryUseCase;
 
     @GetMapping("/consolidated")
     @Operation(summary = "Get consolidated motor and hydraulic oil for all machines")
@@ -76,5 +78,30 @@ public class OilChangeController {
         return performHydraulicChange.performChangeHydraulicOil(request);
     }
 
+    @GetMapping("/machine/{machineId}/history")
+    @Operation(
+            summary = "Historial de cambios de aceite de una máquina",
+            description = "tipo debe ser MOTOR o HYDRAULIC. Devuelve todos los registros activos ordenados por fecha DESC.")
+    public ResponseEntity<List<MachineOilChangeHistoryDTO>> getHistory(
+            @PathVariable Long machineId, @RequestParam String tipo) {
+        return ResponseEntity.ok(manageMachineOilChangeHistoryUseCase.obtenerHistorial(machineId, tipo));
+    }
 
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(
+            summary = "Corregir un cambio de aceite de maquinaria ya registrado",
+            description = "Actualiza cualquier registro del historial (no solo el más reciente), en caso de error de captura. El tipo (motor/hidráulico) del registro no cambia.")
+    public ResponseEntity<Void> actualizar(@PathVariable Long id, @RequestBody PerformChangeMotorOilRequest request) {
+        manageMachineOilChangeHistoryUseCase.actualizarCambioAceite(id, request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Eliminar un cambio de aceite de maquinaria (soft-delete)")
+    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
+        manageMachineOilChangeHistoryUseCase.eliminarCambioAceite(id);
+        return ResponseEntity.noContent().build();
+    }
 }

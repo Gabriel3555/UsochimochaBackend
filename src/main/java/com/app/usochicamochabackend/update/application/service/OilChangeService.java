@@ -14,13 +14,16 @@ import com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntit
 import com.app.usochicamochabackend.review.infrastructure.repository.InspectionRepository;
 import com.app.usochicamochabackend.update.application.dto.*;
 import com.app.usochicamochabackend.update.application.port.*;
+import com.app.usochicamochabackend.update.infrastructure.entity.BrandEntity;
 import com.app.usochicamochabackend.update.infrastructure.entity.OilChangeEntity;
+import com.app.usochicamochabackend.update.infrastructure.entity.OilType;
 import com.app.usochicamochabackend.update.infrastructure.repository.BrandRepository;
 import com.app.usochicamochabackend.update.infrastructure.repository.OilChangeRepository;
 // OilChangeStreamController removed - using WebSocket only
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -38,7 +41,8 @@ public class OilChangeService implements
         GetConsolidateMotorOilAllMachinesUseCase,
         GetConsolidateHydraulicOilAllMachines,
         GetConsolidateHydraulicAndMotorOilByIdMachineUseCase,
-        GetConsolidateHydraulicAndMotorOilAllMachinesUseCase
+        GetConsolidateHydraulicAndMotorOilAllMachinesUseCase,
+        ManageMachineOilChangeHistoryUseCase
 {
 
     private final MachineRepository machineRepository;
@@ -345,5 +349,75 @@ public class OilChangeService implements
             machine.setHorometroActual(nuevaLectura);
             machineRepository.save(machine);
         }
+    }
+
+    /**
+     * Historial editable de aceite (motor u hidráulico) de una máquina — no existía
+     * ninguna forma de listar más de un registro por máquina/tipo, solo "traer el
+     * último" (usado para el consolidado).
+     */
+    @Override
+    public List<MachineOilChangeHistoryDTO> obtenerHistorial(Long machineId, String tipo) {
+        OilType oilType = OilType.fromString(tipo);
+        List<OilChangeEntity> historial = oilChangeRepository
+                .findByMachineIdAndOilTypeAndStatusOrderByDateStampDesc(machineId, oilType, true);
+        return historial.stream().map(this::toHistoryDTO).toList();
+    }
+
+    private MachineOilChangeHistoryDTO toHistoryDTO(OilChangeEntity e) {
+        return new MachineOilChangeHistoryDTO(
+                e.getId(),
+                e.getDateStamp(),
+                e.getOilType() != null ? e.getOilType().name() : null,
+                e.getBrand() != null ? e.getBrand().getId() : null,
+                e.getBrand() != null ? e.getBrand().getName() : null,
+                e.getQuantity(),
+                e.getHourMeter(),
+                e.getAverageHoursChange()
+        );
+    }
+
+    /**
+     * Corrige un cambio de aceite de maquinaria ya registrado ("en caso de
+     * error") — el tipo (MOTOR/HYDRAULIC) del registro no cambia, solo sus datos.
+     * Mismo patrón que VehicleOilChangeService.actualizar(): busca por
+     * id+status activo, reaplica el forward-only sobre el horómetro y recalcula
+     * alertas, igual que al registrar.
+     */
+    @Override
+    @Transactional
+    public void actualizarCambioAceite(Long id, PerformChangeMotorOilRequest request) {
+        validarHorometro(request.currentHourMeter());
+
+        OilChangeEntity entity = oilChangeRepository.findByIdAndStatus(id, true)
+                .orElseThrow(() -> new ResourceNotFoundException("Cambio de aceite no encontrado con id " + id));
+
+        BrandEntity brand = request.brandId() != null ? brandRepository.findBrandEntityById(request.brandId()) : null;
+
+        entity.setDateStamp(request.dateTime() != null ? request.dateTime() : entity.getDateStamp());
+        entity.setBrand(brand);
+        entity.setQuantity(request.quantity());
+        entity.setHourMeter(request.currentHourMeter());
+        entity.setHourStamp(request.currentHourMeter().intValue());
+        entity.setAverageHoursChange(request.averageHoursChange());
+        oilChangeRepository.save(entity);
+
+        actualizarHorometroSiEsMayor(entity.getMachine(), request.currentHourMeter());
+        preventiveAlertCalculationService.calculateAndEmitAlerts();
+    }
+
+    /**
+     * Soft-delete ("en caso de error") — no revierte el horómetro de la máquina
+     * aunque este registro haya sido el que lo fijó, mismo criterio ya aceptado en
+     * VehicleOilChangeService.eliminar()/RefuelingRecordService.eliminar().
+     */
+    @Override
+    @Transactional
+    public void eliminarCambioAceite(Long id) {
+        OilChangeEntity entity = oilChangeRepository.findByIdAndStatus(id, true)
+                .orElseThrow(() -> new ResourceNotFoundException("Cambio de aceite no encontrado con id " + id));
+        entity.setStatus(false);
+        oilChangeRepository.save(entity);
+        preventiveAlertCalculationService.calculateAndEmitAlerts();
     }
 }
