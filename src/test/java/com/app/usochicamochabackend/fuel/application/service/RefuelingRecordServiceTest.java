@@ -5,6 +5,7 @@ import com.app.usochicamochabackend.fuel.application.dto.RefuelingRecordRequest;
 import com.app.usochicamochabackend.fuel.application.dto.RefuelingRecordResponse;
 import com.app.usochicamochabackend.fuel.application.port.AdjustFuelInventoryUseCase;
 import com.app.usochicamochabackend.fuel.infrastructure.entity.RefuelingRecordsEntity;
+import com.app.usochicamochabackend.fuel.infrastructure.repository.FuelReintegrationsRepository;
 import com.app.usochicamochabackend.fuel.infrastructure.repository.RefuelingRecordsRepository;
 import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
 import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
@@ -58,6 +59,9 @@ class RefuelingRecordServiceTest {
     @Mock
     private FuelPriceAnomalyService fuelPriceAnomalyService;
 
+    @Mock
+    private FuelReintegrationsRepository fuelReintegrationsRepository;
+
     private RefuelingRecordService refuelingRecordService;
 
     private final MultipartFile factura = new MockMultipartFile("factura", "f.pdf", "application/pdf", new byte[]{1, 2, 3});
@@ -66,7 +70,7 @@ class RefuelingRecordServiceTest {
     void setUp() {
         refuelingRecordService = new RefuelingRecordService(
                 refuelingRecordsRepository, adjustFuelInventoryUseCase, fuelDocumentStorageService, saveActionUseCase,
-                vehicleRepository, machineRepository, assetFuelCapacityService, fuelPriceAnomalyService);
+                vehicleRepository, machineRepository, assetFuelCapacityService, fuelPriceAnomalyService, fuelReintegrationsRepository);
         ReflectionTestUtils.setField(refuelingRecordService, "tolerancia", new BigDecimal("0.01"));
     }
 

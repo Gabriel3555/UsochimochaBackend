@@ -202,7 +202,7 @@ class FuelReportingE2ETest {
                 false, null, null, null, null);
         var tanqueo = registerRefuelingRecordUseCase.registrar(tanqueoAlmacen, null, 2L);
 
-        registerFuelReintegrationUseCase.registrar(new FuelReintegrationRequest(tanqueo.id(), new BigDecimal("5")), 2L);
+        registerFuelReintegrationUseCase.registrar(new FuelReintegrationRequest(tanqueo.id(), new BigDecimal("5"), null), 2L);
 
         FuelInventoryEntity inventario = fuelInventoryRepository.findByAreaCostoAndFuelTypeId("DISTRITO", fuelTypeId).orElseThrow();
         assertThat(inventario.getCantidadDisponible()).isEqualByComparingTo("75"); // 100 - 30 + 5

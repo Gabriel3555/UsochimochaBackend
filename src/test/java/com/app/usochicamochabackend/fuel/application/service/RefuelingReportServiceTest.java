@@ -2,6 +2,7 @@ package com.app.usochicamochabackend.fuel.application.service;
 
 import com.app.usochicamochabackend.fuel.application.dto.RefuelingRecordResponse;
 import com.app.usochicamochabackend.fuel.infrastructure.entity.RefuelingRecordsEntity;
+import com.app.usochicamochabackend.fuel.infrastructure.repository.FuelReintegrationsRepository;
 import com.app.usochicamochabackend.fuel.infrastructure.repository.RefuelingRecordsRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -34,11 +35,15 @@ class RefuelingReportServiceTest {
     @Mock
     private FuelPriceAnomalyService fuelPriceAnomalyService;
 
+    @Mock
+    private FuelReintegrationsRepository fuelReintegrationsRepository;
+
     private RefuelingReportService refuelingReportService;
 
     @BeforeEach
     void setUp() {
-        refuelingReportService = new RefuelingReportService(refuelingRecordsRepository, assetFuelCapacityService, fuelPriceAnomalyService);
+        refuelingReportService = new RefuelingReportService(
+                refuelingRecordsRepository, assetFuelCapacityService, fuelPriceAnomalyService, fuelReintegrationsRepository);
     }
 
     private RefuelingRecordsEntity tanqueoVehiculo(int vehicleId, String areaCosto) {
