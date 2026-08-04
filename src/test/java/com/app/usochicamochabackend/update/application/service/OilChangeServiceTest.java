@@ -165,4 +165,87 @@ class OilChangeServiceTest {
     void hidraulico_ConHorometroNegativo_LanzaBadRequestException() {
         assertThrows(BadRequestException.class, () -> oilChangeService.performChangeHydraulicOil(requestHidraulico(-5.0)));
     }
+
+    // ---- obtenerHistorial ----
+
+    @Test
+    void obtenerHistorial_MapeaOilTypeYBrandIdParaPrecargarLaEdicion() {
+        var brand = com.app.usochicamochabackend.update.infrastructure.entity.BrandEntity.builder().id(2L).name("Mobil").build();
+        var entity = com.app.usochicamochabackend.update.infrastructure.entity.OilChangeEntity.builder()
+                .id(10L).oilType(com.app.usochicamochabackend.update.infrastructure.entity.OilType.MOTOR)
+                .brand(brand).quantity(4.0).hourMeter(500.0).averageHoursChange(250).status(true)
+                .build();
+        when(oilChangeRepository.findByMachineIdAndOilTypeAndStatusOrderByDateStampDesc(
+                1L, com.app.usochicamochabackend.update.infrastructure.entity.OilType.MOTOR, true))
+                .thenReturn(List.of(entity));
+
+        var historial = oilChangeService.obtenerHistorial(1L, "MOTOR");
+
+        assertEquals(1, historial.size());
+        assertEquals("MOTOR", historial.get(0).oilType());
+        assertEquals(2L, historial.get(0).brandId());
+        assertEquals("Mobil", historial.get(0).brandName());
+    }
+
+    // ---- actualizarCambioAceite ----
+
+    @Test
+    void actualizarCambioAceite_ConIdInexistente_LanzaResourceNotFound() {
+        when(oilChangeRepository.findByIdAndStatus(99L, true)).thenReturn(Optional.empty());
+
+        assertThrows(com.app.usochicamochabackend.exception.ResourceNotFoundException.class,
+                () -> oilChangeService.actualizarCambioAceite(99L, requestMotor(650.0)));
+
+        verify(oilChangeRepository, never()).save(any());
+    }
+
+    @Test
+    void actualizarCambioAceite_ConHorometroMayorAlActual_ActualizaElHorometroDeLaMaquina() {
+        MachineEntity machine = maquina(500);
+        var entity = com.app.usochicamochabackend.update.infrastructure.entity.OilChangeEntity.builder()
+                .id(10L).machine(machine).quantity(3.0).hourMeter(400.0).averageHoursChange(250).status(true)
+                .build();
+        when(oilChangeRepository.findByIdAndStatus(10L, true)).thenReturn(Optional.of(entity));
+
+        oilChangeService.actualizarCambioAceite(10L, requestMotor(700.0));
+
+        assertEquals(700, machine.getHorometroActual());
+        assertEquals(700.0, entity.getHourMeter());
+        verify(oilChangeRepository).save(entity);
+        verify(preventiveAlertCalculationService).calculateAndEmitAlerts();
+    }
+
+    @Test
+    void actualizarCambioAceite_ConHorometroInvalido_LanzaBadRequestException() {
+        assertThrows(BadRequestException.class,
+                () -> oilChangeService.actualizarCambioAceite(10L, requestMotor(0.0)));
+
+        verify(oilChangeRepository, never()).findByIdAndStatus(any(), any());
+    }
+
+    // ---- eliminarCambioAceite ----
+
+    @Test
+    void eliminarCambioAceite_ConIdInexistente_LanzaResourceNotFound() {
+        when(oilChangeRepository.findByIdAndStatus(99L, true)).thenReturn(Optional.empty());
+
+        assertThrows(com.app.usochicamochabackend.exception.ResourceNotFoundException.class,
+                () -> oilChangeService.eliminarCambioAceite(99L));
+    }
+
+    @Test
+    void eliminarCambioAceite_MarcaStatusFalseYNoTocaElHorometroDeLaMaquina() {
+        MachineEntity machine = maquina(500);
+        var entity = com.app.usochicamochabackend.update.infrastructure.entity.OilChangeEntity.builder()
+                .id(10L).machine(machine).status(true).build();
+        when(oilChangeRepository.findByIdAndStatus(10L, true)).thenReturn(Optional.of(entity));
+
+        oilChangeService.eliminarCambioAceite(10L);
+
+        assertEquals(false, entity.getStatus());
+        assertEquals(500, machine.getHorometroActual());
+        verify(oilChangeRepository).save(entity);
+        verify(machineRepository, never()).save(any());
+        verify(preventiveAlertCalculationService).calculateAndEmitAlerts();
+    }
 }
