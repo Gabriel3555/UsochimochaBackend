@@ -37,16 +37,35 @@ public record RefuelingRecordResponse(
     // en BOMBA — FuelPriceAnomalyService, null cuando no aplica (ALMACEN o sin
     // precioUnitario).
     Boolean precioFueraDeRango,
+    // "Full" declarado pero cantidad tanqueada insuficiente para llenar el tanque
+    // según el consumo estándar proyectado desde el tanqueo anterior —
+    // FuelFullConsistencyService, null/false cuando no aplica (no es Full, sin
+    // línea base o sin consumo estándar configurado).
+    Boolean fullInconsistente,
     // Suma de fuel_reintegrations para este tanqueo (ZERO si no hay ninguno, nunca
     // null — simplifica el cálculo de saldo disponible = cantidadGalones -
     // cantidadReintegrada en el frontend). Antes solo lo calculaba el endpoint viejo
     // GET /fuel/distribucion (FuelDistributionService.mapFila); se replica el mismo
     // cálculo acá para que Tanqueo y Distribución / Historial de tanqueos también
     // lo muestren.
-    BigDecimal cantidadReintegrada
+    BigDecimal cantidadReintegrada,
+    // Valores de referencia usados para calcular capacidadExcedida/
+    // cantidadFueraDeRango/precioFueraDeRango — para que el consumidor pueda mostrar
+    // contra qué se comparó (ej. "excedió los 50 gal configurados"), no solo el
+    // booleano. Null cuando no aplica (sin asset_fuel_config, o sin línea base de
+    // precio reciente); cantidadMaximaTipica siempre trae valor.
+    BigDecimal capacidadConfiguradaGal,
+    BigDecimal cantidadMaximaTipica,
+    BigDecimal precioPromedioReciente,
+    // Valor de referencia de fullInconsistente — cuánto se esperaba que hiciera
+    // falta para llenar el tanque. Null cuando no aplica (no es Full, sin línea
+    // base o sin consumo estándar configurado).
+    BigDecimal cantidadEsperadaLlenoGal
 ) {
     public static RefuelingRecordResponse from(RefuelingRecordsEntity entity, boolean capacidadExcedida,
-            boolean cantidadFueraDeRango, boolean precioFueraDeRango, BigDecimal cantidadReintegrada) {
+            boolean cantidadFueraDeRango, boolean precioFueraDeRango, boolean fullInconsistente,
+            BigDecimal cantidadReintegrada, BigDecimal capacidadConfiguradaGal, BigDecimal cantidadMaximaTipica,
+            BigDecimal precioPromedioReciente, BigDecimal cantidadEsperadaLlenoGal) {
         return new RefuelingRecordResponse(
                 entity.getId(),
                 entity.getVehicleId(),
@@ -69,7 +88,12 @@ public record RefuelingRecordResponse(
                 capacidadExcedida,
                 cantidadFueraDeRango,
                 precioFueraDeRango,
-                cantidadReintegrada
+                fullInconsistente,
+                cantidadReintegrada,
+                capacidadConfiguradaGal,
+                cantidadMaximaTipica,
+                precioPromedioReciente,
+                cantidadEsperadaLlenoGal
         );
     }
 }
