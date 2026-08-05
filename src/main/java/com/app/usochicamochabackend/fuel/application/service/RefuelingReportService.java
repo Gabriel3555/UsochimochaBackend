@@ -39,6 +39,7 @@ public class RefuelingReportService implements GetRefuelingReportUseCase {
     private final RefuelingRecordsRepository refuelingRecordsRepository;
     private final AssetFuelCapacityService assetFuelCapacityService;
     private final FuelPriceAnomalyService fuelPriceAnomalyService;
+    private final FuelFullConsistencyService fuelFullConsistencyService;
     private final FuelReintegrationsRepository fuelReintegrationsRepository;
 
     @Override
@@ -57,13 +58,23 @@ public class RefuelingReportService implements GetRefuelingReportUseCase {
             tanqueos = tanqueos.stream().filter(t -> area.equals(t.getAreaCosto())).toList();
         }
 
-        return tanqueos.stream()
-                .map(t -> RefuelingRecordResponse.from(t,
-                        assetFuelCapacityService.excedeCapacidad(t.getVehicleId(), t.getMachineId(), t.getCantidadGalones()),
-                        assetFuelCapacityService.cantidadFueraDeRangoTipico(t.getVehicleId(), t.getMachineId(), t.getCantidadGalones()),
-                        fuelPriceAnomalyService.precioFueraDeRango(t.getFuelTypeId(), t.getPrecioUnitario(), t.getId()),
-                        sumaReintegros(t.getId())))
-                .toList();
+        return tanqueos.stream().map(this::mapToResponse).toList();
+    }
+
+    private RefuelingRecordResponse mapToResponse(RefuelingRecordsEntity t) {
+        BigDecimal capacidadConfiguradaGal = assetFuelCapacityService.capacidadConfigurada(t.getVehicleId(), t.getMachineId());
+        return RefuelingRecordResponse.from(t,
+                assetFuelCapacityService.excedeCapacidad(t.getVehicleId(), t.getMachineId(), t.getCantidadGalones()),
+                assetFuelCapacityService.cantidadFueraDeRangoTipico(t.getVehicleId(), t.getMachineId(), t.getCantidadGalones()),
+                fuelPriceAnomalyService.precioFueraDeRango(t.getFuelTypeId(), t.getPrecioUnitario(), t.getId()),
+                fuelFullConsistencyService.fullInconsistente(t.getVehicleId(), t.getMachineId(), t.getEsFull(),
+                        t.getCantidadGalones(), t.getHorometroKm(), t.getFechaRegistro(), capacidadConfiguradaGal),
+                sumaReintegros(t.getId()),
+                capacidadConfiguradaGal,
+                assetFuelCapacityService.maximoTipico(t.getVehicleId(), t.getMachineId()),
+                fuelPriceAnomalyService.promedioReciente(t.getFuelTypeId(), t.getId()),
+                fuelFullConsistencyService.cantidadEsperadaParaLleno(t.getVehicleId(), t.getMachineId(), t.getEsFull(),
+                        t.getHorometroKm(), t.getFechaRegistro(), capacidadConfiguradaGal));
     }
 
     private BigDecimal sumaReintegros(Long refuelingId) {

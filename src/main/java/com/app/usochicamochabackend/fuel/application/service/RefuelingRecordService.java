@@ -4,7 +4,6 @@ import com.app.usochicamochabackend.actions.application.port.SaveActionUseCase;
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.fuel.application.dto.RefuelingRecordRequest;
 import com.app.usochicamochabackend.fuel.application.dto.RefuelingRecordResponse;
-import com.app.usochicamochabackend.fuel.application.port.AdjustFuelInventoryUseCase;
 import com.app.usochicamochabackend.fuel.application.port.RegisterRefuelingRecordUseCase;
 import com.app.usochicamochabackend.fuel.infrastructure.entity.FuelReintegrationsEntity;
 import com.app.usochicamochabackend.fuel.infrastructure.entity.RefuelingRecordsEntity;
@@ -37,13 +36,13 @@ public class RefuelingRecordService implements RegisterRefuelingRecordUseCase {
     private static final String LUGAR_ALMACEN = "ALMACEN";
 
     private final RefuelingRecordsRepository refuelingRecordsRepository;
-    private final AdjustFuelInventoryUseCase adjustFuelInventoryUseCase;
     private final FuelDocumentStorageService fuelDocumentStorageService;
     private final SaveActionUseCase saveActionUseCase;
     private final VehicleRepository vehicleRepository;
     private final MachineRepository machineRepository;
     private final AssetFuelCapacityService assetFuelCapacityService;
     private final FuelPriceAnomalyService fuelPriceAnomalyService;
+    private final FuelFullConsistencyService fuelFullConsistencyService;
     private final FuelReintegrationsRepository fuelReintegrationsRepository;
 
     @Value("${app.fuel.discrepancia-tolerancia-porcentaje:0.01}")
@@ -73,9 +72,6 @@ public class RefuelingRecordService implements RegisterRefuelingRecordUseCase {
                     request.cantidadGalones(), request.precioUnitario(), request.descuento(), request.totalIngresado());
             totalCalculado = calculo.totalCalculado();
             discrepanciaValor = calculo.discrepanciaValor();
-        } else {
-            // ALMACEN: valida y descuenta stock ANTES de persistir (lanza 409 si no alcanza).
-            adjustFuelInventoryUseCase.decrement(request.areaCosto(), request.fuelTypeId(), request.cantidadGalones());
         }
 
         RefuelingRecordsEntity entity = RefuelingRecordsEntity.builder()
@@ -129,20 +125,7 @@ public class RefuelingRecordService implements RegisterRefuelingRecordUseCase {
 
         validar(request);
 
-        boolean lugarEraAlmacen = LUGAR_ALMACEN.equals(entity.getLugar());
-        boolean lugarEsAlmacen = LUGAR_ALMACEN.equals(request.lugar());
         boolean esBomba = LUGAR_BOMBA.equals(request.lugar());
-
-        // Revierte el efecto de inventario viejo (si el tanqueo era ALMACEN) y aplica
-        // el nuevo (si lo sigue siendo o pasa a serlo) — correcto ante cualquier
-        // combinación de cambios (activo, área, combustible, cantidad o el propio
-        // lugar), sin necesidad de calcular deltas caso por caso.
-        if (lugarEraAlmacen) {
-            adjustFuelInventoryUseCase.increment(entity.getAreaCosto(), entity.getFuelTypeId(), entity.getCantidadGalones());
-        }
-        if (lugarEsAlmacen) {
-            adjustFuelInventoryUseCase.decrement(request.areaCosto(), request.fuelTypeId(), request.cantidadGalones());
-        }
 
         BigDecimal totalCalculado = null;
         Boolean discrepanciaValor = false;
@@ -197,9 +180,6 @@ public class RefuelingRecordService implements RegisterRefuelingRecordUseCase {
         RefuelingRecordsEntity entity = refuelingRecordsRepository.findByIdAndStatus(id, true)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tanqueo no encontrado."));
 
-        if (LUGAR_ALMACEN.equals(entity.getLugar())) {
-            adjustFuelInventoryUseCase.increment(entity.getAreaCosto(), entity.getFuelTypeId(), entity.getCantidadGalones());
-        }
         entity.setStatus(false);
         refuelingRecordsRepository.save(entity);
 
@@ -284,7 +264,21 @@ public class RefuelingRecordService implements RegisterRefuelingRecordUseCase {
         boolean precioFueraDeRango = fuelPriceAnomalyService.precioFueraDeRango(
                 entity.getFuelTypeId(), entity.getPrecioUnitario(), entity.getId());
         BigDecimal cantidadReintegrada = sumaReintegros(entity.getId());
-        return RefuelingRecordResponse.from(entity, capacidadExcedida, cantidadFueraDeRango, precioFueraDeRango, cantidadReintegrada);
+        BigDecimal capacidadConfiguradaGal = assetFuelCapacityService.capacidadConfigurada(
+                entity.getVehicleId(), entity.getMachineId());
+        BigDecimal cantidadMaximaTipica = assetFuelCapacityService.maximoTipico(
+                entity.getVehicleId(), entity.getMachineId());
+        BigDecimal precioPromedioReciente = fuelPriceAnomalyService.promedioReciente(
+                entity.getFuelTypeId(), entity.getId());
+        boolean fullInconsistente = fuelFullConsistencyService.fullInconsistente(
+                entity.getVehicleId(), entity.getMachineId(), entity.getEsFull(), entity.getCantidadGalones(),
+                entity.getHorometroKm(), entity.getFechaRegistro(), capacidadConfiguradaGal);
+        BigDecimal cantidadEsperadaLlenoGal = fuelFullConsistencyService.cantidadEsperadaParaLleno(
+                entity.getVehicleId(), entity.getMachineId(), entity.getEsFull(), entity.getHorometroKm(),
+                entity.getFechaRegistro(), capacidadConfiguradaGal);
+        return RefuelingRecordResponse.from(entity, capacidadExcedida, cantidadFueraDeRango, precioFueraDeRango,
+                fullInconsistente, cantidadReintegrada, capacidadConfiguradaGal, cantidadMaximaTipica,
+                precioPromedioReciente, cantidadEsperadaLlenoGal);
     }
 
     private BigDecimal sumaReintegros(Long refuelingId) {
