@@ -40,13 +40,25 @@ public class AssetFuelCapacityService {
         if (cantidadGalones == null) {
             return false;
         }
+        BigDecimal capacidad = capacidadConfigurada(vehicleId, machineId);
+        if (capacidad == null) {
+            return false;
+        }
+        return cantidadGalones.compareTo(capacidad) > 0;
+    }
+
+    /**
+     * Capacidad de tanque configurada en {@code asset_fuel_config.tanqueCapacidadGal}
+     * para este activo en particular — null si no tiene configuración. Se expone por
+     * separado de {@link #excedeCapacidad} para que los consumidores puedan mostrar
+     * el valor de referencia junto a la alerta ("excedió los 50 gal configurados"),
+     * no solo el booleano.
+     */
+    public BigDecimal capacidadConfigurada(Integer vehicleId, Long machineId) {
         var config = machineId != null
                 ? assetFuelConfigRepository.findByMachineId(machineId)
                 : assetFuelConfigRepository.findByVehicleId(vehicleId);
-        return config.map(AssetFuelConfigEntity::getTanqueCapacidadGal)
-                .filter(capacidad -> capacidad != null)
-                .map(capacidad -> cantidadGalones.compareTo(capacidad) > 0)
-                .orElse(false);
+        return config.map(AssetFuelConfigEntity::getTanqueCapacidadGal).orElse(null);
     }
 
     /**
@@ -60,16 +72,24 @@ public class AssetFuelCapacityService {
         if (cantidadGalones == null) {
             return false;
         }
-        BigDecimal maximo;
+        return cantidadGalones.compareTo(maximoTipico(vehicleId, machineId)) > 0;
+    }
+
+    /**
+     * Tope razonable aplicado según el tipo de activo (máquina/moto/vehículo) —
+     * expuesto por separado de {@link #cantidadFueraDeRangoTipico} para que los
+     * consumidores puedan mostrar contra qué límite se comparó, no solo el booleano.
+     * A diferencia de {@link #capacidadConfigurada}, siempre tiene un valor (son
+     * constantes por tipo, no dependen de {@code asset_fuel_config}).
+     */
+    public BigDecimal maximoTipico(Integer vehicleId, Long machineId) {
         if (machineId != null) {
-            maximo = maximoRazonableMaquinaria;
-        } else {
-            boolean esMoto = vehicleRepository.findById(vehicleId)
-                    .map(VehicleEntity::getTipoVehiculo)
-                    .map(tv -> MOTOCICLETA.equalsIgnoreCase(tv.getNombreTipo()))
-                    .orElse(false);
-            maximo = esMoto ? maximoRazonableMoto : maximoRazonableVehiculo;
+            return maximoRazonableMaquinaria;
         }
-        return cantidadGalones.compareTo(maximo) > 0;
+        boolean esMoto = vehicleRepository.findById(vehicleId)
+                .map(VehicleEntity::getTipoVehiculo)
+                .map(tv -> MOTOCICLETA.equalsIgnoreCase(tv.getNombreTipo()))
+                .orElse(false);
+        return esMoto ? maximoRazonableMoto : maximoRazonableVehiculo;
     }
 }
