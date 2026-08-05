@@ -15,7 +15,9 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.math.BigDecimal;
 import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -128,6 +130,38 @@ class AssetFuelCapacityServiceTest {
     @Test
     void cantidadFueraDeRangoTipico_CantidadNula_DevuelveFalse() {
         assertFalse(assetFuelCapacityService.cantidadFueraDeRangoTipico(5, null, null));
+
+        verifyNoInteractions(vehicleRepository);
+    }
+
+    // ---- capacidadConfigurada() / maximoTipico(): valores de referencia expuestos
+    // para que el consumidor pueda mostrar contra qué se comparó, no solo el booleano ----
+
+    @Test
+    void capacidadConfigurada_ConConfigParaElVehiculo_DevuelveElValorConfigurado() {
+        when(assetFuelConfigRepository.findByVehicleId(5)).thenReturn(Optional.of(
+                AssetFuelConfigEntity.builder().vehicleId(5).tanqueCapacidadGal(new BigDecimal("10")).build()));
+
+        assertEquals(0, new BigDecimal("10").compareTo(assetFuelCapacityService.capacidadConfigurada(5, null)));
+    }
+
+    @Test
+    void capacidadConfigurada_SinConfiguracionParaElActivo_DevuelveNull() {
+        when(assetFuelConfigRepository.findByVehicleId(5)).thenReturn(Optional.empty());
+
+        assertNull(assetFuelCapacityService.capacidadConfigurada(5, null));
+    }
+
+    @Test
+    void maximoTipico_Moto_DevuelveElTopeDeMoto() {
+        when(vehicleRepository.findById(6)).thenReturn(Optional.of(vehiculo("Motocicleta")));
+
+        assertEquals(0, new BigDecimal("15").compareTo(assetFuelCapacityService.maximoTipico(6, null)));
+    }
+
+    @Test
+    void maximoTipico_Maquina_DevuelveElTopeDeMaquinariaSinConsultarVehiculos() {
+        assertEquals(0, new BigDecimal("500").compareTo(assetFuelCapacityService.maximoTipico(null, 10L)));
 
         verifyNoInteractions(vehicleRepository);
     }

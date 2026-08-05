@@ -36,6 +36,9 @@ class RefuelingReportServiceTest {
     private FuelPriceAnomalyService fuelPriceAnomalyService;
 
     @Mock
+    private FuelFullConsistencyService fuelFullConsistencyService;
+
+    @Mock
     private FuelReintegrationsRepository fuelReintegrationsRepository;
 
     private RefuelingReportService refuelingReportService;
@@ -43,7 +46,8 @@ class RefuelingReportServiceTest {
     @BeforeEach
     void setUp() {
         refuelingReportService = new RefuelingReportService(
-                refuelingRecordsRepository, assetFuelCapacityService, fuelPriceAnomalyService, fuelReintegrationsRepository);
+                refuelingRecordsRepository, assetFuelCapacityService, fuelPriceAnomalyService,
+                fuelFullConsistencyService, fuelReintegrationsRepository);
     }
 
     private RefuelingRecordsEntity tanqueoVehiculo(int vehicleId, String areaCosto) {

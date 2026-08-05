@@ -3,7 +3,6 @@ package com.app.usochicamochabackend.fuel;
 import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.fuel.application.dto.FuelPurchaseRequest;
 import com.app.usochicamochabackend.fuel.application.dto.RefuelingRecordRequest;
-import com.app.usochicamochabackend.fuel.application.port.AdjustFuelInventoryUseCase;
 import com.app.usochicamochabackend.fuel.application.port.RegisterFuelPurchaseUseCase;
 import com.app.usochicamochabackend.fuel.application.port.RegisterRefuelingRecordUseCase;
 import com.app.usochicamochabackend.fuel.infrastructure.entity.FuelInventoryEntity;
@@ -31,8 +30,6 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.RequestPostProcessor;
-import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.math.BigDecimal;
@@ -42,7 +39,6 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -72,7 +68,6 @@ class FuelModuleE2ETest {
     @Autowired private RefuelingRecordsRepository refuelingRecordsRepository;
     @Autowired private RegisterFuelPurchaseUseCase registerFuelPurchaseUseCase;
     @Autowired private RegisterRefuelingRecordUseCase registerRefuelingRecordUseCase;
-    @Autowired private AdjustFuelInventoryUseCase adjustFuelInventoryUseCase;
 
     private Long fuelTypeId;
 
@@ -106,7 +101,7 @@ class FuelModuleE2ETest {
     }
 
     @Test
-    void flujoFeliz_CompraYTanqueoAlmacen_ActualizanInventarioYQuedanEnHistorial() throws Exception {
+    void flujoFeliz_CompraYTanqueoAlmacen_CompraActualizaInventarioYTanqueoQuedaEnHistorial() throws Exception {
         // Paso 1: compra de 100 gal ACPM para DISTRITO, vía HTTP multipart real (SUPERVISOR_OPERATIVO)
         mockMvc.perform(multipart("/api/v1/fuel/purchases")
                         .part(new org.springframework.mock.web.MockPart("areaCosto", "DISTRITO".getBytes()))
@@ -122,33 +117,22 @@ class FuelModuleE2ETest {
         FuelInventoryEntity trasCompra = fuelInventoryRepository.findByAreaCostoAndFuelTypeId("DISTRITO", fuelTypeId).orElseThrow();
         assertThat(trasCompra.getCantidadDisponible()).isEqualByComparingTo("100");
 
-        // Paso 2: tanqueo ALMACEN de 30 gal a una máquina (OPERARIO)
+        // Paso 2: tanqueo ALMACEN de 30 gal a una máquina (OPERARIO). El módulo no lleva
+        // control de inventario de almacén (decisión de alcance 28/07/2026) — el registro
+        // se persiste directo, sin tocar fuel_inventory.
         RefuelingRecordRequest tanqueo = new RefuelingRecordRequest(
                 null, 99L, "ALMACEN", "DISTRITO", fuelTypeId, new BigDecimal("30"), new BigDecimal("500"),
                 false, null, null, null, "Bodega central");
         registerRefuelingRecordUseCase.registrar(tanqueo, null, 2L);
 
         FuelInventoryEntity trasTanqueo = fuelInventoryRepository.findByAreaCostoAndFuelTypeId("DISTRITO", fuelTypeId).orElseThrow();
-        assertThat(trasTanqueo.getCantidadDisponible()).isEqualByComparingTo("70");
+        assertThat(trasTanqueo.getCantidadDisponible()).isEqualByComparingTo("100");
 
         // Paso 3: el historial de tanqueos refleja el registro
         mockMvc.perform(get("/api/v1/fuel/refueling").with(as(2L, "operario", "OPERARIO")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1))
                 .andExpect(jsonPath("$.content[0].machineId").value(99));
-    }
-
-    @Test
-    void tanqueoAlmacenSinStockSuficiente_Retorna409YNoModificaInventario() {
-        RefuelingRecordRequest tanqueo = new RefuelingRecordRequest(
-                null, 99L, "ALMACEN", "DISTRITO", fuelTypeId, new BigDecimal("30"), new BigDecimal("500"),
-                false, null, null, null, null);
-
-        assertThrows(ResponseStatusException.class, () -> registerRefuelingRecordUseCase.registrar(tanqueo, null, 2L));
-
-        FuelInventoryEntity inventario = fuelInventoryRepository.findByAreaCostoAndFuelTypeId("DISTRITO", fuelTypeId).orElseThrow();
-        assertThat(inventario.getCantidadDisponible()).isEqualByComparingTo("0");
-        assertThat(refuelingRecordsRepository.findAll()).isEmpty();
     }
 
     @Test
@@ -179,8 +163,7 @@ class FuelModuleE2ETest {
                         .with(as(3L, "operario", "OPERARIO")))
                 .andExpect(status().isForbidden());
 
-        // OPERARIO sí puede POST /refueling (ALMACEN, con stock previamente cargado)
-        adjustFuelInventoryUseCase.increment("DISTRITO", fuelTypeId, new BigDecimal("50"));
+        // OPERARIO sí puede POST /refueling (ALMACEN)
         mockMvc.perform(multipart("/api/v1/fuel/refueling")
                         .part(new org.springframework.mock.web.MockPart("machineId", "99".getBytes()))
                         .part(new org.springframework.mock.web.MockPart("lugar", "ALMACEN".getBytes()))

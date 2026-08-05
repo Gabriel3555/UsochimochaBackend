@@ -4,7 +4,6 @@ import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.catalog.infrastructure.entity.TipoVehiculoEntity;
 import com.app.usochicamochabackend.catalog.infrastructure.repository.TipoVehiculoRepository;
 import com.app.usochicamochabackend.fuel.application.dto.AssetFuelConfigRequest;
-import com.app.usochicamochabackend.fuel.application.port.AdjustFuelInventoryUseCase;
 import com.app.usochicamochabackend.fuel.application.port.ManageAssetFuelConfigUseCase;
 import com.app.usochicamochabackend.fuel.infrastructure.entity.FuelInventoryEntity;
 import com.app.usochicamochabackend.fuel.infrastructure.entity.FuelTypesEntity;
@@ -79,7 +78,6 @@ class FuelAnomalyDetectionE2ETest {
     @Autowired private FuelPurchaseRepository fuelPurchaseRepository;
     @Autowired private RefuelingRecordsRepository refuelingRecordsRepository;
     @Autowired private AssetFuelConfigRepository assetFuelConfigRepository;
-    @Autowired private AdjustFuelInventoryUseCase adjustFuelInventoryUseCase;
     @Autowired private ManageAssetFuelConfigUseCase manageAssetFuelConfigUseCase;
     @Autowired private MachineRepository machineRepository;
     @Autowired private VehicleRepository vehicleRepository;
@@ -238,7 +236,6 @@ class FuelAnomalyDetectionE2ETest {
     void cantidadFueraDeRango_Maquinaria_MasDe500Galones_QuedaMarcado() throws Exception {
         MachineEntity maquina = machineRepository.save(
                 MachineEntity.builder().name("Retro E2E").belongsTo("Distrito").model("2020").status(true).build());
-        adjustFuelInventoryUseCase.increment("DISTRITO", fuelTypeId, new BigDecimal("1000"));
 
         mockMvc.perform(buildRefuelingRequest(null, "/api/v1/fuel/refueling", null, maquina.getId(), "ALMACEN",
                         new BigDecimal("600"), new BigDecimal("50"), null, null, null)
@@ -266,7 +263,7 @@ class FuelAnomalyDetectionE2ETest {
     // ---- Editar y eliminar un tanqueo ya registrado ----
 
     @Test
-    void editarTanqueoAlmacen_CambiaCantidad_RevierteYReaplicaElEfectoEnInventario() throws Exception {
+    void editarTanqueoAlmacen_CambiaCantidadSinTocarInventario() throws Exception {
         var creado = mockMvc.perform(buildRefuelingRequest(null, "/api/v1/fuel/refueling", vehiculoId, null, "ALMACEN",
                         new BigDecimal("30"), new BigDecimal("1000"), null, null, null)
                         .with(as(1L, "operario", "OPERARIO")))
@@ -275,21 +272,20 @@ class FuelAnomalyDetectionE2ETest {
         Long id = new com.fasterxml.jackson.databind.ObjectMapper()
                 .readTree(creado.getResponse().getContentAsString()).get("id").asLong();
 
-        FuelInventoryEntity trasCrear = fuelInventoryRepository.findByAreaCostoAndFuelTypeId("DISTRITO", fuelTypeId).orElseThrow();
-        assertThat(trasCrear.getCantidadDisponible()).isEqualByComparingTo("70"); // 100 - 30
-
         mockMvc.perform(buildRefuelingRequest(HttpMethod.PUT, "/api/v1/fuel/refueling/" + id, vehiculoId, null, "ALMACEN",
                         new BigDecimal("20"), new BigDecimal("1000"), null, null, null)
                         .with(as(1L, "admin", "ADMIN")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.cantidadGalones").value(20));
 
+        // El módulo no lleva control de inventario de almacén (decisión de alcance
+        // 28/07/2026): el saldo sembrado en setUp() (100) queda intacto.
         FuelInventoryEntity trasEditar = fuelInventoryRepository.findByAreaCostoAndFuelTypeId("DISTRITO", fuelTypeId).orElseThrow();
-        assertThat(trasEditar.getCantidadDisponible()).isEqualByComparingTo("80"); // 70 + 30 (revertido) - 20 (nuevo)
+        assertThat(trasEditar.getCantidadDisponible()).isEqualByComparingTo("100");
     }
 
     @Test
-    void eliminarTanqueoAlmacen_SoftDeleteYRevierteInventario() throws Exception {
+    void eliminarTanqueoAlmacen_SoftDeleteSinTocarInventario() throws Exception {
         var creado = mockMvc.perform(buildRefuelingRequest(null, "/api/v1/fuel/refueling", vehiculoId, null, "ALMACEN",
                         new BigDecimal("25"), new BigDecimal("1000"), null, null, null)
                         .with(as(1L, "operario", "OPERARIO")))
@@ -304,7 +300,7 @@ class FuelAnomalyDetectionE2ETest {
                 .andExpect(status().isNoContent());
 
         FuelInventoryEntity trasEliminar = fuelInventoryRepository.findByAreaCostoAndFuelTypeId("DISTRITO", fuelTypeId).orElseThrow();
-        assertThat(trasEliminar.getCantidadDisponible()).isEqualByComparingTo("100"); // 100 - 25 + 25 (revertido)
+        assertThat(trasEliminar.getCantidadDisponible()).isEqualByComparingTo("100");
 
         mockMvc.perform(get("/api/v1/fuel/refueling").param("activo", "true").with(as(2L, "operario", "OPERARIO")))
                 .andExpect(status().isOk())

@@ -3,7 +3,6 @@ package com.app.usochicamochabackend.fuel.application.service;
 import com.app.usochicamochabackend.actions.application.port.SaveActionUseCase;
 import com.app.usochicamochabackend.fuel.application.dto.RefuelingRecordRequest;
 import com.app.usochicamochabackend.fuel.application.dto.RefuelingRecordResponse;
-import com.app.usochicamochabackend.fuel.application.port.AdjustFuelInventoryUseCase;
 import com.app.usochicamochabackend.fuel.infrastructure.entity.RefuelingRecordsEntity;
 import com.app.usochicamochabackend.fuel.infrastructure.repository.FuelReintegrationsRepository;
 import com.app.usochicamochabackend.fuel.infrastructure.repository.RefuelingRecordsRepository;
@@ -14,10 +13,8 @@ import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleRep
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.HttpStatus;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -39,9 +36,6 @@ class RefuelingRecordServiceTest {
     private RefuelingRecordsRepository refuelingRecordsRepository;
 
     @Mock
-    private AdjustFuelInventoryUseCase adjustFuelInventoryUseCase;
-
-    @Mock
     private FuelDocumentStorageService fuelDocumentStorageService;
 
     @Mock
@@ -60,6 +54,9 @@ class RefuelingRecordServiceTest {
     private FuelPriceAnomalyService fuelPriceAnomalyService;
 
     @Mock
+    private FuelFullConsistencyService fuelFullConsistencyService;
+
+    @Mock
     private FuelReintegrationsRepository fuelReintegrationsRepository;
 
     private RefuelingRecordService refuelingRecordService;
@@ -69,8 +66,9 @@ class RefuelingRecordServiceTest {
     @BeforeEach
     void setUp() {
         refuelingRecordService = new RefuelingRecordService(
-                refuelingRecordsRepository, adjustFuelInventoryUseCase, fuelDocumentStorageService, saveActionUseCase,
-                vehicleRepository, machineRepository, assetFuelCapacityService, fuelPriceAnomalyService, fuelReintegrationsRepository);
+                refuelingRecordsRepository, fuelDocumentStorageService, saveActionUseCase,
+                vehicleRepository, machineRepository, assetFuelCapacityService, fuelPriceAnomalyService,
+                fuelFullConsistencyService, fuelReintegrationsRepository);
         ReflectionTestUtils.setField(refuelingRecordService, "tolerancia", new BigDecimal("0.01"));
     }
 
@@ -85,7 +83,9 @@ class RefuelingRecordServiceTest {
     }
 
     @Test
-    void tanqueoAlmacenConStockSuficiente_DescuentaInventarioYPersiste() {
+    void tanqueoAlmacen_PersisteSinValidarInventario() {
+        // Decisión de alcance (28/07/2026): el módulo no lleva control de inventario
+        // de almacén — un tanqueo ALMACEN se persiste directo, sin tocar fuel_inventory.
         stubSaveAsignandoId();
         RefuelingRecordRequest request = new RefuelingRecordRequest(
                 null, 10L, "ALMACEN", "DISTRITO", 1L, new BigDecimal("30"), new BigDecimal("500"),
@@ -93,26 +93,9 @@ class RefuelingRecordServiceTest {
 
         RefuelingRecordResponse response = refuelingRecordService.registrar(request, null, 7L);
 
-        verify(adjustFuelInventoryUseCase).decrement("DISTRITO", 1L, new BigDecimal("30"));
         verify(refuelingRecordsRepository).save(any());
         assertNull(response.totalCalculado());
         verify(saveActionUseCase).save(anyString());
-    }
-
-    @Test
-    void tanqueoAlmacenConStockInsuficiente_Lanza409YNoPersiste() {
-        doThrow(new ResponseStatusException(HttpStatus.CONFLICT, "Stock insuficiente"))
-                .when(adjustFuelInventoryUseCase).decrement("DISTRITO", 1L, new BigDecimal("30"));
-
-        RefuelingRecordRequest request = new RefuelingRecordRequest(
-                null, 10L, "ALMACEN", "DISTRITO", 1L, new BigDecimal("30"), new BigDecimal("500"),
-                false, null, null, null, null);
-
-        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> refuelingRecordService.registrar(request, null, 7L));
-
-        assertEquals(409, ex.getStatusCode().value());
-        verify(refuelingRecordsRepository, never()).save(any());
     }
 
     @Test
@@ -125,7 +108,7 @@ class RefuelingRecordServiceTest {
                 () -> refuelingRecordService.registrar(request, null, 7L));
 
         assertEquals(400, ex.getStatusCode().value());
-        verifyNoInteractions(adjustFuelInventoryUseCase, refuelingRecordsRepository);
+        verifyNoInteractions(refuelingRecordsRepository);
     }
 
     @Test
@@ -138,7 +121,7 @@ class RefuelingRecordServiceTest {
                 () -> refuelingRecordService.registrar(request, null, 7L));
 
         assertEquals(400, ex.getStatusCode().value());
-        verifyNoInteractions(adjustFuelInventoryUseCase, refuelingRecordsRepository);
+        verifyNoInteractions(refuelingRecordsRepository);
     }
 
     @Test
@@ -244,7 +227,6 @@ class RefuelingRecordServiceTest {
 
         assertTrue(response.discrepanciaValor());
         assertEquals("/uploads/documents/fuel/refueling/1/current.pdf", response.urlFactura());
-        verifyNoInteractions(adjustFuelInventoryUseCase);
     }
 
     @Test
@@ -304,28 +286,7 @@ class RefuelingRecordServiceTest {
 
         assertEquals(0, new BigDecimal("300000").compareTo(response.totalCalculado()));
         assertTrue(response.discrepanciaValor());
-        verifyNoInteractions(adjustFuelInventoryUseCase);
         verify(saveActionUseCase).save(anyString());
-    }
-
-    @Test
-    void actualizarTanqueoAlmacenCambiandoActivoYCantidad_RevierteYAplicaInventarioCorrecto() {
-        RefuelingRecordsEntity existente = RefuelingRecordsEntity.builder()
-                .id(2L).vehicleId(3).lugar("ALMACEN").areaCosto("DISTRITO").fuelTypeId(1L)
-                .cantidadGalones(new BigDecimal("30")).horometroKm(new BigDecimal("500")).status(true)
-                .build();
-        when(refuelingRecordsRepository.findByIdAndStatus(2L, true)).thenReturn(Optional.of(existente));
-        stubSaveAsignandoId();
-
-        RefuelingRecordRequest request = new RefuelingRecordRequest(
-                null, 10L, "ALMACEN", "ASOCIACION", 2L, new BigDecimal("50"), new BigDecimal("150"),
-                false, null, null, null, "Bodega nueva");
-
-        refuelingRecordService.actualizar(2L, request, null);
-
-        InOrder orden = inOrder(adjustFuelInventoryUseCase);
-        orden.verify(adjustFuelInventoryUseCase).increment("DISTRITO", 1L, new BigDecimal("30"));
-        orden.verify(adjustFuelInventoryUseCase).decrement("ASOCIACION", 2L, new BigDecimal("50"));
     }
 
     @Test
@@ -369,9 +330,6 @@ class RefuelingRecordServiceTest {
         RefuelingRecordResponse response = refuelingRecordService.actualizar(3L, request, factura);
 
         assertEquals("/uploads/documents/fuel/refueling/3/current.pdf", response.urlFactura());
-        // Al salir de ALMACEN se revierte el inventario viejo; al entrar a BOMBA no se descuenta nada.
-        verify(adjustFuelInventoryUseCase).increment("DISTRITO", 1L, new BigDecimal("30"));
-        verify(adjustFuelInventoryUseCase, never()).decrement(any(), any(), any());
     }
 
     @Test
@@ -393,27 +351,6 @@ class RefuelingRecordServiceTest {
 
         assertEquals("/uploads/documents/fuel/refueling/4/existing.pdf", response.urlFactura());
         verifyNoInteractions(fuelDocumentStorageService);
-    }
-
-    @Test
-    void actualizarNuevoStockInsuficiente_Lanza409() {
-        RefuelingRecordsEntity existente = RefuelingRecordsEntity.builder()
-                .id(2L).vehicleId(3).lugar("ALMACEN").areaCosto("DISTRITO").fuelTypeId(1L)
-                .cantidadGalones(new BigDecimal("30")).horometroKm(new BigDecimal("500")).status(true)
-                .build();
-        when(refuelingRecordsRepository.findByIdAndStatus(2L, true)).thenReturn(Optional.of(existente));
-        doThrow(new ResponseStatusException(HttpStatus.CONFLICT, "Stock insuficiente"))
-                .when(adjustFuelInventoryUseCase).decrement("ASOCIACION", 2L, new BigDecimal("50"));
-
-        RefuelingRecordRequest request = new RefuelingRecordRequest(
-                null, 10L, "ALMACEN", "ASOCIACION", 2L, new BigDecimal("50"), new BigDecimal("150"),
-                false, null, null, null, null);
-
-        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> refuelingRecordService.actualizar(2L, request, null));
-
-        assertEquals(409, ex.getStatusCode().value());
-        verify(refuelingRecordsRepository, never()).save(any());
     }
 
     @Test
@@ -453,7 +390,7 @@ class RefuelingRecordServiceTest {
     // ---- eliminar() ----
 
     @Test
-    void eliminarTanqueoBomba_SoloMarcaInactivoSinTocarInventario() {
+    void eliminarTanqueo_SoloMarcaInactivo() {
         RefuelingRecordsEntity existente = RefuelingRecordsEntity.builder()
                 .id(6L).vehicleId(3).lugar("BOMBA").areaCosto("DISTRITO").fuelTypeId(1L)
                 .cantidadGalones(new BigDecimal("30")).status(true)
@@ -463,22 +400,7 @@ class RefuelingRecordServiceTest {
         refuelingRecordService.eliminar(6L);
 
         verify(refuelingRecordsRepository).save(argThat(e -> Boolean.FALSE.equals(e.getStatus())));
-        verifyNoInteractions(adjustFuelInventoryUseCase);
         verify(saveActionUseCase).save(anyString());
-    }
-
-    @Test
-    void eliminarTanqueoAlmacen_RevierteInventarioConIncrement() {
-        RefuelingRecordsEntity existente = RefuelingRecordsEntity.builder()
-                .id(7L).machineId(10L).lugar("ALMACEN").areaCosto("DISTRITO").fuelTypeId(1L)
-                .cantidadGalones(new BigDecimal("30")).status(true)
-                .build();
-        when(refuelingRecordsRepository.findByIdAndStatus(7L, true)).thenReturn(Optional.of(existente));
-
-        refuelingRecordService.eliminar(7L);
-
-        verify(adjustFuelInventoryUseCase).increment("DISTRITO", 1L, new BigDecimal("30"));
-        verify(refuelingRecordsRepository).save(argThat(e -> Boolean.FALSE.equals(e.getStatus())));
     }
 
     @Test
