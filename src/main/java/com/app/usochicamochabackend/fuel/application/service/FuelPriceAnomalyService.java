@@ -33,18 +33,35 @@ public class FuelPriceAnomalyService {
      *                  ya existente); null al registrar uno nuevo.
      */
     public boolean precioFueraDeRango(Long fuelTypeId, BigDecimal precioUnitario, Long excludeId) {
-        if (fuelTypeId == null || precioUnitario == null) {
+        if (precioUnitario == null) {
             return false;
+        }
+        BigDecimal promedio = promedioReciente(fuelTypeId, excludeId);
+        if (promedio == null) {
+            return false;
+        }
+        BigDecimal diferencia = precioUnitario.subtract(promedio).abs();
+        return diferencia.compareTo(promedio.multiply(tolerancia)) > 0;
+    }
+
+    /**
+     * Promedio de precio unitario reciente (BOMBA, mismo combustible) usado como
+     * línea base — null si no hay historial suficiente para comparar. Expuesto por
+     * separado de {@link #precioFueraDeRango} para que los consumidores puedan
+     * mostrar contra qué valor se comparó, no solo el booleano.
+     *
+     * @param excludeId id del propio tanqueo a excluir del promedio (al editar uno
+     *                  ya existente); null al registrar uno nuevo.
+     */
+    public BigDecimal promedioReciente(Long fuelTypeId, Long excludeId) {
+        if (fuelTypeId == null) {
+            return null;
         }
         Timestamp desde = Timestamp.valueOf(LocalDateTime.now().minusDays(ventanaDias));
         BigDecimal promedio = refuelingRecordsRepository.avgPrecioUnitarioBombaRecienteByFuelType(
                 fuelTypeId, desde, excludeId);
         // Sin historial reciente para comparar (primer tanqueo de ese combustible,
-        // o todos fuera de la ventana) — no se puede detectar un desvío sin línea base.
-        if (promedio == null || promedio.compareTo(BigDecimal.ZERO) <= 0) {
-            return false;
-        }
-        BigDecimal diferencia = precioUnitario.subtract(promedio).abs();
-        return diferencia.compareTo(promedio.multiply(tolerancia)) > 0;
+        // o todos fuera de la ventana) — no hay línea base.
+        return (promedio == null || promedio.compareTo(BigDecimal.ZERO) <= 0) ? null : promedio;
     }
 }
