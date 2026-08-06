@@ -29,7 +29,8 @@ public class MachineMapper {
                 entity.getBrand(),
                 entity.getRunt(),
                 entity.getNumEngine(),
-                entity.getNumInterIdentification()
+                entity.getNumInterIdentification(),
+                entity.getHorometroActual()
         );
     }
 }
