@@ -54,7 +54,7 @@ class MachineControllerTest {
 
     private static final MachineResponse MOCK_RESPONSE = new MachineResponse(
             1L, "Excavadora", "Usochicamocha", "2020", null, "Caterpillar",
-            null, "ENG001", "VIN001");
+            null, "ENG001", "VIN001", 0);
 
     private MachineRequest buildRequest() {
         return new MachineRequest("Excavadora", "Usochicamocha", "2020", null, "Caterpillar",
