@@ -22,6 +22,8 @@ import com.app.usochicamochabackend.fuel.infrastructure.repository.FuelTypesRepo
 import com.app.usochicamochabackend.fuel.infrastructure.repository.RefuelingRecordsRepository;
 import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
 import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -48,6 +50,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -213,5 +216,34 @@ class FuelReportingE2ETest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.filas[0].valorDespachado").doesNotExist())
                 .andExpect(jsonPath("$.filas[0].cantidadReintegrada").value(5));
+    }
+
+    @Test
+    void exportarReporte_GeneraExcelConHojaDeTanqueosYProyeccion() throws Exception {
+        MultipartFile factura = new MockMultipartFile("factura", "f.pdf", "application/pdf", new byte[]{1, 2, 3});
+        RefuelingRecordRequest tanqueoBomba = new RefuelingRecordRequest(
+                3, null, "BOMBA", "DISTRITO", fuelTypeId, new BigDecimal("20"), new BigDecimal("500"),
+                false, new BigDecimal("10000"), null, new BigDecimal("200000"), "Estación Norte");
+        registerRefuelingRecordUseCase.registrar(tanqueoBomba, factura, 2L);
+
+        var response = mockMvc.perform(get("/api/v1/fuel/refueling/reporte/export")
+                        .param("tipo", "VEHICULO")
+                        .with(as(1L, "supervisor", "SUPERVISOR_OPERATIVO")))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type",
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .andReturn();
+
+        byte[] excel = response.getResponse().getContentAsByteArray();
+        assertThat(excel).isNotEmpty();
+
+        try (var workbook = new XSSFWorkbook(new java.io.ByteArrayInputStream(excel))) {
+            Sheet tanqueos = workbook.getSheet("Tanqueos");
+            assertThat(tanqueos).isNotNull();
+            assertThat(tanqueos.getLastRowNum()).isEqualTo(1); // encabezado + 1 tanqueo
+
+            Sheet proyeccion = workbook.getSheet("Proyección Presupuestal");
+            assertThat(proyeccion).isNotNull();
+        }
     }
 }
