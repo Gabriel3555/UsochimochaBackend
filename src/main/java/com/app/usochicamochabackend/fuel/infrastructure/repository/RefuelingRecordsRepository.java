@@ -57,6 +57,13 @@ public interface RefuelingRecordsRepository extends JpaRepository<RefuelingRecor
             + "AND r.fechaRegistro < :antesDe ORDER BY r.fechaRegistro DESC LIMIT 1")
     Optional<RefuelingRecordsEntity> findAnteriorPorMachineId(@Param("machineId") Long machineId, @Param("antesDe") Timestamp antesDe);
 
+    // Historial cronológico completo de un activo (no acotado por rango de fechas) —
+    // usado por FuelPerformanceService para "aprender" la tolerancia de alerta a
+    // partir del propio historial del activo, en vez de un % fijo igual para todos.
+    List<RefuelingRecordsEntity> findByVehicleIdOrderByFechaRegistroAsc(Integer vehicleId);
+
+    List<RefuelingRecordsEntity> findByMachineIdOrderByFechaRegistroAsc(Long machineId);
+
     List<RefuelingRecordsEntity> findByAreaCostoAndFechaRegistroBetween(String areaCosto, Timestamp inicio, Timestamp fin);
 
     List<RefuelingRecordsEntity> findByMachineIdIsNotNullAndFechaRegistroBetween(Timestamp inicio, Timestamp fin);
