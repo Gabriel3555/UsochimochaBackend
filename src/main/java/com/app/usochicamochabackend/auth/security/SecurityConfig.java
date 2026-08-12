@@ -138,6 +138,7 @@ public class SecurityConfig {
                     http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/refueling").hasAnyRole("OPERARIO", "ALMACEN", "SUPERVISOR_OPERATIVO", "ADMIN");
 
                     http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/dashboard/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers("/api/v1/fuel/monthly-discount/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
                     http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/almacen/**").hasAnyRole("ALMACEN", "SUPERVISOR_OPERATIVO", "ADMIN");
                     http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/rendimiento").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
                     http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/distribucion").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
