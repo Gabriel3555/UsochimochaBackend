@@ -1,10 +1,12 @@
 package com.app.usochicamochabackend.fuel.application.service;
 
+import com.app.usochicamochabackend.fuel.application.dto.FuelBudgetProjectionRow;
 import com.app.usochicamochabackend.fuel.application.dto.FuelDashboardResponse;
 import com.app.usochicamochabackend.fuel.application.dto.FuelTrendResponse;
 import com.app.usochicamochabackend.fuel.application.port.GetFuelDashboardUseCase;
 import com.app.usochicamochabackend.fuel.infrastructure.entity.FuelPurchaseEntity;
 import com.app.usochicamochabackend.fuel.infrastructure.entity.RefuelingRecordsEntity;
+import com.app.usochicamochabackend.fuel.infrastructure.repository.FuelMonthlyDiscountRepository;
 import com.app.usochicamochabackend.fuel.infrastructure.repository.FuelPurchaseRepository;
 import com.app.usochicamochabackend.fuel.infrastructure.repository.RefuelingRecordsRepository;
 import lombok.RequiredArgsConstructor;
@@ -27,8 +29,12 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class FuelDashboardService implements GetFuelDashboardUseCase {
 
+    private static final int MESES_HISTORICOS_PROYECCION = 6;
+    private static final int MESES_PROYECTADOS = 3;
+
     private final FuelPurchaseRepository fuelPurchaseRepository;
     private final RefuelingRecordsRepository refuelingRecordsRepository;
+    private final FuelMonthlyDiscountRepository fuelMonthlyDiscountRepository;
 
     @Override
     public FuelDashboardResponse obtenerDashboard(LocalDate fechaInicio, LocalDate fechaFin) {
@@ -43,9 +49,16 @@ public class FuelDashboardService implements GetFuelDashboardUseCase {
         // descuento, ver FuelPurchaseService/RefuelingRecordService) — por eso "neto" es
         // la suma directa, y "bruto" se reconstruye sumando el descuento de vuelta. Restarlo
         // de nuevo aquí sería un doble descuento.
-        BigDecimal gastoNeto = totalComprasAlmacen.add(totalTanqueosBomba);
-        BigDecimal gastoBruto = gastoNeto.add(totalDescuentos);
-        BigDecimal ahorro = totalDescuentos;
+        BigDecimal gastoNetoSinDescuentoMensual = totalComprasAlmacen.add(totalTanqueosBomba);
+        BigDecimal gastoBruto = gastoNetoSinDescuentoMensual.add(totalDescuentos);
+
+        // Descuento mensual (V26): un rebate que el proveedor informa DESPUÉS de que
+        // ya se registró el gasto, no está incorporado en ningún totalCalculado — se
+        // resta aparte del gasto neto, sin tocar gastoBruto (que sigue representando
+        // el total sin ningún descuento).
+        BigDecimal descuentoMensual = fuelMonthlyDiscountRepository.sumMontoSolapado(rango.fechaInicio(), rango.fechaFin());
+        BigDecimal gastoNeto = gastoNetoSinDescuentoMensual.subtract(descuentoMensual);
+        BigDecimal ahorro = totalDescuentos.add(descuentoMensual);
 
         List<FuelDashboardResponse.GalonesPorTipo> galonesPorTipo = agruparGalonesPorTipo(rango);
         List<FuelDashboardResponse.GastoPorTipo> gastoPorTipo = agruparGastoPorTipo(rango);
@@ -64,7 +77,7 @@ public class FuelDashboardService implements GetFuelDashboardUseCase {
 
         return new FuelDashboardResponse(
                 rango.fechaInicio(), rango.fechaFin(),
-                totalComprasAlmacen, totalTanqueosBomba, totalDescuentos,
+                totalComprasAlmacen, totalTanqueosBomba, totalDescuentos, descuentoMensual,
                 gastoBruto, gastoNeto, ahorro,
                 galonesPorTipo, gastoPorTipo, galonesBombaPorTipo,
                 discrepancias, precioPromedioGalonComprado, comparacionAnterior);
@@ -88,10 +101,12 @@ public class FuelDashboardService implements GetFuelDashboardUseCase {
         BigDecimal tanqueosBombaAnterior = refuelingRecordsRepository.sumTotalCalculadoBombaBetween(inicioAnteriorTs, finAnteriorTs);
         BigDecimal descuentoAnterior = fuelPurchaseRepository.sumDescuentoBetween(inicioAnteriorTs, finAnteriorTs)
                 .add(refuelingRecordsRepository.sumDescuentoBombaBetween(inicioAnteriorTs, finAnteriorTs));
+        BigDecimal descuentoMensualAnterior = fuelMonthlyDiscountRepository.sumMontoSolapado(fechaInicioAnterior, fechaFinAnterior);
 
-        BigDecimal gastoNetoAnterior = comprasAnterior.add(tanqueosBombaAnterior);
-        BigDecimal gastoBrutoAnterior = gastoNetoAnterior.add(descuentoAnterior);
-        BigDecimal ahorroAnterior = descuentoAnterior;
+        BigDecimal gastoNetoAnteriorSinDescuentoMensual = comprasAnterior.add(tanqueosBombaAnterior);
+        BigDecimal gastoBrutoAnterior = gastoNetoAnteriorSinDescuentoMensual.add(descuentoAnterior);
+        BigDecimal gastoNetoAnterior = gastoNetoAnteriorSinDescuentoMensual.subtract(descuentoMensualAnterior);
+        BigDecimal ahorroAnterior = descuentoAnterior.add(descuentoMensualAnterior);
 
         return new FuelDashboardResponse.ComparacionAnterior(
                 fechaInicioAnterior, fechaFinAnterior,
@@ -202,5 +217,40 @@ public class FuelDashboardService implements GetFuelDashboardUseCase {
             tendencia.add(new FuelTrendResponse(mes.atDay(1), gastoBrutoMes, gastoNetoMes, galonesMes));
         }
         return tendencia;
+    }
+
+    /**
+     * Proyección presupuestal: {@link #MESES_HISTORICOS_PROYECCION} meses históricos (todos se
+     * devuelven, {@code proyectado=false}) + {@link #MESES_PROYECTADOS} meses proyectados con el
+     * promedio del gasto neto de los meses <b>cerrados</b> (excluye el mes en curso, aún
+     * incompleto) y <b>con actividad real</b> (excluye meses en $0 — de antes de que el sistema
+     * tuviera datos, que sesgarían el promedio hacia abajo). Con esto el promedio se vuelve más
+     * preciso a medida que pasan meses reales, sin necesidad de tocar esta lógica de nuevo.
+     */
+    @Override
+    public List<FuelBudgetProjectionRow> obtenerProyeccionPresupuestal(LocalDate fechaFin) {
+        List<FuelTrendResponse> tendencia = obtenerTendencia(MESES_HISTORICOS_PROYECCION, fechaFin);
+        YearMonth mesActual = YearMonth.from(fechaFin != null ? fechaFin : LocalDate.now());
+
+        List<FuelBudgetProjectionRow> filas = new ArrayList<>();
+        for (FuelTrendResponse punto : tendencia) {
+            filas.add(new FuelBudgetProjectionRow(punto.mes(), punto.gastoNeto(), false));
+        }
+
+        List<BigDecimal> mesesParaPromedio = tendencia.stream()
+                .filter(p -> !YearMonth.from(p.mes()).equals(mesActual))
+                .map(FuelTrendResponse::gastoNeto)
+                .filter(g -> g.compareTo(BigDecimal.ZERO) > 0)
+                .toList();
+
+        BigDecimal promedio = mesesParaPromedio.isEmpty()
+                ? BigDecimal.ZERO
+                : mesesParaPromedio.stream().reduce(BigDecimal.ZERO, BigDecimal::add)
+                        .divide(BigDecimal.valueOf(mesesParaPromedio.size()), 2, RoundingMode.HALF_UP);
+
+        for (int i = 1; i <= MESES_PROYECTADOS; i++) {
+            filas.add(new FuelBudgetProjectionRow(mesActual.plusMonths(i).atDay(1), promedio, true));
+        }
+        return filas;
     }
 }
