@@ -1,5 +1,6 @@
 package com.app.usochicamochabackend.fuel.web;
 
+import com.app.usochicamochabackend.fuel.application.dto.FuelBudgetProjectionRow;
 import com.app.usochicamochabackend.fuel.application.dto.FuelDashboardResponse;
 import com.app.usochicamochabackend.fuel.application.dto.FuelTrendResponse;
 import com.app.usochicamochabackend.fuel.application.port.GetFuelDashboardUseCase;
@@ -36,5 +37,12 @@ public class FuelDashboardController {
             @RequestParam(required = false) Integer meses,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin) {
         return ResponseEntity.ok(getFuelDashboardUseCase.obtenerTendencia(meses, fechaFin));
+    }
+
+    @GetMapping("/proyeccion")
+    @PreAuthorize("hasAnyRole('SUPERVISOR_OPERATIVO', 'ADMIN')")
+    public ResponseEntity<List<FuelBudgetProjectionRow>> proyeccion(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin) {
+        return ResponseEntity.ok(getFuelDashboardUseCase.obtenerProyeccionPresupuestal(fechaFin));
     }
 }

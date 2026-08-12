@@ -1,9 +1,12 @@
 package com.app.usochicamochabackend.fuel.web;
 
 import com.app.usochicamochabackend.fuel.application.dto.RefuelingRecordResponse;
+import com.app.usochicamochabackend.fuel.application.port.ExportRefuelingReportUseCase;
 import com.app.usochicamochabackend.fuel.application.port.GetRefuelingReportUseCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,6 +23,7 @@ import java.util.List;
 public class RefuelingReportController {
 
     private final GetRefuelingReportUseCase getRefuelingReportUseCase;
+    private final ExportRefuelingReportUseCase exportRefuelingReportUseCase;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('SUPERVISOR_OPERATIVO', 'ADMIN')")
@@ -29,5 +33,19 @@ public class RefuelingReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaInicio,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin) {
         return ResponseEntity.ok(getRefuelingReportUseCase.obtenerReporte(tipo, area, fechaInicio, fechaFin));
+    }
+
+    @GetMapping("/export")
+    @PreAuthorize("hasAnyRole('SUPERVISOR_OPERATIVO', 'ADMIN')")
+    public ResponseEntity<byte[]> exportar(
+            @RequestParam String tipo,
+            @RequestParam(required = false) String area,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaInicio,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin) {
+        byte[] excelData = exportRefuelingReportUseCase.exportarExcel(tipo, area, fechaInicio, fechaFin);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        headers.setContentDispositionFormData("attachment", "tanqueos_export.xlsx");
+        return ResponseEntity.ok().headers(headers).body(excelData);
     }
 }

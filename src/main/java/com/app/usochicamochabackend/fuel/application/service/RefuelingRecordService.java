@@ -58,16 +58,11 @@ public class RefuelingRecordService implements RegisterRefuelingRecordUseCase {
         BigDecimal totalCalculado = null;
         Boolean discrepanciaValor = false;
 
-        if (esBomba) {
-            // La factura es opcional (no siempre se tiene a mano al registrar el
-            // tanqueo) — solo el precio unitario es obligatorio en BOMBA.
-            if (request.precioUnitario() == null) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "El precio unitario es obligatorio en un tanqueo BOMBA.");
-            }
-            if (request.totalIngresado() == null) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "totalIngresado es obligatorio en BOMBA.");
-            }
+        if (esBomba && request.precioUnitario() != null && request.totalIngresado() != null) {
+            // Precio unitario y total pagado son opcionales (a los operarios no les
+            // interesa tanto el costo por tanqueo individual — llega un informe
+            // mensual aparte; el foco real está en Rendimiento). Si no vienen, el
+            // tanqueo se registra igual, solo sin totalCalculado/discrepancia.
             TotalYDiscrepancia calculo = calcularTotalYDiscrepancia(
                     request.cantidadGalones(), request.precioUnitario(), request.descuento(), request.totalIngresado());
             totalCalculado = calculo.totalCalculado();
@@ -129,13 +124,8 @@ public class RefuelingRecordService implements RegisterRefuelingRecordUseCase {
 
         BigDecimal totalCalculado = null;
         Boolean discrepanciaValor = false;
-        if (esBomba) {
-            // La factura es opcional (V23) — solo precio unitario y total ingresado son
-            // obligatorios en BOMBA, tanto al crear como al editar.
-            if (request.precioUnitario() == null || request.totalIngresado() == null) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                        "El precio unitario y el total ingresado son obligatorios en un tanqueo BOMBA.");
-            }
+        if (esBomba && request.precioUnitario() != null && request.totalIngresado() != null) {
+            // Precio unitario y total pagado son opcionales (ver nota en registrar()).
             TotalYDiscrepancia calculo = calcularTotalYDiscrepancia(
                     request.cantidadGalones(), request.precioUnitario(), request.descuento(), request.totalIngresado());
             totalCalculado = calculo.totalCalculado();
