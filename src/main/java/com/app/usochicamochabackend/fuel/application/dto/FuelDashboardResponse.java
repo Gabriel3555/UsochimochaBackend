@@ -10,6 +10,7 @@ public record FuelDashboardResponse(
     BigDecimal totalComprasAlmacen,
     BigDecimal totalTanqueosBomba,
     BigDecimal totalDescuentos,
+    BigDecimal descuentoMensual,
     BigDecimal gastoBruto,
     BigDecimal gastoNeto,
     BigDecimal ahorro,
