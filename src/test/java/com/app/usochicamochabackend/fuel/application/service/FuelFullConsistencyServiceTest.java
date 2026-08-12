@@ -144,9 +144,9 @@ class FuelFullConsistencyServiceTest {
         when(refuelingRecordsRepository.findAnteriorPorMachineId(10L, fecha)).thenReturn(Optional.of(
                 RefuelingRecordsEntity.builder().id(1L).machineId(10L).horometroKm(new BigDecimal("100")).build()));
         when(assetFuelConfigRepository.findByMachineId(10L)).thenReturn(Optional.of(
-                AssetFuelConfigEntity.builder().machineId(10L).consumoEstandar(new BigDecimal("0.5")).unidadConsumo("GAL_POR_HORA").build()));
+                AssetFuelConfigEntity.builder().machineId(10L).consumoEstandar(new BigDecimal("2")).unidadConsumo("HORA_POR_GALON").build()));
 
-        // 50 horas * 0.5 gal/hora = 25 gal proyectados; tanqueó 40 -> excede lo proyectado, no es "insuficiente".
+        // 50 horas / 2 horas-por-galón = 25 gal proyectados; tanqueó 40 -> excede lo proyectado, no es "insuficiente".
         boolean resultado = fuelFullConsistencyService.fullInconsistente(
                 null, 10L, true, new BigDecimal("40"), new BigDecimal("150"), fecha, null);
 

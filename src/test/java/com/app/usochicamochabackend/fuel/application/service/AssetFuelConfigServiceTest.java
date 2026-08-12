@@ -90,10 +90,10 @@ class AssetFuelConfigServiceTest {
             return e;
         });
 
-        AssetFuelConfigRequest request = new AssetFuelConfigRequest(1L, new BigDecimal("30"), "GAL_POR_HORA", null);
+        AssetFuelConfigRequest request = new AssetFuelConfigRequest(1L, new BigDecimal("30"), "HORA_POR_GALON", null);
         AssetFuelConfigResponse response = assetFuelConfigService.configurarVehiculo(5, request);
 
-        assertEquals("GAL_POR_HORA", response.unidadConsumo());
+        assertEquals("HORA_POR_GALON", response.unidadConsumo());
     }
 
     @Test
@@ -118,9 +118,9 @@ class AssetFuelConfigServiceTest {
     void configurarVehiculo_ConUnidadDeFamiliaFisicaDistinta_Lanza400() {
         when(fuelTypesRepository.findById(1L)).thenReturn(Optional.of(
                 FuelTypesEntity.builder().id(1L).codigo("ACPM").unidadMedida("GALON").build()));
-        // "KM_POR_M3"/"M3_POR_HORA" son de la familia m³, no galón — esto sí
+        // "KM_POR_M3"/"HORA_POR_M3" son de la familia m³, no galón — esto sí
         // debe seguir rechazándose sin importar el tipo de activo.
-        AssetFuelConfigRequest request = new AssetFuelConfigRequest(1L, new BigDecimal("30"), "M3_POR_HORA", null);
+        AssetFuelConfigRequest request = new AssetFuelConfigRequest(1L, new BigDecimal("30"), "HORA_POR_M3", null);
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                 () -> assetFuelConfigService.configurarVehiculo(5, request));
@@ -133,7 +133,7 @@ class AssetFuelConfigServiceTest {
     void configurarMaquina_ConUnidadDeFamiliaFisicaDistinta_Lanza400() {
         when(fuelTypesRepository.findById(4L)).thenReturn(Optional.of(
                 FuelTypesEntity.builder().id(4L).codigo("GAS").unidadMedida("M3").build()));
-        AssetFuelConfigRequest request = new AssetFuelConfigRequest(4L, new BigDecimal("5"), "GAL_POR_HORA", null);
+        AssetFuelConfigRequest request = new AssetFuelConfigRequest(4L, new BigDecimal("5"), "HORA_POR_GALON", null);
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                 () -> assetFuelConfigService.configurarMaquina(10L, request));
@@ -185,10 +185,10 @@ class AssetFuelConfigServiceTest {
             return e;
         });
 
-        AssetFuelConfigRequest request = new AssetFuelConfigRequest(4L, new BigDecimal("0.8"), "M3_POR_HORA", null);
+        AssetFuelConfigRequest request = new AssetFuelConfigRequest(4L, new BigDecimal("0.8"), "HORA_POR_M3", null);
         AssetFuelConfigResponse response = assetFuelConfigService.configurarMaquina(10L, request);
 
-        assertEquals("M3_POR_HORA", response.unidadConsumo());
+        assertEquals("HORA_POR_M3", response.unidadConsumo());
     }
 
     @Test
@@ -207,7 +207,7 @@ class AssetFuelConfigServiceTest {
 
     @Test
     void configurarMaquina_ConConsumoEstandarNegativo_Lanza400() {
-        AssetFuelConfigRequest request = new AssetFuelConfigRequest(1L, new BigDecimal("-3"), "GAL_POR_HORA", null);
+        AssetFuelConfigRequest request = new AssetFuelConfigRequest(1L, new BigDecimal("-3"), "HORA_POR_GALON", null);
 
         ResponseStatusException ex = assertThrows(ResponseStatusException.class,
                 () -> assetFuelConfigService.configurarMaquina(10L, request));

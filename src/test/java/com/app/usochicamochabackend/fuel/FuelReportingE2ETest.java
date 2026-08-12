@@ -165,7 +165,7 @@ class FuelReportingE2ETest {
                 .name("Retroexcavadora E2E").belongsTo("Distrito").model("2020").build());
 
         manageAssetFuelConfigUseCase.configurarMaquina(maquina.getId(),
-                new AssetFuelConfigRequest(fuelTypeId, new BigDecimal("0.5"), "GAL_POR_HORA", new BigDecimal("50")));
+                new AssetFuelConfigRequest(fuelTypeId, new BigDecimal("2"), "HORA_POR_GALON", new BigDecimal("50")));
 
         RefuelingRecordRequest primerTanqueo = new RefuelingRecordRequest(
                 null, maquina.getId(), "ALMACEN", "DISTRITO", fuelTypeId, new BigDecimal("10"), new BigDecimal("100"),
@@ -179,7 +179,7 @@ class FuelReportingE2ETest {
         registerRefuelingRecordUseCase.registrar(segundoTanqueo, null, 2L);
 
         // El primer tanqueo no tiene línea base (no hay uno anterior) -> excluido.
-        // El segundo sí: 50 horas ejecutadas * 0.5 gal/hora = 25 galones proyectados; real 25 -> sin desviación.
+        // El segundo sí: 50 horas ejecutadas / 2 horas-por-galón = 25 galones proyectados; real 25 -> sin desviación.
         var response = mockMvc.perform(get("/api/v1/fuel/rendimiento")
                         .param("tipo", "MAQUINARIA")
                         .with(as(1L, "supervisor", "SUPERVISOR_OPERATIVO")))
