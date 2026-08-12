@@ -79,7 +79,7 @@ public class FuelFullConsistencyService {
             // Rendimiento — proyectar un recorrido negativo no tiene sentido acá.
             return null;
         }
-        BigDecimal proyectado = FuelConsumptionProjectionUtil.proyectar(ejecutado, consumoEstandar, config.get().getUnidadConsumo());
+        BigDecimal proyectado = FuelConsumptionProjectionUtil.proyectar(ejecutado, consumoEstandar);
         return capacidadConfiguradaGal != null ? proyectado.min(capacidadConfiguradaGal) : proyectado;
     }
 }

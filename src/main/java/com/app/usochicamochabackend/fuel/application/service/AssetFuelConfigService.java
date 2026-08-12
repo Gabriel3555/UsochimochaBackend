@@ -32,7 +32,7 @@ public class AssetFuelConfigService implements ManageAssetFuelConfigUseCase {
     // un vehículo trackeado por horómetro o una máquina trackeada por km/gal son
     // casos válidos igual — el sistema debe estar preparado para cualquier caso.
     private static final Map<String, List<String>> UNIDADES_VALIDAS_POR_COMBUSTIBLE =
-            Map.of("GALON", List.of("KM_POR_GALON", "GAL_POR_HORA"), "M3", List.of("KM_POR_M3", "M3_POR_HORA"));
+            Map.of("GALON", List.of("KM_POR_GALON", "HORA_POR_GALON"), "M3", List.of("KM_POR_M3", "HORA_POR_M3"));
 
     private final AssetFuelConfigRepository assetFuelConfigRepository;
     private final FuelTypesRepository fuelTypesRepository;

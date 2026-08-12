@@ -70,8 +70,12 @@ public class FuelPerformanceService implements GetFuelPerformanceUseCase {
                         tipo);
 
         Set<Long> idsCandidatos = candidatos.stream().map(RefuelingRecordsEntity::getId).collect(Collectors.toSet());
+        // Ojo: un operador ternario mezclando Long (machineId) e Integer (vehicleId)
+        // hace que Java promueva ambos a Long (conversión numérica binaria del
+        // propio lenguaje) — se fuerza (Object) en cada rama para que cada valor
+        // conserve su tipo real y el cast de más abajo no reviente.
         Map<Object, List<RefuelingRecordsEntity>> candidatosPorActivo = candidatos.stream()
-                .collect(Collectors.groupingBy(t -> esMaquina ? t.getMachineId() : t.getVehicleId()));
+                .collect(Collectors.groupingBy(t -> esMaquina ? (Object) t.getMachineId() : (Object) t.getVehicleId()));
 
         List<FuelPerformanceResponse> resultado = new ArrayList<>();
         for (Object activoId : candidatosPorActivo.keySet()) {
@@ -110,7 +114,6 @@ public class FuelPerformanceService implements GetFuelPerformanceUseCase {
             return List.of();
         }
         BigDecimal consumoEstandar = config.get().getConsumoEstandar();
-        String unidadConsumo = config.get().getUnidadConsumo();
 
         String identificacionActivo = esMaquina
                 ? machineRepository.findById((Long) activoId).map(MachineEntity::getName).orElse(null)
@@ -133,7 +136,7 @@ public class FuelPerformanceService implements GetFuelPerformanceUseCase {
             BigDecimal horometroAnterior = anterior.getHorometroKm();
             BigDecimal horometroActual = tanqueo.getHorometroKm();
             BigDecimal ejecutado = horometroActual.subtract(horometroAnterior);
-            BigDecimal proyectado = FuelConsumptionProjectionUtil.proyectar(ejecutado, consumoEstandar, unidadConsumo);
+            BigDecimal proyectado = FuelConsumptionProjectionUtil.proyectar(ejecutado, consumoEstandar);
             BigDecimal diferencia = tanqueo.getCantidadGalones().subtract(proyectado);
             // Un horómetro/km que retrocede (dato mal digitado o corregido hacia atrás)
             // siempre se marca como alerta de forma explícita, sin pasar por ningún
