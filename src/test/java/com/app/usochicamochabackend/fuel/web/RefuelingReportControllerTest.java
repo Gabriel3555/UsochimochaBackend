@@ -1,6 +1,7 @@
 package com.app.usochicamochabackend.fuel.web;
 
 import com.app.usochicamochabackend.fuel.application.dto.RefuelingRecordResponse;
+import com.app.usochicamochabackend.fuel.application.port.ExportRefuelingReportUseCase;
 import com.app.usochicamochabackend.fuel.application.port.GetRefuelingReportUseCase;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -27,6 +28,9 @@ class RefuelingReportControllerTest {
 
     @MockBean
     private GetRefuelingReportUseCase getRefuelingReportUseCase;
+
+    @MockBean
+    private ExportRefuelingReportUseCase exportRefuelingReportUseCase;
 
     @Test
     @DisplayName("GET /fuel/refueling/reporte: SUPERVISOR_OPERATIVO autorizado, devuelve 200")
