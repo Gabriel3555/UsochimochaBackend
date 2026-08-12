@@ -1,9 +1,11 @@
 package com.app.usochicamochabackend.fuel.application.service;
 
+import com.app.usochicamochabackend.fuel.application.dto.FuelBudgetProjectionRow;
 import com.app.usochicamochabackend.fuel.application.dto.FuelDashboardResponse;
 import com.app.usochicamochabackend.fuel.application.dto.FuelTrendResponse;
 import com.app.usochicamochabackend.fuel.infrastructure.entity.FuelPurchaseEntity;
 import com.app.usochicamochabackend.fuel.infrastructure.entity.RefuelingRecordsEntity;
+import com.app.usochicamochabackend.fuel.infrastructure.repository.FuelMonthlyDiscountRepository;
 import com.app.usochicamochabackend.fuel.infrastructure.repository.FuelPurchaseRepository;
 import com.app.usochicamochabackend.fuel.infrastructure.repository.RefuelingRecordsRepository;
 import org.junit.jupiter.api.Test;
@@ -33,6 +35,9 @@ class FuelDashboardServiceTest {
     @Mock
     private RefuelingRecordsRepository refuelingRecordsRepository;
 
+    @Mock
+    private FuelMonthlyDiscountRepository fuelMonthlyDiscountRepository;
+
     @InjectMocks
     private FuelDashboardService fuelDashboardService;
 
@@ -50,6 +55,8 @@ class FuelDashboardServiceTest {
         when(refuelingRecordsRepository.sumTotalCalculadoBombaBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(new BigDecimal("300000"));
         when(refuelingRecordsRepository.sumDescuentoBombaBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(BigDecimal.ZERO);
+        when(fuelMonthlyDiscountRepository.sumMontoSolapado(any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(BigDecimal.ZERO);
         when(refuelingRecordsRepository.sumCantidadPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(List.of(new Object[]{1L, new BigDecimal("120.000")}, new Object[]{3L, new BigDecimal("40.500")}));
@@ -89,6 +96,8 @@ class FuelDashboardServiceTest {
                 .thenReturn(new BigDecimal("950000"));
         when(refuelingRecordsRepository.sumDescuentoBombaBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(new BigDecimal("50000"));
+        when(fuelMonthlyDiscountRepository.sumMontoSolapado(any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(BigDecimal.ZERO);
         when(refuelingRecordsRepository.sumCantidadPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(List.of());
         when(fuelPurchaseRepository.sumTotalCalculadoPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
@@ -113,6 +122,45 @@ class FuelDashboardServiceTest {
     }
 
     @Test
+    void obtenerDashboard_ConDescuentoMensualSolapado_SeRestaDeGastoNetoYSumaAlAhorro() {
+        // El descuento mensual (V26) es un rebate que llega DESPUÉS de que ya se
+        // registró el gasto (no viene de ningún totalCalculado individual): debe
+        // restarse del gasto neto y sumarse al ahorro, sin tocar el gasto bruto.
+        when(fuelPurchaseRepository.sumTotalCalculadoBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(new BigDecimal("1000000"));
+        when(fuelPurchaseRepository.sumDescuentoBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(BigDecimal.ZERO);
+        when(refuelingRecordsRepository.sumTotalCalculadoBombaBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(BigDecimal.ZERO);
+        when(refuelingRecordsRepository.sumDescuentoBombaBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(BigDecimal.ZERO);
+        when(fuelMonthlyDiscountRepository.sumMontoSolapado(any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(new BigDecimal("80000"));
+        when(refuelingRecordsRepository.sumCantidadPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(List.of());
+        when(fuelPurchaseRepository.sumTotalCalculadoPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(List.of());
+        when(refuelingRecordsRepository.sumTotalCalculadoBombaPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(List.of());
+        when(refuelingRecordsRepository.sumCantidadBombaPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(List.of());
+        when(fuelPurchaseRepository.sumCantidadBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(BigDecimal.ZERO);
+        when(fuelPurchaseRepository.countByDiscrepanciaValorTrueAndFechaCompraBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(0L);
+        when(refuelingRecordsRepository.countByDiscrepanciaValorTrueAndFechaRegistroBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(0L);
+
+        FuelDashboardResponse response = fuelDashboardService.obtenerDashboard(
+                LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31));
+
+        assertEquals(0, new BigDecimal("80000").compareTo(response.descuentoMensual()));
+        assertEquals(0, new BigDecimal("1000000").compareTo(response.gastoBruto()));
+        assertEquals(0, new BigDecimal("920000").compareTo(response.gastoNeto()));
+        assertEquals(0, new BigDecimal("80000").compareTo(response.ahorro()));
+    }
+
+    @Test
     void obtenerDashboard_GastoPorTipoSumaComprasYTanqueosBombaDelMismoTipo() {
         when(fuelPurchaseRepository.sumTotalCalculadoBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(BigDecimal.ZERO);
@@ -121,6 +169,8 @@ class FuelDashboardServiceTest {
         when(refuelingRecordsRepository.sumTotalCalculadoBombaBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(BigDecimal.ZERO);
         when(refuelingRecordsRepository.sumDescuentoBombaBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(BigDecimal.ZERO);
+        when(fuelMonthlyDiscountRepository.sumMontoSolapado(any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(BigDecimal.ZERO);
         when(refuelingRecordsRepository.sumCantidadPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(List.of());
@@ -159,6 +209,8 @@ class FuelDashboardServiceTest {
                 .thenReturn(BigDecimal.ZERO);
         when(refuelingRecordsRepository.sumDescuentoBombaBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(BigDecimal.ZERO);
+        when(fuelMonthlyDiscountRepository.sumMontoSolapado(any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(BigDecimal.ZERO);
         // galonesPorTipo (bomba+almacén combinados): 100 gal del tipo 1
         when(refuelingRecordsRepository.sumCantidadPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(Collections.singletonList(new Object[]{1L, new BigDecimal("100.000")}));
@@ -195,6 +247,8 @@ class FuelDashboardServiceTest {
                 .thenReturn(BigDecimal.ZERO);
         when(refuelingRecordsRepository.sumDescuentoBombaBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(BigDecimal.ZERO);
+        when(fuelMonthlyDiscountRepository.sumMontoSolapado(any(LocalDate.class), any(LocalDate.class)))
+                .thenReturn(BigDecimal.ZERO);
         when(refuelingRecordsRepository.sumCantidadPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(List.of());
         when(fuelPurchaseRepository.sumTotalCalculadoPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
@@ -229,6 +283,8 @@ class FuelDashboardServiceTest {
         when(refuelingRecordsRepository.sumTotalCalculadoBombaBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(BigDecimal.ZERO);
         when(refuelingRecordsRepository.sumDescuentoBombaBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(BigDecimal.ZERO);
+        when(fuelMonthlyDiscountRepository.sumMontoSolapado(any(LocalDate.class), any(LocalDate.class)))
                 .thenReturn(BigDecimal.ZERO);
         when(refuelingRecordsRepository.sumCantidadPorTipoBetween(any(Timestamp.class), any(Timestamp.class)))
                 .thenReturn(List.of());
@@ -337,5 +393,102 @@ class FuelDashboardServiceTest {
         assertEquals(3, tendencia.size());
         assertEquals(mesInicio.atDay(1), tendencia.get(0).mes());
         assertEquals(mesFin.atDay(1), tendencia.get(2).mes());
+    }
+
+    private FuelPurchaseEntity compraEnMes(YearMonth mes, BigDecimal totalCalculado) {
+        return FuelPurchaseEntity.builder()
+                .fechaCompra(Timestamp.valueOf(LocalDateTime.of(mes.atDay(10), java.time.LocalTime.NOON)))
+                .totalCalculado(totalCalculado)
+                .build();
+    }
+
+    private RefuelingRecordsEntity tanqueoBombaEnMes(YearMonth mes, BigDecimal totalCalculado) {
+        return RefuelingRecordsEntity.builder()
+                .fechaRegistro(Timestamp.valueOf(LocalDateTime.of(mes.atDay(10), java.time.LocalTime.NOON)))
+                .lugar("BOMBA")
+                .totalCalculado(totalCalculado)
+                .cantidadGalones(BigDecimal.ZERO)
+                .build();
+    }
+
+    @Test
+    void obtenerProyeccionPresupuestal_ExcluyeMesesEnCeroDelPromedio() {
+        LocalDate fechaFin = LocalDate.of(2026, 8, 15);
+        YearMonth junio = YearMonth.of(2026, 6);
+        YearMonth julio = YearMonth.of(2026, 7);
+        // marzo-mayo y agosto quedan sin ningún registro -> gastoNeto=0 en esos meses.
+
+        when(fuelPurchaseRepository.findByFechaCompraBetweenOrderByFechaCompraDesc(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(Collections.emptyList());
+        when(refuelingRecordsRepository.findByFechaRegistroBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(List.of(
+                        tanqueoBombaEnMes(junio, new BigDecimal("200000")),
+                        tanqueoBombaEnMes(julio, new BigDecimal("400000"))));
+
+        List<FuelBudgetProjectionRow> proyeccion = fuelDashboardService.obtenerProyeccionPresupuestal(fechaFin);
+
+        // 6 históricos (mar-ago) + 3 proyectados (sep-nov) = 9 filas.
+        assertEquals(9, proyeccion.size());
+        List<FuelBudgetProjectionRow> proyectadas = proyeccion.stream().filter(FuelBudgetProjectionRow::proyectado).toList();
+        assertEquals(3, proyectadas.size());
+        // Promedio = (200000 + 400000) / 2 = 300000 -> marzo/abril/mayo/agosto en $0 no cuentan.
+        for (FuelBudgetProjectionRow fila : proyectadas) {
+            assertEquals(0, new BigDecimal("300000").compareTo(fila.gastoNeto()));
+        }
+        assertEquals(YearMonth.of(2026, 9).atDay(1), proyectadas.get(0).mes());
+        assertEquals(YearMonth.of(2026, 11).atDay(1), proyectadas.get(2).mes());
+    }
+
+    @Test
+    void obtenerProyeccionPresupuestal_ExcluyeElMesEnCursoAunqueTengaActividad() {
+        LocalDate fechaFin = LocalDate.of(2026, 8, 15);
+        YearMonth julio = YearMonth.of(2026, 7);
+        YearMonth agosto = YearMonth.of(2026, 8);
+
+        when(fuelPurchaseRepository.findByFechaCompraBetweenOrderByFechaCompraDesc(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(Collections.emptyList());
+        when(refuelingRecordsRepository.findByFechaRegistroBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(List.of(
+                        tanqueoBombaEnMes(julio, new BigDecimal("200000")),
+                        tanqueoBombaEnMes(agosto, new BigDecimal("999999")))); // mes en curso, con actividad real
+
+        List<FuelBudgetProjectionRow> proyeccion = fuelDashboardService.obtenerProyeccionPresupuestal(fechaFin);
+
+        // Si agosto (mes en curso) contara, el promedio sería (200000+999999)/2. Debe ser solo julio.
+        BigDecimal promedioProyectado = proyeccion.stream().filter(FuelBudgetProjectionRow::proyectado)
+                .findFirst().orElseThrow().gastoNeto();
+        assertEquals(0, new BigDecimal("200000").compareTo(promedioProyectado));
+    }
+
+    @Test
+    void obtenerProyeccionPresupuestal_TodoExcluido_PromedioCeroSinExcepcion() {
+        LocalDate fechaFin = LocalDate.of(2026, 8, 15);
+
+        when(fuelPurchaseRepository.findByFechaCompraBetweenOrderByFechaCompraDesc(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(Collections.emptyList());
+        when(refuelingRecordsRepository.findByFechaRegistroBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(Collections.emptyList());
+
+        List<FuelBudgetProjectionRow> proyeccion = fuelDashboardService.obtenerProyeccionPresupuestal(fechaFin);
+
+        proyeccion.stream().filter(FuelBudgetProjectionRow::proyectado)
+                .forEach(fila -> assertEquals(0, BigDecimal.ZERO.compareTo(fila.gastoNeto())));
+    }
+
+    @Test
+    void obtenerProyeccionPresupuestal_LasFilasHistoricasNoSeFiltranDelResultado() {
+        LocalDate fechaFin = LocalDate.of(2026, 8, 15);
+
+        when(fuelPurchaseRepository.findByFechaCompraBetweenOrderByFechaCompraDesc(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(Collections.emptyList());
+        when(refuelingRecordsRepository.findByFechaRegistroBetween(any(Timestamp.class), any(Timestamp.class)))
+                .thenReturn(Collections.emptyList());
+
+        List<FuelBudgetProjectionRow> proyeccion = fuelDashboardService.obtenerProyeccionPresupuestal(fechaFin);
+
+        List<FuelBudgetProjectionRow> historicas = proyeccion.stream().filter(f -> !f.proyectado()).toList();
+        assertEquals(6, historicas.size());
+        assertEquals(YearMonth.of(2026, 3).atDay(1), historicas.get(0).mes());
+        assertEquals(YearMonth.of(2026, 8).atDay(1), historicas.get(5).mes());
     }
 }

@@ -184,16 +184,20 @@ class RefuelingRecordServiceTest {
     }
 
     @Test
-    void tanqueoBombaSinPrecioUnitario_Lanza400() {
+    void tanqueoBombaSinPrecioUnitario_SeRegistraSinTotalCalculadoNiDiscrepancia() {
+        // Precio unitario y total pagado son opcionales (a los operarios no les interesa
+        // tanto el costo por tanqueo individual — llega un informe mensual aparte). Un
+        // tanqueo BOMBA sin esos datos se registra igual, solo sin poder valorizarlo.
+        stubSaveAsignandoId();
         RefuelingRecordRequest request = new RefuelingRecordRequest(
                 3, null, "BOMBA", "DISTRITO", 1L, new BigDecimal("30"), new BigDecimal("500"),
-                false, null, null, new BigDecimal("300000"), null);
+                false, null, null, null, null);
 
-        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
-                () -> refuelingRecordService.registrar(request, null, 7L));
+        RefuelingRecordResponse response = refuelingRecordService.registrar(request, null, 7L);
 
-        assertEquals(400, ex.getStatusCode().value());
-        verify(refuelingRecordsRepository, never()).save(any());
+        assertNull(response.totalCalculado());
+        assertFalse(response.discrepanciaValor());
+        verify(refuelingRecordsRepository).save(any());
     }
 
     @Test
