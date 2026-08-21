@@ -73,7 +73,7 @@ public class FuelExcelExportService implements ExportRefuelingReportUseCase {
             List<RefuelingRecordResponse> tanqueos) {
         Sheet sheet = workbook.createSheet("Tanqueos");
         String[] headers = {
-                "Fecha", "Vehículo ID", "Máquina ID", "Lugar", "Área de costo",
+                "Fecha", "Activo (Tipo)", "Activo (Nombre)", "Lugar", "Área de costo",
                 "Cantidad (gal)", "Precio unitario", "Total calculado", "Total ingresado",
                 "Discrepancia valor", "Capacidad excedida", "Cantidad fuera de rango",
                 "Precio fuera de rango", "Full inconsistente", "Cantidad reintegrada"
@@ -85,8 +85,8 @@ public class FuelExcelExportService implements ExportRefuelingReportUseCase {
             Row row = sheet.createRow(rowNum++);
             int col = 0;
             row.createCell(col++).setCellValue(t.fechaRegistro() != null ? t.fechaRegistro().format(FECHA_FORMATTER) : "");
-            row.createCell(col++).setCellValue(t.vehicleId() != null ? t.vehicleId().toString() : "");
-            row.createCell(col++).setCellValue(t.machineId() != null ? t.machineId().toString() : "");
+            row.createCell(col++).setCellValue(nullSafe(t.assetType()));
+            row.createCell(col++).setCellValue(nullSafe(t.assetName()));
             row.createCell(col++).setCellValue(nullSafe(t.lugar()));
             row.createCell(col++).setCellValue(nullSafe(t.areaCosto()));
             row.createCell(col++).setCellValue(bigDecimalToString(t.cantidadGalones()));
