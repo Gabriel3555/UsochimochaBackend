@@ -266,9 +266,17 @@ public class RefuelingRecordService implements RegisterRefuelingRecordUseCase {
         BigDecimal cantidadEsperadaLlenoGal = fuelFullConsistencyService.cantidadEsperadaParaLleno(
                 entity.getVehicleId(), entity.getMachineId(), entity.getEsFull(), entity.getHorometroKm(),
                 entity.getFechaRegistro(), capacidadConfiguradaGal);
+        // Resolver nombre del activo (vehículo/máquina/moto) para auditoría
+        String assetName = entity.getVehicleId() != null ?
+                vehicleRepository.findById(entity.getVehicleId())
+                        .map(v -> v.getPlaca()).orElse("Vehículo #" + entity.getVehicleId()) :
+                machineRepository.findById(entity.getMachineId())
+                        .map(m -> m.getName()).orElse("Máquina #" + entity.getMachineId());
+        String assetType = entity.getVehicleId() != null ? "Vehículo" : "Máquina";
+
         return RefuelingRecordResponse.from(entity, capacidadExcedida, cantidadFueraDeRango, precioFueraDeRango,
                 fullInconsistente, cantidadReintegrada, capacidadConfiguradaGal, cantidadMaximaTipica,
-                precioPromedioReciente, cantidadEsperadaLlenoGal);
+                precioPromedioReciente, cantidadEsperadaLlenoGal, assetName, assetType);
     }
 
     private BigDecimal sumaReintegros(Long refuelingId) {
