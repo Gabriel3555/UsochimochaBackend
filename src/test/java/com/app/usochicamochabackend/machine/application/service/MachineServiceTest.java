@@ -15,7 +15,6 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
 
@@ -43,7 +42,7 @@ class MachineServiceTest {
 
     private MachineRequest buildRequest(String name) {
         return new MachineRequest(name, "Usochicamocha", "2020", null, "Toyota",
-                null, "ENG001", "VIN001", BigDecimal.valueOf(80), BigDecimal.valueOf(5), "GAL/H");
+                null, "ENG001", "VIN001");
     }
 
     private MachineEntity buildEntity(Long id, String name, boolean status) {

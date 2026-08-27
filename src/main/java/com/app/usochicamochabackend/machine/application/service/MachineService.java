@@ -36,9 +36,6 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
                 .name(req.name()).model(req.model()).belongsTo(req.belongsTo())
                 .soat(req.soat()).brand(req.brand()).runt(req.runt()).status(true)
                 .numEngine(req.numEngine()).numInterIdentification(req.numInterIdentification())
-                .fuelTankCapacityGallons(req.fuelTankCapacityGallons())
-                .factoryEfficiencyGalPerHour(req.factoryEfficiencyGalPerHour())
-                .factoryEfficiencyUnit(req.factoryEfficiencyUnit())
                 .build());
 
         try {
@@ -114,15 +111,6 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
                 .id(id).name(req.name()).model(req.model()).belongsTo(req.belongsTo())
                 .soat(req.soat()).brand(req.brand()).runt(req.runt()).status(true)
                 .numEngine(req.numEngine()).numInterIdentification(req.numInterIdentification())
-                .fuelTankCapacityGallons(req.fuelTankCapacityGallons() != null
-                        ? req.fuelTankCapacityGallons()
-                        : currentMachine.getFuelTankCapacityGallons())
-                .factoryEfficiencyGalPerHour(req.factoryEfficiencyGalPerHour() != null
-                        ? req.factoryEfficiencyGalPerHour()
-                        : currentMachine.getFactoryEfficiencyGalPerHour())
-                .factoryEfficiencyUnit(req.factoryEfficiencyUnit() != null
-                        ? req.factoryEfficiencyUnit()
-                        : currentMachine.getFactoryEfficiencyUnit())
                 .build());
 
         List<String> cambios = new ArrayList<>();

@@ -33,16 +33,6 @@ public class MarcaModeloController {
         return ResponseEntity.ok(marcaModeloUseCase.findAll());
     }
 
-    @GetMapping("/{id}")
-    @Operation(summary = "Obtener marca por ID", description = "Retorna una marca específica")
-    @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Marca encontrada"),
-            @ApiResponse(responseCode = "404", description = "Marca no encontrada")
-    })
-    public ResponseEntity<MarcaModeloResponse> getMarcaById(@PathVariable Integer id) {
-        return ResponseEntity.ok(marcaModeloUseCase.findById(id));
-    }
-
     @PostMapping
     @Operation(summary = "Crear marca", description = "Crea una nueva marca de vehículo")
     @ApiResponse(responseCode = "201", description = "Marca creada exitosamente")

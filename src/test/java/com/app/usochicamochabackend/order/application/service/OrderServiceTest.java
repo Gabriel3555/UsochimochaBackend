@@ -5,7 +5,6 @@ import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
-import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
 import com.app.usochicamochabackend.notifications.application.NotificationService;
 import com.app.usochicamochabackend.order.application.dto.OrderWithoutInspectionResponse;
 import com.app.usochicamochabackend.order.infrastructure.entity.OrderEntity;
@@ -42,9 +41,6 @@ class OrderServiceTest {
 
     @Mock
     private OrderCounterRepository orderCounterRepository;
-
-    @Mock
-    private MachineRepository machineRepository;
 
     @Mock
     private InspectionRepository inspectionRepository;
@@ -124,32 +120,4 @@ class OrderServiceTest {
         assertEquals(1, result.getTotalElements());
     }
 
-    @Test
-    @DisplayName("getAllOrdersByInspectionId: inspección existente → retorna ordenes")
-    void getAllOrdersByInspectionId_Existente_RetornaOrdenes() {
-        OrderEntity entity = OrderEntity.builder()
-                .id(1L).status("Pending").build();
-
-        com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity machine =
-                com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity.builder()
-                        .id(1L).name("Excavadora").status(true).build();
-        com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity inspection =
-                new com.app.usochicamochabackend.review.infrastructure.entity.InspectionEntity();
-        inspection.setMachine(machine);
-        inspection.setDateStamp(java.time.LocalDateTime.now());
-
-        when(inspectionRepository.findById(1L)).thenReturn(Optional.of(inspection));
-        when(orderRepository.getAllByInspectionId(1L)).thenReturn(List.of(entity));
-
-        var result = orderService.getAllOrdersByInspectionId(1L);
-        assertNotNull(result);
-    }
-
-    @Test
-    @DisplayName("getAllOrdersByInspectionId: inspección no encontrada → lanza ResourceNotFoundException")
-    void getAllOrdersByInspectionId_NoExiste_LanzaExcepcion() {
-        when(inspectionRepository.findById(99L)).thenReturn(Optional.empty());
-        assertThrows(ResourceNotFoundException.class,
-                () -> orderService.getAllOrdersByInspectionId(99L));
-    }
 }

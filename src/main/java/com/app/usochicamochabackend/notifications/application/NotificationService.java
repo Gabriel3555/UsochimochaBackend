@@ -108,13 +108,6 @@ public class NotificationService {
         }
     }
 
-    public void notifyFuelAnomaly(String anomalyData) {
-        if (anomalyData != null) {
-            webSocketHandler.broadcastFuelAnomaly(anomalyData);
-            recordNotificationStats("fuel-anomaly");
-        }
-    }
-
     /**
      * Send SOAT/RUNT notification to specific user via WebSocket
      */

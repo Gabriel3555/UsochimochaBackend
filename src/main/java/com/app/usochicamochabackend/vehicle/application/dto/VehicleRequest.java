@@ -6,8 +6,6 @@ import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.DecimalMin;
-import java.math.BigDecimal;
 
 @Schema(
         name = "VehicleRequest",
@@ -41,17 +39,7 @@ public record VehicleRequest(
         Integer idUbicacionBase,
 
         @Schema(description = "Si el vehículo está activo en inventario (en alta vehículo el backend puede forjar `true`)", example = "true")
-        Boolean activo,
-
-        @DecimalMin(value = "0.1", message = "La capacidad del tanque debe ser mayor a 0")
-        @Schema(description = "Capacidad real del tanque en galones (solo ADMIN). Limita la cantidad máxima que puede registrarse por carga.", example = "18.5")
-        BigDecimal fuelTankCapacityGallons,
-
-        @Schema(description = "Eficiencia de fábrica — valor numérico (referencia del fabricante, opcional).", example = "42.5")
-        BigDecimal factoryEfficiencyKmPerGallon,
-
-        @Schema(description = "Unidad de la eficiencia de fábrica: KM_PER_GALLON (combustible líquido) o KM_PER_CUBIC_METER (gas natural).", example = "KM_PER_GALLON")
-        String factoryEfficiencyUnit
+        Boolean activo
 ) {
     /** Placa en mayúsculas sin espacios; {@code belongsTo} con capitalización consistente; resto sin cambiar. */
     public VehicleRequest normalized() {
@@ -62,9 +50,6 @@ public record VehicleRequest(
                 kilometrajeActual,
                 InputTextNormalizer.normalizeTitleWords(belongsTo),
                 idUbicacionBase,
-                activo,
-                fuelTankCapacityGallons,
-                factoryEfficiencyKmPerGallon,
-                factoryEfficiencyUnit);
+                activo);
     }
 }

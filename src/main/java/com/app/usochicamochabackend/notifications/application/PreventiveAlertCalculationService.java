@@ -193,7 +193,7 @@ public class PreventiveAlertCalculationService {
             try {
                 // Obtener último cambio de aceite usando VehicleOilChangeRepository
                 var lastChange = vehicleOilChangeRepository
-                    .findFirstByVehicleIdVehiculoOrderByDateStampDesc(vehicle.getIdVehiculo());
+                    .findFirstByVehicleIdVehiculoAndStatusOrderByDateStampDesc(vehicle.getIdVehiculo(), true);
 
                 String assetType = "VEHICULO";
                 if (vehicle.getTipoVehiculo() != null &&

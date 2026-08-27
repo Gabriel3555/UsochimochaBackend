@@ -94,21 +94,6 @@ public class SecurityConfig {
                     http.requestMatchers(HttpMethod.GET, "/api/v1/vehicle-inspection/validar-kilometraje").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
                     http.requestMatchers(HttpMethod.GET, "/api/v1/vehicle-inspection/reports/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
 
-                    // 5. Combustibles (OPERARIO puede crear/editar, solo ADMIN elimina)
-                    http.requestMatchers(HttpMethod.POST, "/api/v1/fuel").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
-                    http.requestMatchers(HttpMethod.PUT, "/api/v1/fuel/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
-                    http.requestMatchers(HttpMethod.PATCH, "/api/v1/fuel/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
-                    http.requestMatchers(HttpMethod.DELETE, "/api/v1/fuel/**").hasRole("ADMIN");
-                    http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/asset/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
-                    http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/config/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
-                    http.requestMatchers(HttpMethod.PUT, "/api/v1/fuel/config/**").hasAnyRole("ADMIN", "SUPERVISOR_OPERATIVO");
-                    http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/stations").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
-                    http.requestMatchers(HttpMethod.POST, "/api/v1/fuel/stations").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
-                    http.requestMatchers(HttpMethod.PUT, "/api/v1/fuel/stations/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
-                    http.requestMatchers(HttpMethod.DELETE, "/api/v1/fuel/stations/**").hasRole("ADMIN");
-                    http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/dashboard/**").hasAnyRole("ADMIN", "SUPERVISOR_OPERATIVO");
-                    http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/**").hasAnyRole("ADMIN", "SUPERVISOR_OPERATIVO");
-
                     // 6. SUPERVISOR_OPERATIVO + OPERARIO: lectura de reportes y monitoreo web
                     http.requestMatchers(HttpMethod.GET, "/api/v1/order/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
                     http.requestMatchers(HttpMethod.GET, "/api/v1/curriculum/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
@@ -146,9 +131,21 @@ public class SecurityConfig {
                     http.requestMatchers(HttpMethod.POST, "/api/v1/alerts/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
                     http.requestMatchers(HttpMethod.DELETE, "/api/v1/alerts/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
 
-                    // 10. Mantenimiento (lecturas: SUPERVISOR_OPERATIVO; creación: SUPERVISOR_OPERATIVO)
-                    http.requestMatchers(HttpMethod.GET, "/api/v1/maintenance/**").hasAnyRole("OPERARIO", "SUPERVISOR_OPERATIVO", "ADMIN");
-                    http.requestMatchers(HttpMethod.POST, "/api/v1/maintenance").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/fuel/purchases").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/purchases").hasAnyRole("ALMACEN", "SUPERVISOR_OPERATIVO", "ADMIN");
+
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/fuel/refueling").hasAnyRole("OPERARIO", "ALMACEN", "SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/refueling").hasAnyRole("OPERARIO", "ALMACEN", "SUPERVISOR_OPERATIVO", "ADMIN");
+
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/dashboard/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers("/api/v1/fuel/monthly-discount/**").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/almacen/**").hasAnyRole("ALMACEN", "SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/rendimiento").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers(HttpMethod.GET, "/api/v1/fuel/distribucion").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers(HttpMethod.POST, "/api/v1/fuel/reintegros").hasAnyRole("SUPERVISOR_OPERATIVO", "ADMIN");
+                    http.requestMatchers("/api/v1/fuel/config/**").hasRole("ADMIN");
+                    // Catálogo de tipos y cualquier otra ruta de fuel no listada arriba: cualquier autenticado.
+                    http.requestMatchers("/api/v1/fuel/**").authenticated();
 
                     // Cualquier otra petición: solo ADMIN
                     http.anyRequest().hasRole("ADMIN");

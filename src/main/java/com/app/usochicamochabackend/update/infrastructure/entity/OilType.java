@@ -33,17 +33,16 @@ public enum OilType {
 
         String normalized = value.trim().toUpperCase()
                 .replace("ACEITE", "")
-                .replace("HIDRAULICO", "")
-                .replace("HYDRAULIC", "")
                 .replace("-", "")
                 .replace(" ", "")
+                .replace("_", "")
                 .trim();
 
         // Mapear valores simplificados
         if (normalized.isEmpty() || normalized.equals("MOTOR")) {
             return MOTOR;
         }
-        if (normalized.equals("HYDRAULIC")) {
+        if (normalized.equals("HYDRAULIC") || normalized.equals("HIDRAULICO") || normalized.equals("HIDRAULICA")) {
             return HYDRAULIC;
         }
 

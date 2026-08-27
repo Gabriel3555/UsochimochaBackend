@@ -1,5 +1,7 @@
 package com.app.usochicamochabackend.vehicle.application.service;
 
+import com.app.usochicamochabackend.actions.application.port.SaveActionUseCase;
+import com.app.usochicamochabackend.auth.application.dto.UserPrincipal;
 import com.app.usochicamochabackend.common.text.InputTextNormalizer;
 import com.app.usochicamochabackend.vehicle.application.dto.MarcaModeloRequest;
 import com.app.usochicamochabackend.vehicle.application.dto.MarcaModeloResponse;
@@ -8,6 +10,7 @@ import com.app.usochicamochabackend.vehicle.infrastructure.entity.MarcaModeloEnt
 import com.app.usochicamochabackend.vehicle.infrastructure.repository.MarcaModeloRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -18,19 +21,13 @@ import java.util.List;
 public class MarcaModeloService implements MarcaModeloUseCase {
 
     private final MarcaModeloRepository repository;
+    private final SaveActionUseCase saveActionUseCase;
 
     @Override
     public List<MarcaModeloResponse> findAll() {
         return repository.findAll().stream()
                 .map(this::mapToResponse)
                 .toList();
-    }
-
-    @Override
-    public MarcaModeloResponse findById(Integer id) {
-        return repository.findById(id)
-                .map(this::mapToResponse)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Marca no encontrada"));
     }
 
     @Override
@@ -45,7 +42,9 @@ public class MarcaModeloService implements MarcaModeloUseCase {
         MarcaModeloEntity entity = MarcaModeloEntity.builder()
                 .descripcion(desc)
                 .build();
-        return mapToResponse(repository.save(entity));
+        entity = repository.save(entity);
+        registrarAccion("La marca " + entity.getDescripcion() + " ha sido creada");
+        return mapToResponse(entity);
     }
 
     @Override
@@ -61,15 +60,28 @@ public class MarcaModeloService implements MarcaModeloUseCase {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Ya existe una marca con ese nombre.");
         }
         entity.setDescripcion(desc);
-        return mapToResponse(repository.save(entity));
+        entity = repository.save(entity);
+        registrarAccion("La marca " + entity.getDescripcion() + " ha sido editada");
+        return mapToResponse(entity);
     }
 
     @Override
     public void delete(Integer id) {
-        if (!repository.existsById(id)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Marca no encontrada");
-        }
+        MarcaModeloEntity entity = repository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Marca no encontrada"));
         repository.deleteById(id);
+        registrarAccion("La marca " + entity.getDescripcion() + " ha sido eliminada");
+    }
+
+    // Mismo patrón que VehicleService/MachineService: incluye el usuario si hay
+    // sesión autenticada, si no, registra la acción igual sin nombre de usuario.
+    private void registrarAccion(String descripcionAccion) {
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getPrincipal() instanceof UserPrincipal userPrincipal) {
+            saveActionUseCase.save(descripcionAccion + " por " + userPrincipal.username());
+        } else {
+            saveActionUseCase.save(descripcionAccion);
+        }
     }
 
     private MarcaModeloResponse mapToResponse(MarcaModeloEntity entity) {

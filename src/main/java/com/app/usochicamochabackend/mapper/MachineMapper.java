@@ -30,9 +30,7 @@ public class MachineMapper {
                 entity.getRunt(),
                 entity.getNumEngine(),
                 entity.getNumInterIdentification(),
-                entity.getFuelTankCapacityGallons(),
-                entity.getFactoryEfficiencyGalPerHour(),
-                entity.getFactoryEfficiencyUnit()
+                entity.getHorometroActual()
         );
     }
 }

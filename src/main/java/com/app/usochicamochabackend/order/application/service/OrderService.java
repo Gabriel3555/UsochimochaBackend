@@ -6,9 +6,6 @@ import com.app.usochicamochabackend.auth.infrastructure.entity.UserEntity;
 import com.app.usochicamochabackend.auth.infrastructure.repository.UserRepositoryJpa;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.machine.application.dto.MachineResponse;
-import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
-import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
-import com.app.usochicamochabackend.mapper.InspectionMapper;
 import com.app.usochicamochabackend.mapper.MachineMapper;
 import com.app.usochicamochabackend.mapper.OrderMapper;
 import com.app.usochicamochabackend.notifications.application.NotificationService;
@@ -36,13 +33,12 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-public class OrderService implements AssignOrderUseCase, GetAllOrdersByInspectionIdUseCase, GetOrderByIdUseCase,
-        GetAllOrdersUseCase, GetAllOrdersByMachineIdUseCase,
-        AssignVehicleOrderUseCase, GetAllOrdersByVehicleInspectionIdUseCase, GetAllVehicleOrdersUseCase {
+public class OrderService implements AssignOrderUseCase, GetOrderByIdUseCase,
+        GetAllOrdersUseCase,
+        AssignVehicleOrderUseCase, GetAllVehicleOrdersUseCase {
 
     private final OrderRepository orderRepository;
     private final OrderCounterRepository orderCounterRepository;
-    private final MachineRepository machineRepository;
     private final InspectionRepository inspectionRepository;
     private final InspPreOperativaRepository inspPreOperativaRepository;
     private final UserRepositoryJpa userRepository;
@@ -85,23 +81,6 @@ public class OrderService implements AssignOrderUseCase, GetAllOrdersByInspectio
 
 
         return OrderMapper.toDto(orderEntity);
-    }
-
-    @Override
-    public GetAllOrdersByInspectionIdResponse getAllOrdersByInspectionId(Long inspectionId) {
-        InspectionEntity inspectionEntity = inspectionRepository.findById(inspectionId).orElseThrow(() -> new ResourceNotFoundException("Inspection not found with ID: " + inspectionId));
-
-        List<OrderEntity> orders = orderRepository.getAllByInspectionId(inspectionId);
-        if (orders.isEmpty()) {
-            throw new ResourceNotFoundException("No orders found");
-        }
-
-        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        saveActionUseCase.save("El usuario " + userPrincipal.username() +
-                " ha observado todas la ordenes de trabajo asigandas a la inspeccion que se le realizo a la maquina " + inspectionEntity.getMachine().getName() + " el dia " + inspectionEntity.getDateStamp().toLocalDate());
-
-
-        return new GetAllOrdersByInspectionIdResponse(InspectionMapper.toDto(inspectionEntity), orders.stream().map(OrderMapper::toDto).toList());
     }
 
     @Override
@@ -172,27 +151,6 @@ public class OrderService implements AssignOrderUseCase, GetAllOrdersByInspectio
 
     @Transactional
     @Override
-    public GetAllOrdersByVehicleInspectionIdResponse getAllOrdersByVehicleInspectionId(Long vehicleInspectionId) {
-        InspPreOperativaEntity vehicleInspection = inspPreOperativaRepository.findById(vehicleInspectionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Vehicle inspection not found with ID: " + vehicleInspectionId));
-
-        List<OrderEntity> orders = orderRepository.getAllByVehicleInspectionId(vehicleInspectionId);
-
-        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        String placa = vehicleInspection.getVehiculo() != null ? vehicleInspection.getVehiculo().getPlaca() : "";
-        saveActionUseCase.save("El usuario " + userPrincipal.username() +
-                " ha consultado las órdenes de la inspección del vehículo " + placa);
-
-        return new GetAllOrdersByVehicleInspectionIdResponse(
-                vehicleInspectionId,
-                placa,
-                vehicleInspection.getFechaRegistro(),
-                OrderMapper.toDtoListWithoutInspection(orders)
-        );
-    }
-
-    @Transactional
-    @Override
     public Page<OrderWithVehicleDTO> getAllVehicleOrders(Pageable pageable) {
         Page<OrderEntity> orders = orderRepository.findAllByVehicleInspectionIsNotNull(pageable);
 
@@ -201,28 +159,6 @@ public class OrderService implements AssignOrderUseCase, GetAllOrdersByInspectio
                 " ha consultado todas las órdenes de vehículos");
 
         return orders.map(OrderMapper::toVehicleOrderDTO);
-    }
-
-    @Override
-    public GetAllOrdersByMachineId getAllOrdersByMachineId(Long machineId) {
-        MachineEntity machineEntity = machineRepository.findById(machineId).orElseThrow(()->new ResourceNotFoundException("Machine not found with ID: " + machineId));
-
-        List<InspectionEntity> inspections = inspectionRepository.findByMachineId(machineId);
-
-        if (inspections.isEmpty()) {
-            throw new ResourceNotFoundException("No inspections found");
-        }
-
-        List<OrderEntity> orders = inspections.stream()
-                .flatMap(inspection -> inspection.getOrders().stream())
-                .toList();
-
-        UserPrincipal userPrincipal = (UserPrincipal) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        saveActionUseCase.save("El usuario " + userPrincipal.username() +
-                " ha observado todas la ordenes de trabajo asigandas a la maquina " + machineEntity.getName());
-
-
-        return new GetAllOrdersByMachineId(MachineMapper.toResponse(machineEntity), OrderMapper.toDtoListWithoutInspection(orders));
     }
 
     @Transactional

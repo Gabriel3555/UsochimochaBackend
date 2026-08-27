@@ -37,9 +37,6 @@ public class VehicleMapper {
                 ubiId,
                 ubiNombre,
                 entity.getActivo(),
-                entity.getFuelTankCapacityGallons(),
-                entity.getFactoryEfficiencyKmPerGallon(),
-                entity.getFactoryEfficiencyUnit(),
                 soatInfo,
                 tecnoInfo,
                 extintorInfo
@@ -147,9 +144,6 @@ public class VehicleMapper {
                 projection.getIdUbicacionBase(),
                 projection.getUbicacionBase(),
                 null, // VehicleProjection no incluye activo
-                null, // VehicleProjection no incluye fuelTankCapacityGallons
-                null, // VehicleProjection no incluye factoryEfficiencyKmPerGallon
-                null, // VehicleProjection no incluye factoryEfficiencyUnit
                 null, // VehicleProjection no incluye documentos
                 null, // VehicleProjection no incluye documentos
                 null  // VehicleProjection no incluye documentos

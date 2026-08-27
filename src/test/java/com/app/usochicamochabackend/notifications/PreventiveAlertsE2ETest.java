@@ -126,7 +126,7 @@ class PreventiveAlertsE2ETest {
                 LocalDate.now().minusDays(5), // SOAT vencido
                 "Caterpillar",
                 LocalDate.now().plusDays(200), // seguro todo riesgo vigente
-                "ENG-E2E", "ID-E2E", BigDecimal.TEN, BigDecimal.ONE, "GAL_PER_HOUR");
+                "ENG-E2E", "ID-E2E");
 
         MachineResponse created = createMachineUseCase.createMachine(req);
         String assetId = created.name();
@@ -150,7 +150,7 @@ class PreventiveAlertsE2ETest {
                 LocalDate.now().plusDays(365),
                 "Caterpillar",
                 LocalDate.now().plusDays(200),
-                "ENG-E2E", "ID-E2E", BigDecimal.TEN, BigDecimal.ONE, "GAL_PER_HOUR");
+                "ENG-E2E", "ID-E2E");
         updateMachineUseCase.updateMachine(renewSoat, created.id());
 
         var alertsAfterRenew = activeDocumentAlertsFor(assetId);
@@ -164,7 +164,7 @@ class PreventiveAlertsE2ETest {
                 LocalDate.now().plusDays(365),
                 "Caterpillar",
                 LocalDate.now().minusDays(1),
-                "ENG-E2E", "ID-E2E", BigDecimal.TEN, BigDecimal.ONE, "GAL_PER_HOUR");
+                "ENG-E2E", "ID-E2E");
         updateMachineUseCase.updateMachine(expireInsurance, created.id());
 
         var alertsAfterInsuranceExpiry = activeDocumentAlertsFor(assetId);
@@ -302,7 +302,7 @@ class PreventiveAlertsE2ETest {
         // (esto es justo lo que preguntó el usuario: "si edito el vehículo con un nuevo kilometraje").
         vehicleService.updateVehicle(vehiculo.getIdVehiculo(), new VehicleRequest(
                 "E2E-KMEDIT", marca.getIdMarca(), tipo.getId(), 5000,
-                "Distrito", null, true, null, null, null));
+                "Distrito", null, true));
 
         var alertsAfterEdit = activeOilAlertsFor("E2E-KMEDIT");
         assertThat(alertsAfterEdit)
@@ -325,7 +325,7 @@ class PreventiveAlertsE2ETest {
         try {
             MachineRequest machineReq = new MachineRequest(
                     "Máquina E2E Aceite", "Distrito", "320D", null, "Caterpillar", null,
-                    "ENG-OIL", "ID-OIL", BigDecimal.TEN, BigDecimal.ONE, "GAL_PER_HOUR");
+                    "ENG-OIL", "ID-OIL");
             MachineResponse machine = createMachineUseCase.createMachine(machineReq);
             var machineEntity = machineRepository.findById(machine.id()).orElseThrow();
 
@@ -333,8 +333,8 @@ class PreventiveAlertsE2ETest {
                     .username("e2e.oil.machine").fullName("E2E").status(true)
                     .email("e2e.oil.machine@example.com").role("ADMIN").password("x").build());
 
-            // Primera inspección a horómetro bajo (100h) — necesaria para poder registrar el
-            // primer cambio de aceite (performMotorOilChange exige currentHourMeter >= última inspección).
+            // Primera inspección a horómetro bajo (100h), usada como línea base para las alertas
+            // preventivas de este test (performMotorOilChange ya no exige currentHourMeter >= última inspección).
             inspectionRepository.save(InspectionEntity.builder()
                     .UUID(java.util.UUID.randomUUID().toString())
                     .dateStamp(java.time.LocalDateTime.now().minusDays(30))

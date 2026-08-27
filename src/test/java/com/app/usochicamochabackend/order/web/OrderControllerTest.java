@@ -40,19 +40,10 @@ class OrderControllerTest {
     private AssignOrderUseCase assignOrderUseCase;
 
     @MockBean
-    private GetAllOrdersByInspectionIdUseCase getAllOrdersByInspectionIdUseCase;
-
-    @MockBean
     private GetAllOrdersUseCase getAllOrdersUseCase;
 
     @MockBean
-    private GetAllOrdersByMachineIdUseCase getAllOrdersByMachineIdUseCase;
-
-    @MockBean
     private AssignVehicleOrderUseCase assignVehicleOrderUseCase;
-
-    @MockBean
-    private GetAllOrdersByVehicleInspectionIdUseCase getAllOrdersByVehicleInspectionIdUseCase;
 
     @MockBean
     private GetAllVehicleOrdersUseCase getAllVehicleOrdersUseCase;
@@ -90,19 +81,6 @@ class OrderControllerTest {
                 .andExpect(jsonPath("$.consecutive").value("OT-MQ-00001"));    }
 
     @Test
-    @DisplayName("GET /api/v1/order/all/{inspectionId}: retorna respuesta de la inspección")
-    @WithMockUser
-    void getByInspectionId_Devuelve200() throws Exception {
-        GetAllOrdersByInspectionIdResponse response =
-                new GetAllOrdersByInspectionIdResponse(null, List.of(buildOrderResponse()));
-        when(getAllOrdersByInspectionIdUseCase.getAllOrdersByInspectionId(1L)).thenReturn(response);
-
-        mockMvc.perform(get("/api/v1/order/all/1"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.orders.length()").value(1));
-    }
-
-    @Test
     @DisplayName("GET /api/v1/order/all: retorna página de órdenes con máquina")
     @WithMockUser
     void getAllOrders_RetornaPagina() throws Exception {
@@ -113,19 +91,6 @@ class OrderControllerTest {
         mockMvc.perform(get("/api/v1/order/all"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content.length()").value(1));
-    }
-
-    @Test
-    @DisplayName("GET /api/v1/order/machine/{machineId}: retorna órdenes de la máquina")
-    @WithMockUser
-    void getByMachineId_Devuelve200() throws Exception {
-        GetAllOrdersByMachineId response =
-                new GetAllOrdersByMachineId(null, List.of(buildOrderWithoutInspection()));
-        when(getAllOrdersByMachineIdUseCase.getAllOrdersByMachineId(2L)).thenReturn(response);
-
-        mockMvc.perform(get("/api/v1/order/machine/2"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.orders.length()").value(1));
     }
 
     @Test
