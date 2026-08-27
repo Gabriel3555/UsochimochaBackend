@@ -148,15 +148,20 @@ class FuelReportingE2ETest {
                 false, null, null, null, "Bodega");
         registerRefuelingRecordUseCase.registrar(tanqueoAlmacen, null, 2L);
 
+        // Decisión de alcance (28/07/2026): el módulo no lleva control de inventario de
+        // almacén — un tanqueo ALMACEN se persiste directo, sin tocar fuel_inventory (ver
+        // nota equivalente en FuelModuleE2ETest). "salidas" es puramente informativo (lo
+        // que se despachó, vía RefuelingRecordsRepository) pero no descuenta el saldo, así
+        // que saldoInicial/saldoFinal se derivan del saldo real (solo compras + reintegros).
         mockMvc.perform(get("/api/v1/fuel/almacen/movimientos")
                         .param("fechaInicio", LocalDate.now().withDayOfMonth(1).toString())
                         .param("fechaFin", LocalDate.now().toString())
                         .with(as(1L, "almacen", "ALMACEN")))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.conciliacion[0].saldoInicial").value(0))
+                .andExpect(jsonPath("$.conciliacion[0].saldoInicial").value(30))
                 .andExpect(jsonPath("$.conciliacion[0].entradas").value(100))
                 .andExpect(jsonPath("$.conciliacion[0].salidas").value(30))
-                .andExpect(jsonPath("$.conciliacion[0].saldoFinal").value(70));
+                .andExpect(jsonPath("$.conciliacion[0].saldoFinal").value(100));
     }
 
     @Test
@@ -207,8 +212,11 @@ class FuelReportingE2ETest {
 
         registerFuelReintegrationUseCase.registrar(new FuelReintegrationRequest(tanqueo.id(), new BigDecimal("5"), null), 2L);
 
+        // El tanqueo ALMACEN de 30 nunca descontó fuel_inventory (decisión de alcance
+        // 28/07/2026, ver nota en controlDeAlmacen_ConciliacionCalculaSaldoInicialCorrectamente),
+        // así que el reintegro de 5 se suma sobre el saldo que dejó solo la compra.
         FuelInventoryEntity inventario = fuelInventoryRepository.findByAreaCostoAndFuelTypeId("DISTRITO", fuelTypeId).orElseThrow();
-        assertThat(inventario.getCantidadDisponible()).isEqualByComparingTo("75"); // 100 - 30 + 5
+        assertThat(inventario.getCantidadDisponible()).isEqualByComparingTo("105"); // 100 + 5
 
         mockMvc.perform(get("/api/v1/fuel/distribucion")
                         .param("area", "DISTRITO")

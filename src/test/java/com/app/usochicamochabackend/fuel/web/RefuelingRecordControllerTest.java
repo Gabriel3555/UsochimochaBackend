@@ -63,7 +63,7 @@ class RefuelingRecordControllerTest {
         RefuelingRecordResponse response = new RefuelingRecordResponse(
                 1L, null, 99L, "ALMACEN", "DISTRITO", 1L, new BigDecimal("30"), new BigDecimal("500"),
                 false, null, null, null, null, false, null, "Bodega", 1L, LocalDateTime.now(), false, false, false, false, BigDecimal.ZERO,
-                null, null, null, null);
+                null, null, null, null, null, null);
         when(registerRefuelingRecordUseCase.registrar(any(), any(), anyLong())).thenReturn(response);
 
         mockMvc.perform(multipart("/api/v1/fuel/refueling")
@@ -99,7 +99,7 @@ class RefuelingRecordControllerTest {
         RefuelingRecordResponse response = new RefuelingRecordResponse(
                 1L, null, 99L, "ALMACEN", "DISTRITO", 1L, new BigDecimal("30"), new BigDecimal("500"),
                 false, null, null, null, null, false, null, "Bodega", 1L, LocalDateTime.now(), false, false, false, false, BigDecimal.ZERO,
-                null, null, null, null);
+                null, null, null, null, null, null);
         when(registerRefuelingRecordUseCase.actualizar(anyLong(), any(), any())).thenReturn(response);
 
         mockMvc.perform(multipart(HttpMethod.PUT, "/api/v1/fuel/refueling/{id}", 1L)

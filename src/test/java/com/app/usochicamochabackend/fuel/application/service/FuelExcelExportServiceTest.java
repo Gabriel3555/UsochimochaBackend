@@ -49,7 +49,8 @@ class FuelExcelExportServiceTest {
                 null, new BigDecimal("100000"), new BigDecimal("100000"), discrepanciaValor,
                 null, null, 1L, LocalDateTime.of(2026, 7, 15, 10, 0),
                 capacidadExcedida, false, false, false,
-                BigDecimal.ZERO, null, null, null, null
+                BigDecimal.ZERO, null, null, null, null,
+                null, null
         );
     }
 

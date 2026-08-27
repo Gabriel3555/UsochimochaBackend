@@ -4,6 +4,8 @@ import com.app.usochicamochabackend.fuel.application.dto.RefuelingRecordResponse
 import com.app.usochicamochabackend.fuel.infrastructure.entity.RefuelingRecordsEntity;
 import com.app.usochicamochabackend.fuel.infrastructure.repository.FuelReintegrationsRepository;
 import com.app.usochicamochabackend.fuel.infrastructure.repository.RefuelingRecordsRepository;
+import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
+import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -41,13 +43,19 @@ class RefuelingReportServiceTest {
     @Mock
     private FuelReintegrationsRepository fuelReintegrationsRepository;
 
+    @Mock
+    private VehicleRepository vehicleRepository;
+
+    @Mock
+    private MachineRepository machineRepository;
+
     private RefuelingReportService refuelingReportService;
 
     @BeforeEach
     void setUp() {
         refuelingReportService = new RefuelingReportService(
                 refuelingRecordsRepository, assetFuelCapacityService, fuelPriceAnomalyService,
-                fuelFullConsistencyService, fuelReintegrationsRepository);
+                fuelFullConsistencyService, fuelReintegrationsRepository, vehicleRepository, machineRepository);
     }
 
     private RefuelingRecordsEntity tanqueoVehiculo(int vehicleId, String areaCosto) {
