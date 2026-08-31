@@ -45,8 +45,12 @@ public class FuelPerformanceService implements GetFuelPerformanceUseCase {
     private final VehicleRepository vehicleRepository;
     private final MachineRepository machineRepository;
 
-    @Value("${app.fuel.rendimiento-desviacion-tolerancia-porcentaje:0.15}")
+    @Value("${app.fuel.rendimiento-desviacion-tolerancia-porcentaje:0.08}")
     private BigDecimal toleranciaFija;
+
+    // Techo absoluto para el modo "aprendido" — ver su uso en calcularFilasDeActivo.
+    @Value("${app.fuel.rendimiento-desviacion-tolerancia-maxima-porcentaje:0.13}")
+    private BigDecimal toleranciaMaximaAprendida;
 
     // Cuántas desviaciones estándar del propio historial del activo se toleran antes
     // de marcar alerta, una vez hay suficiente historial para calcularlas (ver
@@ -161,7 +165,14 @@ public class FuelPerformanceService implements GetFuelPerformanceUseCase {
                 } else if (usaRangoAprendido) {
                     double promedio = promedio(desviacionesPrevias);
                     double desviacionEstandar = desviacionEstandarMuestral(desviacionesPrevias, promedio);
-                    alerta = Math.abs(desviacionRelativa - promedio) > multiplicadorAprendido * desviacionEstandar;
+                    boolean fueraDeSuPropioRango = Math.abs(desviacionRelativa - promedio) > multiplicadorAprendido * desviacionEstandar;
+                    // Techo absoluto: un activo con mucha variabilidad histórica podría
+                    // "aprender" una banda demasiado laxa (ej. ±25%) donde una desviación
+                    // grande igual pasa desapercibida por ser "normal" para él. Este límite
+                    // no depende del historial de nadie — nunca se deja pasar una desviación
+                    // mayor a este porcentaje, sin importar qué tan aprendido esté el activo.
+                    boolean superaTechoAbsoluto = Math.abs(desviacionRelativa) > toleranciaMaximaAprendida.doubleValue();
+                    alerta = fueraDeSuPropioRango || superaTechoAbsoluto;
                 } else {
                     alerta = diferencia.abs().compareTo(proyectado.abs().multiply(toleranciaFija)) > 0;
                 }

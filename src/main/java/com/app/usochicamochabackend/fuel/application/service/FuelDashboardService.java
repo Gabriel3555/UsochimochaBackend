@@ -4,6 +4,7 @@ import com.app.usochicamochabackend.fuel.application.dto.FuelBudgetProjectionRow
 import com.app.usochicamochabackend.fuel.application.dto.FuelDashboardResponse;
 import com.app.usochicamochabackend.fuel.application.dto.FuelTrendResponse;
 import com.app.usochicamochabackend.fuel.application.port.GetFuelDashboardUseCase;
+import com.app.usochicamochabackend.fuel.application.port.GetFuelPerformanceUseCase;
 import com.app.usochicamochabackend.fuel.infrastructure.entity.FuelPurchaseEntity;
 import com.app.usochicamochabackend.fuel.infrastructure.entity.RefuelingRecordsEntity;
 import com.app.usochicamochabackend.fuel.infrastructure.repository.FuelMonthlyDiscountRepository;
@@ -32,9 +33,12 @@ public class FuelDashboardService implements GetFuelDashboardUseCase {
     private static final int MESES_HISTORICOS_PROYECCION = 6;
     private static final int MESES_PROYECTADOS = 3;
 
+    private static final List<String> TIPOS_RENDIMIENTO = List.of("MAQUINARIA", "VEHICULO", "MOTOCICLETA");
+
     private final FuelPurchaseRepository fuelPurchaseRepository;
     private final RefuelingRecordsRepository refuelingRecordsRepository;
     private final FuelMonthlyDiscountRepository fuelMonthlyDiscountRepository;
+    private final GetFuelPerformanceUseCase getFuelPerformanceUseCase;
 
     @Override
     public FuelDashboardResponse obtenerDashboard(LocalDate fechaInicio, LocalDate fechaFin) {
@@ -66,6 +70,7 @@ public class FuelDashboardService implements GetFuelDashboardUseCase {
 
         long discrepancias = fuelPurchaseRepository.countByDiscrepanciaValorTrueAndFechaCompraBetween(rango.inicio(), rango.fin())
                 + refuelingRecordsRepository.countByDiscrepanciaValorTrueAndFechaRegistroBetween(rango.inicio(), rango.fin());
+        long alertasRendimiento = contarAlertasRendimiento(rango.fechaInicio(), rango.fechaFin());
 
         BigDecimal galonesComprados = fuelPurchaseRepository.sumCantidadBetween(rango.inicio(), rango.fin());
         BigDecimal precioPromedioGalonComprado = galonesComprados.compareTo(BigDecimal.ZERO) > 0
@@ -80,7 +85,19 @@ public class FuelDashboardService implements GetFuelDashboardUseCase {
                 totalComprasAlmacen, totalTanqueosBomba, totalDescuentos, descuentoMensual,
                 gastoBruto, gastoNeto, ahorro,
                 galonesPorTipo, gastoPorTipo, galonesBombaPorTipo,
-                discrepancias, precioPromedioGalonComprado, comparacionAnterior);
+                discrepancias, alertasRendimiento, precioPromedioGalonComprado, comparacionAnterior);
+    }
+
+    // Reutiliza GetFuelPerformanceUseCase (misma fuente que la pantalla de Rendimiento
+    // y su Excel) en vez de recalcular la lógica de alerta acá — un solo lugar decide
+    // qué es una alerta de rendimiento (8% fijo / rango aprendido / techo del 13%, ver
+    // FuelPerformanceService). Se recorren los 3 tipos porque obtenerRendimiento agrupa
+    // por tipo, no hay un "TODOS" en ese endpoint.
+    private long contarAlertasRendimiento(LocalDate fechaInicio, LocalDate fechaFin) {
+        return TIPOS_RENDIMIENTO.stream()
+                .flatMap(tipo -> getFuelPerformanceUseCase.obtenerRendimiento(tipo, fechaInicio, fechaFin).stream())
+                .filter(fila -> Boolean.TRUE.equals(fila.alerta()))
+                .count();
     }
 
     /**

@@ -46,6 +46,7 @@ class FuelPerformanceServiceTest {
         fuelPerformanceService = new FuelPerformanceService(refuelingRecordsRepository, assetFuelConfigRepository, vehicleRepository, machineRepository);
         ReflectionTestUtils.setField(fuelPerformanceService, "toleranciaFija", new BigDecimal("0.15"));
         ReflectionTestUtils.setField(fuelPerformanceService, "multiplicadorAprendido", 1.5);
+        ReflectionTestUtils.setField(fuelPerformanceService, "toleranciaMaximaAprendida", new BigDecimal("0.13"));
     }
 
     @Test
@@ -285,11 +286,13 @@ class FuelPerformanceServiceTest {
         assertTrue(porId.get(4L).alerta());
 
         // T5: 3 desviaciones previas (0.1, 0.2, 0.3) -> μ=0.2, σ_muestral=0.1
-        // |0.16-0.2|=0.04 <= 1.5*0.1=0.15 -> dentro del rango propio del activo, sin alerta
-        // (aunque en términos absolutos su diferencia de 1.6 gal ya no dispararía ni el 15% fijo,
-        // lo importante es que usa el método aprendido, no el fijo).
+        // |0.16-0.2|=0.04 <= 1.5*0.1=0.15 -> dentro del rango PROPIO del activo...
+        // ...pero |0.16| > toleranciaMaximaAprendida=0.13 -> alerta igual, por el techo
+        // absoluto: no importa qué tan "normal" sea 16% para este activo puntual, sigue
+        // siendo más de lo que el negocio tolera como máximo (ver toleranciaMaximaAprendida
+        // en FuelPerformanceService).
         assertTrue(porId.get(5L).usaRangoAprendido());
-        assertFalse(porId.get(5L).alerta());
+        assertTrue(porId.get(5L).alerta());
     }
 
     @Test

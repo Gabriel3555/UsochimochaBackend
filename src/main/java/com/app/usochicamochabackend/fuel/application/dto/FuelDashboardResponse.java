@@ -21,7 +21,13 @@ public record FuelDashboardResponse(
     // (gastoPorTipo ÷ galonesBombaPorTipo) sin diluirlo con galones de almacén,
     // que no tienen costo asociado.
     List<GalonesPorTipo> galonesBombaPorTipo,
+    // Discrepancias FINANCIERAS (ingresado ≠ calculado) de compras/tanqueos — no
+    // incluye alertas de rendimiento, ver alertasRendimiento más abajo (son dos
+    // universos de anomalía distintos, cada uno con su propia tarjeta en el front).
     Long discrepancias,
+    // Alertas de RENDIMIENTO (consumo real fuera de lo esperado, ver
+    // FuelPerformanceService) en el mismo rango — MAQUINARIA + VEHICULO + MOTOCICLETA.
+    Long alertasRendimiento,
     BigDecimal precioPromedioGalonComprado,
     ComparacionAnterior comparacionAnterior
 ) {

@@ -2,12 +2,15 @@ package com.app.usochicamochabackend.fuel.application.service;
 
 import com.app.usochicamochabackend.fuel.application.dto.FuelBudgetProjectionRow;
 import com.app.usochicamochabackend.fuel.application.dto.FuelDashboardResponse;
+import com.app.usochicamochabackend.fuel.application.dto.FuelPerformanceResponse;
 import com.app.usochicamochabackend.fuel.application.dto.FuelTrendResponse;
+import com.app.usochicamochabackend.fuel.application.port.GetFuelPerformanceUseCase;
 import com.app.usochicamochabackend.fuel.infrastructure.entity.FuelPurchaseEntity;
 import com.app.usochicamochabackend.fuel.infrastructure.entity.RefuelingRecordsEntity;
 import com.app.usochicamochabackend.fuel.infrastructure.repository.FuelMonthlyDiscountRepository;
 import com.app.usochicamochabackend.fuel.infrastructure.repository.FuelPurchaseRepository;
 import com.app.usochicamochabackend.fuel.infrastructure.repository.RefuelingRecordsRepository;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -24,6 +27,8 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -38,8 +43,20 @@ class FuelDashboardServiceTest {
     @Mock
     private FuelMonthlyDiscountRepository fuelMonthlyDiscountRepository;
 
+    @Mock
+    private GetFuelPerformanceUseCase getFuelPerformanceUseCase;
+
     @InjectMocks
     private FuelDashboardService fuelDashboardService;
+
+    // lenient(): solo lo usan los tests de obtenerDashboard() (vía
+    // contarAlertasRendimiento) — los de obtenerTendencia/obtenerProyeccionPresupuestal
+    // no lo tocan, y sin lenient() el modo estricto de Mockito los marcaría como
+    // "stubbing innecesario" y fallaría.
+    @BeforeEach
+    void stubRendimientoVacioPorDefecto() {
+        lenient().when(getFuelPerformanceUseCase.obtenerRendimiento(any(), any(), any())).thenReturn(List.of());
+    }
 
     @Test
     void obtenerDashboard_CalculaGastoBrutoNetoYAhorroCorrectamente() {
@@ -80,6 +97,41 @@ class FuelDashboardServiceTest {
         assertEquals(0, new BigDecimal("1300000").compareTo(response.gastoNeto()));
         assertEquals(0, new BigDecimal("50000").compareTo(response.ahorro()));
         assertEquals(2, response.galonesPorTipo().size());
+    }
+
+    @Test
+    void obtenerDashboard_CuentaAlertasDeRendimientoDeLosTresTiposDeActivo() {
+        when(fuelPurchaseRepository.sumTotalCalculadoBetween(any(Timestamp.class), any(Timestamp.class))).thenReturn(BigDecimal.ZERO);
+        when(fuelPurchaseRepository.sumDescuentoBetween(any(Timestamp.class), any(Timestamp.class))).thenReturn(BigDecimal.ZERO);
+        when(refuelingRecordsRepository.sumTotalCalculadoBombaBetween(any(Timestamp.class), any(Timestamp.class))).thenReturn(BigDecimal.ZERO);
+        when(refuelingRecordsRepository.sumDescuentoBombaBetween(any(Timestamp.class), any(Timestamp.class))).thenReturn(BigDecimal.ZERO);
+        when(fuelMonthlyDiscountRepository.sumMontoSolapado(any(LocalDate.class), any(LocalDate.class))).thenReturn(BigDecimal.ZERO);
+        when(refuelingRecordsRepository.sumCantidadPorTipoBetween(any(Timestamp.class), any(Timestamp.class))).thenReturn(List.of());
+        when(fuelPurchaseRepository.sumTotalCalculadoPorTipoBetween(any(Timestamp.class), any(Timestamp.class))).thenReturn(List.of());
+        when(refuelingRecordsRepository.sumTotalCalculadoBombaPorTipoBetween(any(Timestamp.class), any(Timestamp.class))).thenReturn(List.of());
+        when(refuelingRecordsRepository.sumCantidadBombaPorTipoBetween(any(Timestamp.class), any(Timestamp.class))).thenReturn(List.of());
+        when(fuelPurchaseRepository.sumCantidadBetween(any(Timestamp.class), any(Timestamp.class))).thenReturn(BigDecimal.ZERO);
+        when(fuelPurchaseRepository.countByDiscrepanciaValorTrueAndFechaCompraBetween(any(Timestamp.class), any(Timestamp.class))).thenReturn(0L);
+        when(refuelingRecordsRepository.countByDiscrepanciaValorTrueAndFechaRegistroBetween(any(Timestamp.class), any(Timestamp.class))).thenReturn(0L);
+
+        // 2 alertas en MAQUINARIA (una fila sin alerta no debe contar), 1 en VEHICULO, 0 en MOTOCICLETA.
+        when(getFuelPerformanceUseCase.obtenerRendimiento(eq("MAQUINARIA"), any(), any()))
+                .thenReturn(List.of(filaRendimiento(true), filaRendimiento(true), filaRendimiento(false)));
+        when(getFuelPerformanceUseCase.obtenerRendimiento(eq("VEHICULO"), any(), any()))
+                .thenReturn(List.of(filaRendimiento(true)));
+        when(getFuelPerformanceUseCase.obtenerRendimiento(eq("MOTOCICLETA"), any(), any()))
+                .thenReturn(List.of());
+
+        FuelDashboardResponse response = fuelDashboardService.obtenerDashboard(
+                LocalDate.of(2026, 7, 1), LocalDate.of(2026, 7, 31));
+
+        assertEquals(3L, response.alertasRendimiento());
+    }
+
+    private FuelPerformanceResponse filaRendimiento(boolean alerta) {
+        return new FuelPerformanceResponse(1L, 1, null, 1L, LocalDateTime.now(),
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ONE,
+                BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, alerta, false, "Activo", false);
     }
 
     @Test

@@ -1,9 +1,12 @@
 package com.app.usochicamochabackend.fuel.web;
 
 import com.app.usochicamochabackend.fuel.application.dto.FuelPerformanceResponse;
+import com.app.usochicamochabackend.fuel.application.port.ExportFuelPerformanceHistoryUseCase;
 import com.app.usochicamochabackend.fuel.application.port.GetFuelPerformanceUseCase;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,6 +23,7 @@ import java.util.List;
 public class FuelPerformanceController {
 
     private final GetFuelPerformanceUseCase getFuelPerformanceUseCase;
+    private final ExportFuelPerformanceHistoryUseCase exportFuelPerformanceHistoryUseCase;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('SUPERVISOR_OPERATIVO', 'ADMIN')")
@@ -28,5 +32,20 @@ public class FuelPerformanceController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaInicio,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin) {
         return ResponseEntity.ok(getFuelPerformanceUseCase.obtenerRendimiento(tipo, fechaInicio, fechaFin));
+    }
+
+    // Historial completo de UN activo, todo agrupado en un .xlsx con una hoja por mes
+    // (ver FuelPerformanceHistoryExcelExportService) — botón "Exportar Excel" de la
+    // pantalla de detalle de Rendimiento.
+    @GetMapping("/export")
+    @PreAuthorize("hasAnyRole('SUPERVISOR_OPERATIVO', 'ADMIN')")
+    public ResponseEntity<byte[]> exportarHistorial(
+            @RequestParam String tipo,
+            @RequestParam Long activoId) {
+        byte[] excelData = exportFuelPerformanceHistoryUseCase.exportarHistorialActivo(tipo, activoId);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        headers.setContentDispositionFormData("attachment", "rendimiento_historial.xlsx");
+        return ResponseEntity.ok().headers(headers).body(excelData);
     }
 }
