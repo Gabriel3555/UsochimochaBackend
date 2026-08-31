@@ -68,6 +68,13 @@ public class RefuelingReportService implements GetRefuelingReportUseCase {
         return tanqueos.stream().map(this::mapToResponse).toList();
     }
 
+    @Override
+    public RefuelingRecordResponse obtenerPorId(Long id) {
+        RefuelingRecordsEntity tanqueo = refuelingRecordsRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Tanqueo no encontrado."));
+        return mapToResponse(tanqueo);
+    }
+
     private RefuelingRecordResponse mapToResponse(RefuelingRecordsEntity t) {
         BigDecimal capacidadConfiguradaGal = assetFuelCapacityService.capacidadConfigurada(t.getVehicleId(), t.getMachineId());
         String assetName = resolverNombreActivo(t.getVehicleId(), t.getMachineId());

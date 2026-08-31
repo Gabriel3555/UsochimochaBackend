@@ -10,6 +10,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -33,6 +34,14 @@ public class RefuelingReportController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaInicio,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin) {
         return ResponseEntity.ok(getRefuelingReportUseCase.obtenerReporte(tipo, area, fechaInicio, fechaFin));
+    }
+
+    // Un solo tanqueo (por id) con el mismo enriquecimiento del reporte — evita traer
+    // todo el reporte del tipo solo para abrir el modal de editar un registro puntual.
+    @GetMapping("/{id}")
+    @PreAuthorize("hasAnyRole('SUPERVISOR_OPERATIVO', 'ADMIN')")
+    public ResponseEntity<RefuelingRecordResponse> reportePorId(@PathVariable Long id) {
+        return ResponseEntity.ok(getRefuelingReportUseCase.obtenerPorId(id));
     }
 
     @GetMapping("/export")
