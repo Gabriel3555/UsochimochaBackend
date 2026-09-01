@@ -44,4 +44,7 @@ public class VehicleOilChangeEntity {
 
     @Column(name = "air_filter_changed")
     private Boolean airFilterChanged;
+
+    @Builder.Default
+    private Boolean status = true;
 }

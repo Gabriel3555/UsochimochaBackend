@@ -384,6 +384,13 @@ public class MotoService implements MotoCRUDUseCase {
         }
         vehicleRepository.save(entity);
 
+        var authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.getPrincipal() instanceof UserPrincipal userPrincipal) {
+            saveActionUseCase.save("La motocicleta " + entity.getPlaca() + " ha sido editada por " + userPrincipal.username());
+        } else {
+            saveActionUseCase.save("La motocicleta " + entity.getPlaca() + " ha sido editada");
+        }
+
         // Recalcular alertas de inmediato: el kilometraje pudo haber cambiado al editar.
         preventiveAlertCalculationService.calculateAndEmitAlerts();
 

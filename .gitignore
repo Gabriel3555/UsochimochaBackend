@@ -50,3 +50,8 @@ backend.log
 ### Artifacts que no deben subirse al repo ###
 /*.jar
 *.log
+
+.claude/**
+
+/docs
+/graphify-out/**

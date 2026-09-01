@@ -123,6 +123,7 @@ public class MachineService implements FindMachineByIdUseCase, FindAllMachinesUs
                 .factoryEfficiencyUnit(req.factoryEfficiencyUnit() != null
                         ? req.factoryEfficiencyUnit()
                         : currentMachine.getFactoryEfficiencyUnit())
+                .horometroActual(currentMachine.getHorometroActual())
                 .build());
 
         List<String> cambios = new ArrayList<>();

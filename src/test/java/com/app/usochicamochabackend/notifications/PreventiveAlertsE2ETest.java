@@ -333,8 +333,8 @@ class PreventiveAlertsE2ETest {
                     .username("e2e.oil.machine").fullName("E2E").status(true)
                     .email("e2e.oil.machine@example.com").role("ADMIN").password("x").build());
 
-            // Primera inspección a horómetro bajo (100h) — necesaria para poder registrar el
-            // primer cambio de aceite (performMotorOilChange exige currentHourMeter >= última inspección).
+            // Primera inspección a horómetro bajo (100h), usada como línea base para las alertas
+            // preventivas de este test (performMotorOilChange ya no exige currentHourMeter >= última inspección).
             inspectionRepository.save(InspectionEntity.builder()
                     .UUID(java.util.UUID.randomUUID().toString())
                     .dateStamp(java.time.LocalDateTime.now().minusDays(30))

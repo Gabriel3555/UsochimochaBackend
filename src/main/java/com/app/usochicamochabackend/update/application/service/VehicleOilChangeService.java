@@ -1,6 +1,7 @@
 package com.app.usochicamochabackend.update.application.service;
 
 import com.app.usochicamochabackend.common.text.InputTextNormalizer;
+import com.app.usochicamochabackend.exception.ResourceNotFoundException;
 import com.app.usochicamochabackend.notifications.application.PreventiveAlertCalculationService;
 import com.app.usochicamochabackend.update.application.dto.VehicleOilChangeHistoryDTO;
 import com.app.usochicamochabackend.update.application.dto.VehicleOilChangeRequest;
@@ -127,15 +128,76 @@ public class VehicleOilChangeService {
         }
 
         return history.stream()
-                .map(e -> new VehicleOilChangeHistoryDTO(
-                        e.getId(),
-                        e.getDateStamp(),
-                        e.getBrand() != null ? e.getBrand().getName() : null,
-                        e.getQuantity(),
-                        e.getKmAtChange(),
-                        e.getIntervalKm(),
-                        e.getAirFilterChanged()
-                ))
+                .map(this::toHistoryDTO)
                 .toList();
+    }
+
+    private VehicleOilChangeHistoryDTO toHistoryDTO(VehicleOilChangeEntity e) {
+        return new VehicleOilChangeHistoryDTO(
+                e.getId(),
+                e.getDateStamp(),
+                e.getOilType() != null ? e.getOilType().name() : null,
+                e.getBrand() != null ? e.getBrand().getId() : null,
+                e.getBrand() != null ? e.getBrand().getName() : null,
+                e.getQuantity(),
+                e.getKmAtChange(),
+                e.getIntervalKm(),
+                e.getAirFilterChanged()
+        );
+    }
+
+    /**
+     * Corrige un cambio de aceite ya registrado ("en caso de error") — mismo
+     * patrón que RefuelingRecordService.actualizar(): busca por id+status activo,
+     * actualiza los campos, y vuelve a aplicar el mismo efecto colateral que
+     * registerChange() (km forward-only + recálculo de alertas), porque editar el
+     * km de este registro puede requerir corregir kilometrajeActual también.
+     */
+    @Transactional
+    public void actualizar(Long id, VehicleOilChangeRequest request) {
+        validationService.validateOilChangeRequest(request);
+
+        VehicleOilChangeEntity entity = vehicleOilChangeRepository.findByIdAndStatus(id, true)
+                .orElseThrow(() -> new ResourceNotFoundException("Cambio de aceite no encontrado con id " + id));
+
+        BrandEntity brand = null;
+        if (request.brandId() != null) {
+            brand = brandRepository.findById(request.brandId())
+                    .orElseThrow(() -> new BrandNotFoundException(request.brandId()));
+        }
+
+        entity.setDateStamp(request.dateStamp() != null ? request.dateStamp() : entity.getDateStamp());
+        entity.setOilType(OilType.fromString(request.oilType()));
+        entity.setBrand(brand);
+        entity.setQuantity(request.quantity());
+        entity.setKmAtChange(request.kmAtChange());
+        entity.setIntervalKm(request.intervalKm());
+        entity.setAirFilterChanged(request.airFilterChanged());
+        vehicleOilChangeRepository.save(entity);
+
+        VehicleEntity vehicle = entity.getVehicle();
+        Integer currentKm = vehicle.getKilometrajeActual() != null ? vehicle.getKilometrajeActual() : 0;
+        if (request.kmAtChange() != null && request.kmAtChange() > currentKm) {
+            vehicle.setKilometrajeActual(request.kmAtChange());
+            vehicleRepository.save(vehicle);
+        }
+
+        preventiveAlertCalculationService.calculateAndEmitAlerts();
+        logger.info("Cambio de aceite id={} actualizado", id);
+    }
+
+    /**
+     * Soft-delete ("en caso de error") — no revierte kilometrajeActual aunque este
+     * registro haya sido el que lo fijó: mismo criterio aceptado ya en
+     * RefuelingRecordService.eliminar() para combustibles (limitación conocida).
+     */
+    @Transactional
+    public void eliminar(Long id) {
+        VehicleOilChangeEntity entity = vehicleOilChangeRepository.findByIdAndStatus(id, true)
+                .orElseThrow(() -> new ResourceNotFoundException("Cambio de aceite no encontrado con id " + id));
+        entity.setStatus(false);
+        vehicleOilChangeRepository.save(entity);
+        preventiveAlertCalculationService.calculateAndEmitAlerts();
+        logger.info("Cambio de aceite id={} eliminado (soft-delete)", id);
     }
 }

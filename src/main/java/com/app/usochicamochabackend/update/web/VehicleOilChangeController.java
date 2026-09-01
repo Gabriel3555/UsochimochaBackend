@@ -7,9 +7,12 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -44,5 +47,23 @@ public class VehicleOilChangeController {
                     description = "Devuelve todos los registros de cambio de aceite para un vehículo ordenados por fecha DESC.")
     public ResponseEntity<List<VehicleOilChangeHistoryDTO>> getHistory(@PathVariable String placa) {
         return ResponseEntity.ok(vehicleOilChangeService.getHistoryByPlaca(placa));
+    }
+
+    @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(
+                    summary = "Corregir un cambio de aceite ya registrado",
+                    description = "Actualiza cualquier registro del historial (no solo el más reciente), en caso de error de captura.")
+    public ResponseEntity<Void> actualizar(@PathVariable Long id, @RequestBody VehicleOilChangeRequest request) {
+        vehicleOilChangeService.actualizar(id, request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Eliminar un cambio de aceite (soft-delete)")
+    public ResponseEntity<Void> eliminar(@PathVariable Long id) {
+        vehicleOilChangeService.eliminar(id);
+        return ResponseEntity.noContent().build();
     }
 }

@@ -1,0 +1,433 @@
+package com.app.usochicamochabackend.fuel.application.service;
+
+import com.app.usochicamochabackend.actions.application.port.SaveActionUseCase;
+import com.app.usochicamochabackend.fuel.application.dto.RefuelingRecordRequest;
+import com.app.usochicamochabackend.fuel.application.dto.RefuelingRecordResponse;
+import com.app.usochicamochabackend.fuel.infrastructure.entity.RefuelingRecordsEntity;
+import com.app.usochicamochabackend.fuel.infrastructure.repository.FuelReintegrationsRepository;
+import com.app.usochicamochabackend.fuel.infrastructure.repository.RefuelingRecordsRepository;
+import com.app.usochicamochabackend.machine.infrastructure.entity.MachineEntity;
+import com.app.usochicamochabackend.machine.infrastructure.repository.MachineRepository;
+import com.app.usochicamochabackend.vehicle.infrastructure.entity.VehicleEntity;
+import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleRepository;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.math.BigDecimal;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class RefuelingRecordServiceTest {
+
+    @Mock
+    private RefuelingRecordsRepository refuelingRecordsRepository;
+
+    @Mock
+    private FuelDocumentStorageService fuelDocumentStorageService;
+
+    @Mock
+    private SaveActionUseCase saveActionUseCase;
+
+    @Mock
+    private VehicleRepository vehicleRepository;
+
+    @Mock
+    private MachineRepository machineRepository;
+
+    @Mock
+    private AssetFuelCapacityService assetFuelCapacityService;
+
+    @Mock
+    private FuelPriceAnomalyService fuelPriceAnomalyService;
+
+    @Mock
+    private FuelFullConsistencyService fuelFullConsistencyService;
+
+    @Mock
+    private FuelReintegrationsRepository fuelReintegrationsRepository;
+
+    private RefuelingRecordService refuelingRecordService;
+
+    private final MultipartFile factura = new MockMultipartFile("factura", "f.pdf", "application/pdf", new byte[]{1, 2, 3});
+
+    @BeforeEach
+    void setUp() {
+        refuelingRecordService = new RefuelingRecordService(
+                refuelingRecordsRepository, fuelDocumentStorageService, saveActionUseCase,
+                vehicleRepository, machineRepository, assetFuelCapacityService, fuelPriceAnomalyService,
+                fuelFullConsistencyService, fuelReintegrationsRepository);
+        ReflectionTestUtils.setField(refuelingRecordService, "tolerancia", new BigDecimal("0.01"));
+    }
+
+    private void stubSaveAsignandoId() {
+        when(refuelingRecordsRepository.save(any())).thenAnswer(invocation -> {
+            RefuelingRecordsEntity entity = invocation.getArgument(0);
+            if (entity.getId() == null) {
+                entity.setId(1L);
+            }
+            return entity;
+        });
+    }
+
+    @Test
+    void tanqueoAlmacen_PersisteSinValidarInventario() {
+        // Decisión de alcance (28/07/2026): el módulo no lleva control de inventario
+        // de almacén — un tanqueo ALMACEN se persiste directo, sin tocar fuel_inventory.
+        stubSaveAsignandoId();
+        RefuelingRecordRequest request = new RefuelingRecordRequest(
+                null, 10L, "ALMACEN", "DISTRITO", 1L, new BigDecimal("30"), new BigDecimal("500"),
+                false, null, null, null, "Bodega central");
+
+        RefuelingRecordResponse response = refuelingRecordService.registrar(request, null, 7L);
+
+        verify(refuelingRecordsRepository).save(any());
+        assertNull(response.totalCalculado());
+        verify(saveActionUseCase).save(anyString());
+    }
+
+    @Test
+    void vehicleIdYMachineIdAmbosPresentes_Lanza400AntesDeTocarBD() {
+        RefuelingRecordRequest request = new RefuelingRecordRequest(
+                3, 10L, "ALMACEN", "DISTRITO", 1L, new BigDecimal("30"), new BigDecimal("500"),
+                false, null, null, null, null);
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> refuelingRecordService.registrar(request, null, 7L));
+
+        assertEquals(400, ex.getStatusCode().value());
+        verifyNoInteractions(refuelingRecordsRepository);
+    }
+
+    @Test
+    void vehicleIdYMachineIdAmbosAusentes_Lanza400AntesDeTocarBD() {
+        RefuelingRecordRequest request = new RefuelingRecordRequest(
+                null, null, "ALMACEN", "DISTRITO", 1L, new BigDecimal("30"), new BigDecimal("500"),
+                false, null, null, null, null);
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> refuelingRecordService.registrar(request, null, 7L));
+
+        assertEquals(400, ex.getStatusCode().value());
+        verifyNoInteractions(refuelingRecordsRepository);
+    }
+
+    @Test
+    void tanqueoVehiculoConKmMayorAlActual_ActualizaKilometrajeDelVehiculo() {
+        // Mismo patrón que VehicleOilChangeService: el km del tanqueo pasa a ser el
+        // "kilometraje actual" del vehículo (Inventario, alertas, etc.) solo si es
+        // mayor al que ya tenía — para que quede consistente en todo el sistema.
+        stubSaveAsignandoId();
+        VehicleEntity vehicle = VehicleEntity.builder().idVehiculo(3).kilometrajeActual(400).build();
+        when(vehicleRepository.findById(3)).thenReturn(java.util.Optional.of(vehicle));
+        RefuelingRecordRequest request = new RefuelingRecordRequest(
+                3, null, "ALMACEN", "DISTRITO", 1L, new BigDecimal("30"), new BigDecimal("500"),
+                false, null, null, null, null);
+
+        refuelingRecordService.registrar(request, null, 7L);
+
+        verify(vehicleRepository).save(argThat(v -> v.getKilometrajeActual() == 500));
+    }
+
+    @Test
+    void tanqueoVehiculoConKmMenorOIgualAlActual_NoActualizaKilometraje() {
+        stubSaveAsignandoId();
+        VehicleEntity vehicle = VehicleEntity.builder().idVehiculo(3).kilometrajeActual(600).build();
+        when(vehicleRepository.findById(3)).thenReturn(java.util.Optional.of(vehicle));
+        RefuelingRecordRequest request = new RefuelingRecordRequest(
+                3, null, "ALMACEN", "DISTRITO", 1L, new BigDecimal("30"), new BigDecimal("500"),
+                false, null, null, null, null);
+
+        refuelingRecordService.registrar(request, null, 7L);
+
+        verify(vehicleRepository, never()).save(any());
+    }
+
+    @Test
+    void tanqueoMaquinaConHorometroMayorAlActual_ActualizaHorometroDeLaMaquina() {
+        stubSaveAsignandoId();
+        MachineEntity machine = MachineEntity.builder().id(10L).horometroActual(100).build();
+        when(machineRepository.findById(10L)).thenReturn(java.util.Optional.of(machine));
+        RefuelingRecordRequest request = new RefuelingRecordRequest(
+                null, 10L, "ALMACEN", "DISTRITO", 1L, new BigDecimal("30"), new BigDecimal("150"),
+                false, null, null, null, null);
+
+        refuelingRecordService.registrar(request, null, 7L);
+
+        verify(machineRepository).save(argThat(m -> m.getHorometroActual() == 150));
+    }
+
+    @Test
+    void tanqueoMaquinaConHorometroMenorOIgualAlActual_NoActualiza() {
+        stubSaveAsignandoId();
+        MachineEntity machine = MachineEntity.builder().id(10L).horometroActual(200).build();
+        when(machineRepository.findById(10L)).thenReturn(java.util.Optional.of(machine));
+        RefuelingRecordRequest request = new RefuelingRecordRequest(
+                null, 10L, "ALMACEN", "DISTRITO", 1L, new BigDecimal("30"), new BigDecimal("150"),
+                false, null, null, null, null);
+
+        refuelingRecordService.registrar(request, null, 7L);
+
+        verify(machineRepository, never()).save(any());
+    }
+
+    @Test
+    void tanqueoBombaSinPrecioUnitario_SeRegistraSinTotalCalculadoNiDiscrepancia() {
+        // Precio unitario y total pagado son opcionales (a los operarios no les interesa
+        // tanto el costo por tanqueo individual — llega un informe mensual aparte). Un
+        // tanqueo BOMBA sin esos datos se registra igual, solo sin poder valorizarlo.
+        stubSaveAsignandoId();
+        RefuelingRecordRequest request = new RefuelingRecordRequest(
+                3, null, "BOMBA", "DISTRITO", 1L, new BigDecimal("30"), new BigDecimal("500"),
+                false, null, null, null, null);
+
+        RefuelingRecordResponse response = refuelingRecordService.registrar(request, null, 7L);
+
+        assertNull(response.totalCalculado());
+        assertFalse(response.discrepanciaValor());
+        verify(refuelingRecordsRepository).save(any());
+    }
+
+    @Test
+    void tanqueoBombaSinFactura_NoLanzaYQuedaUrlFacturaNula() {
+        // Factura opcional (V23): con precioUnitario presente, un tanqueo BOMBA sin
+        // factura se registra igual, sin intentar subir ningún archivo.
+        stubSaveAsignandoId();
+
+        RefuelingRecordRequest request = new RefuelingRecordRequest(
+                3, null, "BOMBA", "DISTRITO", 1L, new BigDecimal("30"), new BigDecimal("500"),
+                false, new BigDecimal("10000"), null, new BigDecimal("300000"), null);
+
+        RefuelingRecordResponse response = refuelingRecordService.registrar(request, null, 7L);
+
+        assertNull(response.urlFactura());
+        verifyNoInteractions(fuelDocumentStorageService);
+    }
+
+    @Test
+    void tanqueoBombaConDiscrepancia_MarcaDiscrepanciaTrueYGuardaFactura() throws Exception {
+        stubSaveAsignandoId();
+        when(fuelDocumentStorageService.store(any(), anyString(), anyLong()))
+                .thenReturn("/uploads/documents/fuel/refueling/1/current.pdf");
+
+        // totalCalculado = 30 * 10000 = 300000; totalIngresado con 10% de diferencia
+        RefuelingRecordRequest request = new RefuelingRecordRequest(
+                3, null, "BOMBA", "DISTRITO", 1L, new BigDecimal("30"), new BigDecimal("500"),
+                false, new BigDecimal("10000"), null, new BigDecimal("270000"), null);
+
+        RefuelingRecordResponse response = refuelingRecordService.registrar(request, factura, 7L);
+
+        assertTrue(response.discrepanciaValor());
+        assertEquals("/uploads/documents/fuel/refueling/1/current.pdf", response.urlFactura());
+    }
+
+    @Test
+    void tanqueoBombaConFactura_PrimerGuardadoSinUrlYSegundoConLaRealTrasSubir() throws Exception {
+        // El id del registro no existe hasta el primer save() — subir el archivo real
+        // (que necesita ese id para el path de storage) solo puede pasar en un segundo
+        // save(). Desde V23 el primer guardado ya no necesita ningún placeholder (antes
+        // "pendiente", por el CHECK viejo que exigía url_factura NOT NULL en BOMBA):
+        // null es válido incluso en BOMBA, la factura es opcional.
+        // OJO: no usar ArgumentCaptor aquí — reutiliza la MISMA referencia mutable entre
+        // ambos save(), así que capturar el objeto y leerlo después siempre ve el valor
+        // final (falso negativo). Hay que tomar el snapshot del valor en el momento exacto
+        // de cada llamada, dentro del propio stub.
+        java.util.List<String> urlFacturaEnCadaGuardado = new java.util.ArrayList<>();
+        when(refuelingRecordsRepository.save(any())).thenAnswer(invocation -> {
+            RefuelingRecordsEntity entity = invocation.getArgument(0);
+            urlFacturaEnCadaGuardado.add(entity.getUrlFactura());
+            if (entity.getId() == null) {
+                entity.setId(1L);
+            }
+            return entity;
+        });
+        when(fuelDocumentStorageService.store(any(), anyString(), anyLong()))
+                .thenReturn("/uploads/documents/fuel/refueling/1/current.pdf");
+
+        RefuelingRecordRequest request = new RefuelingRecordRequest(
+                3, null, "BOMBA", "DISTRITO", 1L, new BigDecimal("30"), new BigDecimal("500"),
+                false, new BigDecimal("10000"), null, new BigDecimal("300000"), null);
+
+        refuelingRecordService.registrar(request, factura, 7L);
+
+        assertEquals(2, urlFacturaEnCadaGuardado.size());
+        assertNull(urlFacturaEnCadaGuardado.get(0));
+        assertEquals("/uploads/documents/fuel/refueling/1/current.pdf", urlFacturaEnCadaGuardado.get(1));
+    }
+
+    // ---- actualizar() ----
+
+    @Test
+    void actualizarTanqueoBomba_RecalculaTotalYDiscrepancia() {
+        RefuelingRecordsEntity existente = RefuelingRecordsEntity.builder()
+                .id(1L).vehicleId(3).lugar("BOMBA").areaCosto("DISTRITO").fuelTypeId(1L)
+                .cantidadGalones(new BigDecimal("30")).horometroKm(new BigDecimal("500"))
+                .precioUnitario(new BigDecimal("9000")).totalIngresado(new BigDecimal("270000"))
+                .totalCalculado(new BigDecimal("270000")).discrepanciaValor(false)
+                .urlFactura("/uploads/documents/fuel/refueling/1/old.pdf").status(true)
+                .build();
+        when(refuelingRecordsRepository.findByIdAndStatus(1L, true)).thenReturn(Optional.of(existente));
+        stubSaveAsignandoId();
+
+        // totalCalculado = 30 * 10000 = 300000; totalIngresado 270000 -> discrepancia
+        RefuelingRecordRequest request = new RefuelingRecordRequest(
+                3, null, "BOMBA", "DISTRITO", 1L, new BigDecimal("30"), new BigDecimal("500"),
+                false, new BigDecimal("10000"), null, new BigDecimal("270000"), null);
+
+        RefuelingRecordResponse response = refuelingRecordService.actualizar(1L, request, null);
+
+        assertEquals(0, new BigDecimal("300000").compareTo(response.totalCalculado()));
+        assertTrue(response.discrepanciaValor());
+        verify(saveActionUseCase).save(anyString());
+    }
+
+    @Test
+    void actualizarTanqueoDeAlmacenABomba_SinFacturaNoLanzaYQuedaUrlFacturaNula() {
+        // Factura opcional (V23): pasar un tanqueo de ALMACEN a BOMBA sin adjuntar
+        // factura ya no exige nada más que precioUnitario/totalIngresado.
+        RefuelingRecordsEntity existente = RefuelingRecordsEntity.builder()
+                .id(3L).vehicleId(3).lugar("ALMACEN").areaCosto("DISTRITO").fuelTypeId(1L)
+                .cantidadGalones(new BigDecimal("30")).horometroKm(new BigDecimal("500"))
+                .urlFactura(null).status(true)
+                .build();
+        when(refuelingRecordsRepository.findByIdAndStatus(3L, true)).thenReturn(Optional.of(existente));
+        stubSaveAsignandoId();
+
+        RefuelingRecordRequest request = new RefuelingRecordRequest(
+                3, null, "BOMBA", "DISTRITO", 1L, new BigDecimal("30"), new BigDecimal("500"),
+                false, new BigDecimal("10000"), null, new BigDecimal("300000"), null);
+
+        RefuelingRecordResponse response = refuelingRecordService.actualizar(3L, request, null);
+
+        assertNull(response.urlFactura());
+        verifyNoInteractions(fuelDocumentStorageService);
+    }
+
+    @Test
+    void actualizarTanqueoDeAlmacenABomba_ConFacturaNueva_GuardaUrlFactura() throws Exception {
+        RefuelingRecordsEntity existente = RefuelingRecordsEntity.builder()
+                .id(3L).vehicleId(3).lugar("ALMACEN").areaCosto("DISTRITO").fuelTypeId(1L)
+                .cantidadGalones(new BigDecimal("30")).horometroKm(new BigDecimal("500"))
+                .urlFactura(null).status(true)
+                .build();
+        when(refuelingRecordsRepository.findByIdAndStatus(3L, true)).thenReturn(Optional.of(existente));
+        stubSaveAsignandoId();
+        when(fuelDocumentStorageService.store(any(), anyString(), anyLong()))
+                .thenReturn("/uploads/documents/fuel/refueling/3/current.pdf");
+
+        RefuelingRecordRequest request = new RefuelingRecordRequest(
+                3, null, "BOMBA", "DISTRITO", 1L, new BigDecimal("30"), new BigDecimal("500"),
+                false, new BigDecimal("10000"), null, new BigDecimal("300000"), null);
+
+        RefuelingRecordResponse response = refuelingRecordService.actualizar(3L, request, factura);
+
+        assertEquals("/uploads/documents/fuel/refueling/3/current.pdf", response.urlFactura());
+    }
+
+    @Test
+    void actualizarTanqueoYaBombaSinFacturaNueva_MantieneLaFacturaExistente() {
+        RefuelingRecordsEntity existente = RefuelingRecordsEntity.builder()
+                .id(4L).vehicleId(3).lugar("BOMBA").areaCosto("DISTRITO").fuelTypeId(1L)
+                .cantidadGalones(new BigDecimal("30")).horometroKm(new BigDecimal("500"))
+                .precioUnitario(new BigDecimal("9000")).totalIngresado(new BigDecimal("270000"))
+                .urlFactura("/uploads/documents/fuel/refueling/4/existing.pdf").status(true)
+                .build();
+        when(refuelingRecordsRepository.findByIdAndStatus(4L, true)).thenReturn(Optional.of(existente));
+        stubSaveAsignandoId();
+
+        RefuelingRecordRequest request = new RefuelingRecordRequest(
+                3, null, "BOMBA", "DISTRITO", 1L, new BigDecimal("30"), new BigDecimal("500"),
+                false, new BigDecimal("9000"), null, new BigDecimal("270000"), null);
+
+        RefuelingRecordResponse response = refuelingRecordService.actualizar(4L, request, null);
+
+        assertEquals("/uploads/documents/fuel/refueling/4/existing.pdf", response.urlFactura());
+        verifyNoInteractions(fuelDocumentStorageService);
+    }
+
+    @Test
+    void actualizarTanqueoInexistenteOInactivo_Lanza404() {
+        when(refuelingRecordsRepository.findByIdAndStatus(99L, true)).thenReturn(Optional.empty());
+
+        RefuelingRecordRequest request = new RefuelingRecordRequest(
+                3, null, "BOMBA", "DISTRITO", 1L, new BigDecimal("30"), new BigDecimal("500"),
+                false, new BigDecimal("9000"), null, new BigDecimal("270000"), null);
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> refuelingRecordService.actualizar(99L, request, null));
+
+        assertEquals(404, ex.getStatusCode().value());
+    }
+
+    @Test
+    void actualizarTanqueoConHorometroMayor_SincronizaLecturaDelActivo() {
+        RefuelingRecordsEntity existente = RefuelingRecordsEntity.builder()
+                .id(5L).vehicleId(3).lugar("ALMACEN").areaCosto("DISTRITO").fuelTypeId(1L)
+                .cantidadGalones(new BigDecimal("30")).horometroKm(new BigDecimal("500")).status(true)
+                .build();
+        when(refuelingRecordsRepository.findByIdAndStatus(5L, true)).thenReturn(Optional.of(existente));
+        stubSaveAsignandoId();
+        VehicleEntity vehicle = VehicleEntity.builder().idVehiculo(3).kilometrajeActual(500).build();
+        when(vehicleRepository.findById(3)).thenReturn(Optional.of(vehicle));
+
+        RefuelingRecordRequest request = new RefuelingRecordRequest(
+                3, null, "ALMACEN", "DISTRITO", 1L, new BigDecimal("30"), new BigDecimal("650"),
+                false, null, null, null, null);
+
+        refuelingRecordService.actualizar(5L, request, null);
+
+        verify(vehicleRepository).save(argThat(v -> v.getKilometrajeActual() == 650));
+    }
+
+    // ---- eliminar() ----
+
+    @Test
+    void eliminarTanqueo_SoloMarcaInactivo() {
+        RefuelingRecordsEntity existente = RefuelingRecordsEntity.builder()
+                .id(6L).vehicleId(3).lugar("BOMBA").areaCosto("DISTRITO").fuelTypeId(1L)
+                .cantidadGalones(new BigDecimal("30")).status(true)
+                .build();
+        when(refuelingRecordsRepository.findByIdAndStatus(6L, true)).thenReturn(Optional.of(existente));
+
+        refuelingRecordService.eliminar(6L);
+
+        verify(refuelingRecordsRepository).save(argThat(e -> Boolean.FALSE.equals(e.getStatus())));
+        verify(saveActionUseCase).save(anyString());
+    }
+
+    @Test
+    void eliminarTanqueoInexistenteOYaInactivo_Lanza404() {
+        when(refuelingRecordsRepository.findByIdAndStatus(99L, true)).thenReturn(Optional.empty());
+
+        ResponseStatusException ex = assertThrows(ResponseStatusException.class,
+                () -> refuelingRecordService.eliminar(99L));
+
+        assertEquals(404, ex.getStatusCode().value());
+        verify(refuelingRecordsRepository, never()).save(any());
+    }
+
+    @Test
+    void registrarConCantidadQueExcedeLaCapacidadDelTanque_MarcaCapacidadExcedidaEnLaRespuesta() {
+        stubSaveAsignandoId();
+        when(assetFuelCapacityService.excedeCapacidad(3, null, new BigDecimal("30"))).thenReturn(true);
+        RefuelingRecordRequest request = new RefuelingRecordRequest(
+                3, null, "ALMACEN", "DISTRITO", 1L, new BigDecimal("30"), new BigDecimal("500"),
+                false, null, null, null, null);
+
+        RefuelingRecordResponse response = refuelingRecordService.registrar(request, null, 7L);
+
+        assertTrue(response.capacidadExcedida());
+    }
+}
