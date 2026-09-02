@@ -207,9 +207,6 @@ class VehicleServiceSoftDeleteTest {
             100,
             "DISTRICT",
             null,
-            null,
-            null,
-            null,
             null
         );
 
@@ -233,9 +230,6 @@ class VehicleServiceSoftDeleteTest {
             1,
             100,
             "DISTRICT",
-            null,
-            null,
-            null,
             null,
             null
         );
@@ -293,9 +287,6 @@ class VehicleServiceSoftDeleteTest {
             1,
             100,
             "DISTRICT",
-            null,
-            null,
-            null,
             null,
             null
         );
