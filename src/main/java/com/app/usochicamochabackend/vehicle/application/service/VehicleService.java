@@ -84,9 +84,6 @@ public class VehicleService implements VehicleUseCase {
                 .belongsTo(req.belongsTo())
                 .ubicacionBase(ubi)
                 .activo(true)
-                .fuelTankCapacityGallons(req.fuelTankCapacityGallons())
-                .factoryEfficiencyKmPerGallon(req.factoryEfficiencyKmPerGallon())
-                .factoryEfficiencyUnit(req.factoryEfficiencyUnit())
                 .build();
 
         vehicleRepository.save(entity);
@@ -125,15 +122,6 @@ public class VehicleService implements VehicleUseCase {
                 ? ubicacionRepository.getReferenceById(req.idUbicacionBase())
                 : null);
         entity.setActivo(req.activo() != null ? req.activo() : entity.getActivo());
-        if (req.fuelTankCapacityGallons() != null) {
-            entity.setFuelTankCapacityGallons(req.fuelTankCapacityGallons());
-        }
-        if (req.factoryEfficiencyKmPerGallon() != null) {
-            entity.setFactoryEfficiencyKmPerGallon(req.factoryEfficiencyKmPerGallon());
-        }
-        if (req.factoryEfficiencyUnit() != null) {
-            entity.setFactoryEfficiencyUnit(req.factoryEfficiencyUnit());
-        }
 
         vehicleRepository.save(entity);
 

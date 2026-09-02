@@ -74,9 +74,6 @@ class MotoServiceSoftDeleteTest {
             100,
             "DISTRICT",
             null,
-            null,
-            null,
-            null,
             null
         );
 
@@ -104,9 +101,6 @@ class MotoServiceSoftDeleteTest {
             tipoMoto.getId(),
             100,
             "DISTRICT",
-            null,
-            null,
-            null,
             null,
             null
         );
@@ -172,9 +166,6 @@ class MotoServiceSoftDeleteTest {
             tipoMoto.getId(),
             100,
             "DISTRICT",
-            null,
-            null,
-            null,
             null,
             null
         );

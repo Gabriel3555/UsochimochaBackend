@@ -148,7 +148,7 @@ class MotoServiceTest {
         when(tipoVehiculoRepository.findByNombreTipoIgnoreCase(anyString())).thenReturn(Optional.of(tipoMoto));
         when(vehicleRepository.save(any())).thenReturn(mockVehiculo);
 
-        VehicleRequest request = new VehicleRequest("MOTO123", 1, 2, 1500, "Distrito", null, true, null, null, null);
+        VehicleRequest request = new VehicleRequest("MOTO123", 1, 2, 1500, "Distrito", null, true);
 
         motoService.updateMoto(1, request);
 
