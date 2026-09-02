@@ -118,7 +118,7 @@ public class MotoMonitoringService implements MotoMonitoringUseCase {
     }
 
     private MotoMonitoringDTO.OilStatus getOilStatus(VehicleEntity moto) {
-        var lastChange = oilChangeRepository.findFirstByVehicleIdVehiculoOrderByDateStampDesc(moto.getIdVehiculo());
+        var lastChange = oilChangeRepository.findFirstByVehicleIdVehiculoAndStatusOrderByDateStampDesc(moto.getIdVehiculo(), true);
         if (lastChange.isEmpty()) {
             logger.debug("Sin historial de cambio de aceite para motocicleta: {}", moto.getPlaca());
             return null;

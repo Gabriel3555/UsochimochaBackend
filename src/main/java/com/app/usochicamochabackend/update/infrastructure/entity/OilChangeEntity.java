@@ -49,4 +49,7 @@ public class OilChangeEntity {
 
     @Column(name = "percentage_used")
     private Integer percentageUsed;
+
+    @Builder.Default
+    private Boolean status = true;
 }

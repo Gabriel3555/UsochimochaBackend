@@ -1,9 +1,14 @@
 package com.app.usochicamochabackend.moto.application.service;
 
+import com.app.usochicamochabackend.actions.application.port.SaveActionUseCase;
+import com.app.usochicamochabackend.catalog.infrastructure.entity.TipoVehiculoEntity;
 import com.app.usochicamochabackend.catalog.infrastructure.entity.UbicacionEntity;
 import com.app.usochicamochabackend.catalog.infrastructure.repository.TipoVehiculoRepository;
 import com.app.usochicamochabackend.catalog.infrastructure.repository.UbicacionRepository;
 import com.app.usochicamochabackend.exception.ResourceNotFoundException;
+import com.app.usochicamochabackend.notifications.application.NotificationService;
+import com.app.usochicamochabackend.notifications.application.PreventiveAlertCalculationService;
+import com.app.usochicamochabackend.vehicle.application.dto.VehicleRequest;
 import com.app.usochicamochabackend.moto.application.dto.DocumentoExistenteResponse;
 import com.app.usochicamochabackend.vehicle.infrastructure.repository.VehicleProjection;
 import com.app.usochicamochabackend.moto.application.dto.MotoPlacaResponse;
@@ -47,6 +52,12 @@ class MotoServiceTest {
     private InspDetalleMecanicoRepository detalleMecanicoRepository;
     @Mock
     private DocumentacionYElementosRepository documentacionRepository;
+    @Mock
+    private NotificationService notificationService;
+    @Mock
+    private SaveActionUseCase saveActionUseCase;
+    @Mock
+    private PreventiveAlertCalculationService preventiveAlertCalculationService;
 
     @InjectMocks
     private MotoService motoService;
@@ -124,6 +135,24 @@ class MotoServiceTest {
         DocumentoExistenteResponse tecno = result.stream()
                 .filter(d -> d.tipoDocumento().equals("REVISION_TECNO")).findFirst().orElseThrow();
         assertEquals("Sin Información", tecno.estadoCheck());
+    }
+
+    @Test
+    void updateMoto_RegistraAccionDeAuditoria() {
+        // updateMoto era la única escritura de MotoService que no llamaba a
+        // SaveActionUseCase — createMoto/deleteMoto/restoreMoto sí lo hacen.
+        TipoVehiculoEntity tipoMoto = TipoVehiculoEntity.builder().id(2).nombreTipo("MOTOCICLETA").activo(true).build();
+        mockVehiculo.setTipoVehiculo(tipoMoto);
+
+        when(vehicleRepository.findById(1)).thenReturn(Optional.of(mockVehiculo));
+        when(tipoVehiculoRepository.findByNombreTipoIgnoreCase(anyString())).thenReturn(Optional.of(tipoMoto));
+        when(vehicleRepository.save(any())).thenReturn(mockVehiculo);
+
+        VehicleRequest request = new VehicleRequest("MOTO123", 1, 2, 1500, "Distrito", null, true, null, null, null);
+
+        motoService.updateMoto(1, request);
+
+        verify(saveActionUseCase).save(anyString());
     }
 
     @Test

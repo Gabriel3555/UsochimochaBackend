@@ -12,8 +12,10 @@ import java.util.Optional;
 @Repository
 public interface VehicleOilChangeRepository extends JpaRepository<VehicleOilChangeEntity, Long> {
 
-    Optional<VehicleOilChangeEntity> findFirstByVehicleIdVehiculoOrderByDateStampDesc(Integer vehicleId);
+    Optional<VehicleOilChangeEntity> findFirstByVehicleIdVehiculoAndStatusOrderByDateStampDesc(Integer vehicleId, Boolean status);
 
-    @Query("SELECT v FROM VehicleOilChangeEntity v WHERE v.vehicle.placa = :placa ORDER BY v.dateStamp DESC")
+    @Query("SELECT v FROM VehicleOilChangeEntity v WHERE v.vehicle.placa = :placa AND v.status = true ORDER BY v.dateStamp DESC")
     List<VehicleOilChangeEntity> findAllByPlacaOrderByDateStampDesc(@Param("placa") String placa);
+
+    Optional<VehicleOilChangeEntity> findByIdAndStatus(Long id, Boolean status);
 }

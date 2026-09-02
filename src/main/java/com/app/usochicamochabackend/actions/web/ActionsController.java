@@ -5,7 +5,6 @@ import com.app.usochicamochabackend.actions.application.port.GetAllActionsUseCas
 import com.app.usochicamochabackend.actions.application.port.SaveActionUseCase;
 import com.app.usochicamochabackend.actions.infrastructure.entity.ActionEntity;
 import com.app.usochicamochabackend.actions.infrastructure.repository.ActionRepository;
-import com.app.usochicamochabackend.order.application.dto.GetAllOrdersByMachineId;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;

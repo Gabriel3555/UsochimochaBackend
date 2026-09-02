@@ -70,6 +70,7 @@ public class VehicleEntity {
     @Column(name = "factory_efficiency_unit", length = 30)
     private String factoryEfficiencyUnit;
 
+
     @OneToMany(fetch = FetchType.EAGER, mappedBy = "vehiculo")
     private List<DocumentacionYElementosEntity> documentos;
 }
