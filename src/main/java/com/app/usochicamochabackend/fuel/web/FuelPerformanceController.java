@@ -1,6 +1,7 @@
 package com.app.usochicamochabackend.fuel.web;
 
 import com.app.usochicamochabackend.fuel.application.dto.FuelPerformanceResponse;
+import com.app.usochicamochabackend.fuel.application.port.ExportFuelMonthlyPerformanceUseCase;
 import com.app.usochicamochabackend.fuel.application.port.ExportFuelPerformanceHistoryUseCase;
 import com.app.usochicamochabackend.fuel.application.port.GetFuelPerformanceUseCase;
 import lombok.RequiredArgsConstructor;
@@ -24,6 +25,7 @@ public class FuelPerformanceController {
 
     private final GetFuelPerformanceUseCase getFuelPerformanceUseCase;
     private final ExportFuelPerformanceHistoryUseCase exportFuelPerformanceHistoryUseCase;
+    private final ExportFuelMonthlyPerformanceUseCase exportFuelMonthlyPerformanceUseCase;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('SUPERVISOR_OPERATIVO', 'ADMIN')")
@@ -46,6 +48,23 @@ public class FuelPerformanceController {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
         headers.setContentDispositionFormData("attachment", "rendimiento_historial.xlsx");
+        return ResponseEntity.ok().headers(headers).body(excelData);
+    }
+
+    // Rendimiento mensual de TODOS los activos configurados, una hoja por mes con la
+    // tabla de rendimiento real + consumo estándar de referencia (ver
+    // FuelMonthlyPerformanceExcelExportService) — botón "Exportar Excel" de la
+    // pantalla general de Rendimiento (FuelPerformance.svelte), no del detalle de un
+    // activo puntual. Sin fechas, exporta el año actual completo hasta hoy.
+    @GetMapping("/export-mensual")
+    @PreAuthorize("hasAnyRole('SUPERVISOR_OPERATIVO', 'ADMIN')")
+    public ResponseEntity<byte[]> exportarMensual(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaInicio,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fechaFin) {
+        byte[] excelData = exportFuelMonthlyPerformanceUseCase.exportarMensual(fechaInicio, fechaFin);
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+        headers.setContentDispositionFormData("attachment", "rendimiento_mensual.xlsx");
         return ResponseEntity.ok().headers(headers).body(excelData);
     }
 }

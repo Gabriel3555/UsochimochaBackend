@@ -72,7 +72,21 @@ public interface RefuelingRecordsRepository extends JpaRepository<RefuelingRecor
 
     List<RefuelingRecordsEntity> findByFechaRegistroBetween(Timestamp inicio, Timestamp fin);
 
-    List<RefuelingRecordsEntity> findByLugarAndFechaRegistroBetween(String lugar, Timestamp inicio, Timestamp fin);
+    // Para el export mensual de Rendimiento (FuelMonthlyPerformanceExcelExportService):
+    // a diferencia de findByFechaRegistroBetween (usado por reportes que no
+    // interactúan con eliminar()), acá si se filtran los soft-deleted, mismo motivo
+    // que findByLugarAndFechaRegistroBetween más abajo.
+    List<RefuelingRecordsEntity> findByFechaRegistroBetweenAndStatusTrue(Timestamp inicio, Timestamp fin);
+
+    // @Query explícito (en vez de derivado) para filtrar status=true sin cambiar la
+    // firma del método: el reporte de Tanqueo y Distribución (RefuelingReportService)
+    // alimenta la grilla editable de FuelHistory/TanqueoDistribucion, y sin este
+    // filtro mostraba tanqueos ya eliminados (soft-delete) — al intentar eliminarlos
+    // de nuevo, eliminar() (que sí exige status=true) respondía 404.
+    @Query("SELECT r FROM RefuelingRecordsEntity r WHERE r.lugar = :lugar "
+            + "AND r.fechaRegistro BETWEEN :inicio AND :fin AND r.status = true")
+    List<RefuelingRecordsEntity> findByLugarAndFechaRegistroBetween(@Param("lugar") String lugar,
+            @Param("inicio") Timestamp inicio, @Param("fin") Timestamp fin);
 
     long countByDiscrepanciaValorTrueAndFechaRegistroBetween(Timestamp inicio, Timestamp fin);
 
