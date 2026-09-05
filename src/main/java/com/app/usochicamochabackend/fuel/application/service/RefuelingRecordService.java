@@ -88,7 +88,10 @@ public class RefuelingRecordService implements RegisterRefuelingRecordUseCase {
                 .urlFactura(null)
                 .origen(request.origen())
                 .responsableId(responsableId)
-                .fechaRegistro(Timestamp.valueOf(LocalDateTime.now()))
+                // Fecha real del tanqueo, opcional: si no viene, se usa el momento del
+                // registro (comportamiento anterior). Permite registrar tanqueos tarde
+                // sin perder el histórico real (ver actualizar()).
+                .fechaRegistro(Timestamp.valueOf(request.fecha() != null ? request.fecha() : LocalDateTime.now()))
                 .status(true)
                 .build();
         entity = refuelingRecordsRepository.save(entity);
@@ -146,6 +149,11 @@ public class RefuelingRecordService implements RegisterRefuelingRecordUseCase {
         entity.setTotalCalculado(totalCalculado);
         entity.setDiscrepanciaValor(discrepanciaValor);
         entity.setOrigen(request.origen());
+        // Permite corregir la fecha de un tanqueo registrado tarde; si no viene,
+        // conserva la fecha que ya tenía (no la pisa con "ahora").
+        if (request.fecha() != null) {
+            entity.setFechaRegistro(Timestamp.valueOf(request.fecha()));
+        }
         entity = refuelingRecordsRepository.save(entity);
 
         if (esBomba && factura != null && !factura.isEmpty()) {
